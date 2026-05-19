@@ -1,0 +1,27 @@
+---
+
+image: python:3.13-slim
+
+stages:
+  - check
+
+variables:
+  UV_CACHE_DIR: .uv-cache
+
+cache:
+  paths:
+    - .uv-cache/
+    - .ansible/
+
+before_script:
+  - apt-get update
+  - apt-get install -y --no-install-recommends ca-certificates curl git
+  - pip install uv
+  - curl -sL https://taskfile.dev/install.sh | sh -s -- -d -b /usr/local/bin
+  - task install
+
+check:
+  stage: check
+  script:
+    - task lint-chk
+    - task test

@@ -1,0 +1,49 @@
+---
+
+- name: Validate GitLab variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Download GitLab GPG key
+  become: true
+  ansible.builtin.get_url:
+    url: https://packages.gitlab.com/gpg.key
+    dest: /usr/share/keyrings/gitlab_gitlab-ee-archive-keyring.asc
+    mode: '0644'
+  register: gitlab_gpg_key
+
+- name: Convert GitLab GPG key
+  become: true
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --dearmor
+      - --yes
+      - --output
+      - /usr/share/keyrings/gitlab_gitlab-ee-archive-keyring.gpg
+      - /usr/share/keyrings/gitlab_gitlab-ee-archive-keyring.asc
+  when: gitlab_gpg_key.changed
+
+# - name: Add package reposiotories
+#   become: true
+#   ansible.builtin.template:
+#     src: gitlab.list.j2
+#     dest: /etc/apt/sources.list.d/gitlab_gitlab-ee.list
+
+# - name: Install GitLab packages
+#   become: true
+#   ansible.builtin.apt:
+#     name:
+#       - gitlab-ee
+#     state: present
+#     update_cache: true
+#     autoclean: true
+
+- name: Update config
+  become: true
+  ansible.builtin.template:
+    src: gitlab.rb.j2
+    dest: /etc/gitlab/gitlab.rb
+    mode: '0600'
+  notify:
+    - Reconfigure GitLab
+  no_log: '{{ gitlab_nolog }}'

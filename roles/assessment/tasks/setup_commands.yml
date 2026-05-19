@@ -1,0 +1,12 @@
+---
+
+- name: Run custom assessment commands
+  become: "{{ item.become | default(false, true) }}"
+  ansible.builtin.command:
+    cmd: '{{ item.cmd }}'
+  register: assessment_command_result
+  changed_when: false
+  failed_when: assessment_command_result.rc != (item.expected_rc | default(0, true) | int)
+  loop: '{{ assessment_commands }}'
+  loop_control:
+    label: "{{ item.name | default(item.cmd, true) }}"

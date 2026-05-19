@@ -1,0 +1,36 @@
+---
+
+global:
+{{ docker_alertmanager_global | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(2, true) }}
+{% if docker_alertmanager_template_files | length > 0 %}
+
+templates:
+{{ docker_alertmanager_template_files | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(2, true) }}
+{% endif %}
+
+route:
+  group_by: {{ docker_alertmanager_route_group_by | to_json }}
+  group_wait: {{ docker_alertmanager_route_group_wait }}
+  group_interval: {{ docker_alertmanager_route_group_interval }}
+  repeat_interval: {{ docker_alertmanager_route_repeat_interval }}
+  receiver: {{ docker_alertmanager_route_receiver }}
+{% if docker_alertmanager_routes | length > 0 %}
+  routes:
+{{ docker_alertmanager_routes | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(4, true) }}
+{% endif %}
+
+receivers:
+{{ docker_alertmanager_receivers | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(2, true) }}
+{% if docker_alertmanager_telegram_receiver_name | string | length > 0 %}
+  - name: {{ docker_alertmanager_telegram_receiver_name }}
+{% if
+  docker_alertmanager_telegram_alerts_token | string | length > 0
+  and docker_alertmanager_telegram_alerts_chat | string | length > 0
+%}
+    telegram_configs:
+      - send_resolved: true
+        bot_token: "{{ docker_alertmanager_telegram_alerts_token }}"
+        chat_id: {{ docker_alertmanager_telegram_alerts_chat }}
+        parse_mode: HTML
+{% endif %}
+{% endif %}

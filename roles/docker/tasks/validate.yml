@@ -1,0 +1,18 @@
+---
+
+- name: Assert Docker required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_users is iterable
+      - docker_users is not string
+    fail_msg: Define docker_users as a list before running role docker.
+
+- name: Assert Docker users are valid
+  ansible.builtin.assert:
+    that:
+      - item is not none
+      - item | string | length > 0
+    fail_msg: Define every docker_users item as a non-empty user name.
+  loop: '{{ docker_users }}'
+  loop_control:
+    label: '{{ item }}'

@@ -1,0 +1,71 @@
+---
+
+- name: Validate Gramax variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Deploy Gramax service from leader
+  when: docker_swarm_gramax_enabled | bool
+  block:
+    - name: Gramax is started in swarm cluster
+      community.docker.docker_swarm_service:
+        name: gramax
+        image: '{{ docker_swarm_gramax_image_full }}'
+        env:
+          PORT: '80'
+          COOKIE_SECRET: '{{ docker_swarm_gramax_gramax_secret }}'
+          ADMIN_LOGIN: '{{ docker_swarm_gramax_gramax_admin_login }}'
+          ADMIN_PASSWORD: '{{ docker_swarm_gramax_gramax_admin_pass }}'
+          AUTO_PULL_TOKEN: '{{ docker_swarm_gramax_gramax_pull_token }}'
+          AUTO_PULL_INTERVAL: '300'
+          DEFAULT_UI_LANGUAGE: ru
+          ENABLE_TECH_ENDPOINTS: 'true'
+        publish:
+          - target_port: 80
+            published_port: 8888
+            protocol: tcp
+            mode: ingress
+        mounts:
+          - source: gramax-data
+            target: /app/data
+            type: volume
+        healthcheck:
+          test: [CMD, node, -e, 'require("http").get("http://localhost",r=>process.exit(r.statusCode===200?0:1)).on("error",()=>process.exit(1))']
+          timeout: 5s
+          interval: 30s
+          start_period: 30s
+          retries: 3
+        reservations:
+          cpus: 0.1
+          memory: '{{ docker_swarm_gramax_mem_res }}'
+        limits:
+          cpus: 1.0
+          memory: '{{ docker_swarm_gramax_mem_lim }}'
+        mode: replicated
+        replicas: 1
+      no_log: '{{ docker_swarm_gramax_nolog }}'
+
+    - name: Verify Gramax swarm service has a running task
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ps
+          - --filter
+          - desired-state=running
+          - --format
+          - "{% raw %}{{.CurrentState}}{% endraw %}"
+          - gramax
+      register: docker_swarm_gramax_service_tasks
+      until: docker_swarm_gramax_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
+      retries: 30
+      delay: 2
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Wait for Gramax published port to be ready
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 8888
+        delay: 1
+        timeout: 30
+      when: not ansible_check_mode

@@ -1,0 +1,5 @@
+---
+
+- name: Run automatic security updates tasks
+  ansible.builtin.include_tasks: setup_configure.yml
+  when: base_autoupdates_maintenance_window | default('', true) | trim | length > 0

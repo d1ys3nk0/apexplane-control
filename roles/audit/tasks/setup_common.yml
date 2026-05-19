@@ -1,0 +1,303 @@
+---
+
+- name: Verify UFW is active
+  become: true
+  ansible.builtin.command:
+    cmd: ufw status
+  register: audit_ufw
+  changed_when: false
+  failed_when: false
+
+- name: Assert UFW is active
+  ansible.builtin.assert:
+    that:
+      - "'status: active' in audit_ufw.stdout | lower"
+    fail_msg: "UFW is not active. Status: {{ audit_ufw.stdout }}"
+  when: not ansible_check_mode
+
+- name: Gather effective SSH configuration
+  become: true
+  ansible.builtin.command:
+    cmd: sshd -T
+  register: audit_sshd
+  changed_when: false
+  failed_when: false
+
+- name: Assert SSH hardening is effective
+  ansible.builtin.assert:
+    that:
+      - "'passwordauthentication no' in audit_sshd.stdout | lower"
+      - "'permitrootlogin no' in audit_sshd.stdout | lower"
+      - "'kbdinteractiveauthentication no' in audit_sshd.stdout | lower"
+      - "'pubkeyauthentication yes' in audit_sshd.stdout | lower"
+      - "'permitemptypasswords no' in audit_sshd.stdout | lower"
+      - "'maxauthtries 3' in audit_sshd.stdout | lower"
+      - "'logingracetime 30' in audit_sshd.stdout | lower"
+      - "'x11forwarding no' in audit_sshd.stdout | lower"
+      - "('port ' ~ (audit_ssh_port | string)) in (audit_sshd.stdout | lower)"
+    fail_msg: "SSH effective configuration does not match hardening requirements."
+
+- name: Assert SSH AllowUsers is effective when defined
+  ansible.builtin.assert:
+    that:
+      - "'allowusers' in audit_sshd.stdout | lower"
+  when:
+    - not ansible_check_mode
+    - audit_ssh_users | default([]) | length > 0
+
+- name: Check if critical service units exist
+  become: true
+  ansible.builtin.stat:
+    path: "/lib/systemd/system/{{ item }}.service"
+  register: audit_service_units
+  loop:
+    - fail2ban
+    - auditd
+    - unattended-upgrades
+    - docker
+
+- name: Remember whether Docker service unit exists
+  ansible.builtin.set_fact:
+    audit_docker_service_unit_exists: >-
+      {{
+        audit_service_units.results
+        | selectattr('item', 'equalto', 'docker')
+        | map(attribute='stat.exists')
+        | first
+        | default(false)
+        | bool
+      }}
+
+- name: Probe critical service status
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ audit_service_unit.item }}"
+    state: started
+    enabled: true
+  check_mode: true
+  register: audit_service_status
+  when: audit_service_unit.stat.exists
+  loop: "{{ audit_service_units.results }}"
+  loop_control:
+    loop_var: audit_service_unit
+
+- name: Assert critical services are active and enabled
+  ansible.builtin.assert:
+    that:
+      - not audit_service_status_result.changed
+    fail_msg: "{{ audit_service_status_result.audit_service_unit.item }} is not active or not enabled."
+  loop: "{{ audit_service_status.results }}"
+  loop_control:
+    loop_var: audit_service_status_result
+  when:
+    - not ansible_check_mode
+    - audit_service_status_result.audit_service_unit.stat.exists
+
+- name: Check if apt-daily-upgrade timer unit exists
+  become: true
+  ansible.builtin.stat:
+    path: /lib/systemd/system/apt-daily-upgrade.timer
+  register: audit_apt_timer_unit
+
+- name: Probe apt-daily-upgrade timer status
+  become: true
+  ansible.builtin.systemd:
+    name: apt-daily-upgrade.timer
+    enabled: true
+  check_mode: true
+  register: audit_apt_timer
+  when: audit_apt_timer_unit.stat.exists
+
+- name: Assert apt-daily-upgrade timer is enabled
+  ansible.builtin.assert:
+    that:
+      - not audit_apt_timer.changed
+    fail_msg: "apt-daily-upgrade timer is not enabled."
+  when:
+    - not ansible_check_mode
+    - audit_apt_timer_unit.stat.exists
+
+- name: Verify sysctl security values
+  become: true
+  ansible.builtin.command:
+    cmd: "cat /proc/sys/{{ item.name | replace('.', '/') }}"
+  register: audit_sysctl
+  changed_when: false
+  loop: "{{ audit_sysctl_params }}"
+
+- name: Assert sysctl security values
+  ansible.builtin.assert:
+    that:
+      - item.stdout == item.item.value
+    fail_msg: "Sysctl {{ item.item.name }} expected {{ item.item.value }}, got {{ item.stdout }}"
+  loop: "{{ audit_sysctl.results }}"
+
+- name: Get current local users from /home
+  become: true
+  ansible.builtin.command:
+    cmd: ls -1 /home
+  register: audit_home_users
+  changed_when: false
+
+- name: Detect unauthorized local users
+  ansible.builtin.set_fact:
+    audit_unauthorized_users: "{{ audit_home_users.stdout_lines | difference(audit_service_users | default([]) + audit_admin_users | default([])) }}"
+
+- name: Assert no unauthorized local users exist
+  ansible.builtin.assert:
+    that:
+      - audit_unauthorized_users | length == 0
+    fail_msg: "Unauthorized local users in /home: {{ audit_unauthorized_users | join(', ') }}"
+
+- name: Check for empty passwords
+  become: true
+  ansible.builtin.command:
+    cmd: "awk -F: '$2 == \"\" {print $1}' /etc/shadow"
+  register: audit_empty_passwords
+  changed_when: false
+
+- name: Assert no empty passwords exist
+  ansible.builtin.assert:
+    that:
+      - audit_empty_passwords.stdout | trim | length == 0
+    fail_msg: "Accounts with empty passwords: {{ audit_empty_passwords.stdout | trim }}"
+
+- name: Check for extra UID 0 users
+  become: true
+  ansible.builtin.command:
+    cmd: "awk -F: '$3 == 0 && $1 != \"root\" {print $1}' /etc/passwd"
+  register: audit_uid0
+  changed_when: false
+
+- name: Assert no extra UID 0 users exist
+  ansible.builtin.assert:
+    that:
+      - audit_uid0.stdout | trim | length == 0
+    fail_msg: "Extra UID 0 users found: {{ audit_uid0.stdout | trim }}"
+
+- name: Stat critical security files
+  become: true
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  register: audit_critical_files
+  loop:
+    - path: /etc/shadow
+      mode: '0640'
+      owner: root
+      group: shadow
+
+    - path: /etc/passwd
+      mode: '0644'
+      owner: root
+      group: root
+
+    - path: /etc/ssh/sshd_config
+      mode: '0644'
+      owner: root
+      group: root
+
+    - path: /etc/sudoers
+      mode: '0440'
+      owner: root
+      group: root
+
+- name: Assert critical file permissions
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.mode == item.item.mode
+      - item.stat.pw_name == item.item.owner
+      - item.stat.gr_name == item.item.group
+    fail_msg: "{{ item.item.path }} has incorrect state. Expected {{ item.item.mode }} {{ item.item.owner }}:{{ item.item.group }}, got {{ item.stat.mode | default('missing') }} {{ item.stat.pw_name | default('?') }}:{{ item.stat.gr_name | default('?') }}"
+  loop: "{{ audit_critical_files.results }}"
+
+- name: Validate sudoers configuration
+  become: true
+  ansible.builtin.command:
+    cmd: visudo -c
+  register: audit_visudo
+  changed_when: false
+  failed_when: false
+
+- name: Assert sudoers configuration is valid
+  ansible.builtin.assert:
+    that:
+      - audit_visudo.rc == 0
+    fail_msg: "sudoers configuration is invalid: {{ audit_visudo.stdout }}"
+
+- name: Stat /tmp directory
+  become: true
+  ansible.builtin.stat:
+    path: /tmp
+  register: audit_tmp_stat
+
+- name: Assert /tmp has sticky bit
+  ansible.builtin.assert:
+    that:
+      - (audit_tmp_stat.stat.mode | int) >= 1000
+    fail_msg: "/tmp does not have sticky bit set (mode {{ audit_tmp_stat.stat.mode }})"
+
+- name: Check for rhosts files
+  become: true
+  ansible.builtin.find:
+    paths:
+      - /root
+      - /home
+    patterns:
+      - .rhosts
+      - .shosts
+      - hosts.equiv
+    hidden: true
+  register: audit_rhosts
+
+- name: Assert no rhosts files exist
+  ansible.builtin.assert:
+    that:
+      - audit_rhosts.matched == 0
+    fail_msg: "rhosts files found: {{ audit_rhosts.files | map(attribute='path') | list | join(', ') }}"
+
+- name: Audit Docker daemon configuration
+  when: audit_docker_service_unit_exists
+  block:
+    - name: Verify Docker daemon.json is valid JSON
+      become: true
+      ansible.builtin.command:
+        cmd: python3 -c "import json; json.load(open('/etc/docker/daemon.json'))"
+      register: audit_docker_json
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Docker daemon.json is valid JSON
+      ansible.builtin.assert:
+        that:
+          - audit_docker_json.rc == 0
+        fail_msg: "Docker daemon.json is not valid JSON."
+      when: not ansible_check_mode
+
+    - name: Check Docker daemon.json for insecure TCP exposure
+      become: true
+      ansible.builtin.command:
+        cmd: python3 -c "import json,sys; d=json.load(open('/etc/docker/daemon.json')); sys.exit(0 if any('tcp://' in h for h in d.get('hosts',[])) else 1)"
+      register: audit_docker_tcp
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Docker daemon has no insecure TCP exposure
+      ansible.builtin.assert:
+        that:
+          - audit_docker_tcp.rc != 0
+        fail_msg: "Docker daemon.json appears to expose TCP insecurely."
+      when: not ansible_check_mode
+
+- name: Check root filesystem usage
+  become: true
+  ansible.builtin.command:
+    cmd: df -P /
+  register: audit_disk
+  changed_when: false
+
+- name: Assert root filesystem usage is below threshold
+  ansible.builtin.assert:
+    that:
+      - (audit_disk.stdout_lines[1].split()[-2] | regex_replace('%', '') | int) < (audit_disk_threshold | default(90) | int)
+    fail_msg: "Root filesystem usage is above {{ audit_disk_threshold | default(90) }}%."

@@ -1,0 +1,37 @@
+---
+
+version: '3'
+
+vars:
+  APEXPLANE_TOOLKIT_DIR: '{{.TASKFILE_DIR}}'
+
+tasks:
+  run:
+    desc: Run an Ansible playbook or command through the ApexPlane Control wrapper
+    cmds:
+      - bash '{{.APEXPLANE_TOOLKIT_DIR}}/runtime/bin/run' {{.CLI_ARGS}}
+
+  migrate:
+    desc: Run the ApexPlane Control migration wrapper
+    cmds:
+      - bash '{{.APEXPLANE_TOOLKIT_DIR}}/runtime/bin/migrate' {{.CLI_ARGS}}
+
+  bootstrap:
+    desc: Run the ApexPlane Control bootstrap helper
+    cmds:
+      - bash '{{.APEXPLANE_TOOLKIT_DIR}}/runtime/scripts/bootstrap.sh' {{.CLI_ARGS}}
+
+  vault:check:
+    desc: Check that vault files are encrypted
+    cmds:
+      - sh '{{.APEXPLANE_TOOLKIT_DIR}}/runtime/scripts/ansible-vlint.sh' --check {{.CLI_ARGS}}
+
+  vault:fix:
+    desc: Encrypt unencrypted vault files
+    cmds:
+      - sh '{{.APEXPLANE_TOOLKIT_DIR}}/runtime/scripts/ansible-vlint.sh' --fix {{.CLI_ARGS}}
+
+  structure:check:
+    desc: Check repository structure expected by ApexPlane Control
+    cmds:
+      - uv run python '{{.APEXPLANE_TOOLKIT_DIR}}/check_repo_sync.py' structure-check

@@ -1,0 +1,9 @@
+---
+
+- name: Assert CrowdSec required variables are set
+  ansible.builtin.assert:
+    that:
+      - crowdsec_bouncer_key is not none
+      - crowdsec_bouncer_key | string | length > 0
+    fail_msg: Define crowdsec_bouncer_key before running role crowdsec.
+  no_log: '{{ crowdsec_nolog }}'

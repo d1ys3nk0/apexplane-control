@@ -1,0 +1,21 @@
+---
+
+docker_swarm_pghero_image_name: ankane/pghero
+docker_swarm_pghero_image_tag: v3.7.0
+docker_swarm_pghero_image_full: '{{ docker_swarm_pghero_image_name }}:{{ docker_swarm_pghero_image_tag }}'
+docker_swarm_pghero_public_port: 10000
+docker_swarm_pghero_mem_res: 300M
+docker_swarm_pghero_mem_lim: 450M
+docker_swarm_pghero_pg_admin_user: ''
+docker_swarm_pghero_pg_admin_pass: ''
+docker_swarm_pghero_pg_admin_database: postgres
+docker_swarm_pghero_pg_user: ~
+docker_swarm_pghero_pg_pass: ~
+docker_swarm_pghero_pg_host: ~
+docker_swarm_pghero_pg_port: 5432
+docker_swarm_pghero_pg_bases: []
+docker_swarm_pghero_pg_sslmode: disable
+docker_swarm_pghero_enabled: true
+docker_swarm_pghero_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+docker_swarm_pghero_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+docker_swarm_pghero_nolog: '{{ (docker_swarm_pghero_ci_mode | bool) and not (docker_swarm_pghero_debug_mode | bool) }}'

@@ -1,0 +1,108 @@
+---
+
+- name: Validate PostgreSQL variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Assert required PostgreSQL vars are defined
+  ansible.builtin.assert:
+    that:
+      - postgres_key_url is defined
+      - postgres_key_fingerprint is defined
+      - postgres_key_asc_path is defined
+      - postgres_keyring_path is defined
+      - postgres_version is defined
+    fail_msg: Define PostgreSQL package repository settings and version.
+
+- name: Download PostgreSQL GPG key
+  become: true
+  ansible.builtin.get_url:
+    url: '{{ postgres_key_url }}'
+    dest: '{{ postgres_key_asc_path }}'
+    mode: '0644'
+    tmp_dest: /var/tmp
+  register: postgres_gpg_key
+
+- name: Validate PostgreSQL GPG key
+  become: true
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --show-keys
+      - --with-colons
+      - '{{ postgres_key_asc_path }}'
+  register: postgres_gpg_key_info
+  changed_when: false
+  failed_when: postgres_key_fingerprint not in postgres_gpg_key_info.stdout
+  when: not ansible_check_mode
+
+- name: Check PostgreSQL keyring
+  become: true
+  ansible.builtin.stat:
+    path: '{{ postgres_keyring_path }}'
+  register: postgres_keyring
+
+- name: Convert PostgreSQL GPG key
+  become: true
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --dearmor
+      - --yes
+      - --output
+      - '{{ postgres_keyring_path }}'
+      - '{{ postgres_key_asc_path }}'
+  when: not ansible_check_mode and (postgres_gpg_key.changed or not postgres_keyring.stat.exists)
+
+- name: Add PostgreSQL repository
+  become: true
+  ansible.builtin.apt_repository:
+    repo: deb [signed-by={{ postgres_keyring_path }}] http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release | lower }}-pgdg main
+    state: present
+  register: postgres_repository
+  when: not ansible_check_mode or postgres_keyring.stat.exists
+
+- name: Install PostgreSQL packages
+  become: true
+  ansible.builtin.apt:
+    name:
+      - postgresql-{{ postgres_version }}
+      - postgresql-client-{{ postgres_version }}
+      - python3-psycopg2
+    state: present
+    update_cache: true
+    autoclean: true
+  register: postgres_packages
+  when:
+    - not ansible_check_mode or postgres_keyring.stat.exists
+    - not ansible_check_mode or not (postgres_repository.changed | default(true))
+
+- name: PostgreSQL service is started and enabled
+  become: true
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: true
+  when: not ansible_check_mode or not (postgres_packages.skipped | default(false))
+
+- name: Verify PostgreSQL service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - postgresql
+  register: postgres_service_health
+  changed_when: false
+  when: not ansible_check_mode or not (postgres_packages.skipped | default(false))
+
+- name: Create PostgreSQL admin user
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    name: '{{ postgres_pg_admin_user }}'
+    password: '{{ postgres_pg_admin_pass }}'
+    role_attr_flags: SUPERUSER
+  no_log: '{{ postgres_nolog }}'
+  when:
+    - postgres_pg_provision_enabled | bool
+    - not ansible_check_mode or not (postgres_packages.skipped | default(false))

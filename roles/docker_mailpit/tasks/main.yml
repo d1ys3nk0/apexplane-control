@@ -1,0 +1,57 @@
+---
+
+- name: Create mailpit directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+  loop:
+    - '{{ docker_mailpit_data_dir }}'
+
+- name: Deploy mailpit container
+  community.docker.docker_container:
+    hostname: mailpit.{{ inventory_hostname }}
+    name: mailpit
+    image: '{{ docker_mailpit_image_full }}'
+    env:
+      MP_MAX_MESSAGES: '5000'
+      MP_DATA_FILE: /data/mailpit.db
+      MP_SMTP_AUTH_ACCEPT_ANY: 'true'
+      MP_SMTP_AUTH_ALLOW_INSECURE: 'true'
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_mailpit_mem_res }}'
+    memory: '{{ docker_mailpit_mem_lim }}'
+    memory_swap: '{{ docker_mailpit_mem_swp }}'
+    ports:
+      - '{{ docker_mailpit_smtp_port }}:{{ docker_mailpit_smtp_port }}' # SMTP port
+      - '{{ docker_mailpit_web_port }}:{{ docker_mailpit_web_port }}' # Web UI port
+    volumes:
+      - '{{ docker_mailpit_data_dir }}:/data'
+
+- name: Verify mailpit container is running
+  community.docker.docker_container_info:
+    name: mailpit
+  register: docker_mailpit_container_info
+  until:
+    - docker_mailpit_container_info.exists
+    - docker_mailpit_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for mailpit SMTP to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_mailpit_smtp_port }}'
+    delay: 1
+    timeout: 10
+  when: not ansible_check_mode
+
+- name: Wait for mailpit web UI to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_mailpit_web_port }}'
+    delay: 1
+    timeout: 10
+  when: not ansible_check_mode

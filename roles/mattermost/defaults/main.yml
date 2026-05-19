@@ -1,0 +1,47 @@
+---
+
+mattermost_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+mattermost_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+mattermost_nolog: '{{ (mattermost_ci_mode | bool) and not (mattermost_debug_mode | bool) }}'
+mattermost_supported_ubuntu_releases:
+  - focal
+  - jammy
+  - noble
+
+mattermost_apt_key_url: https://deb.packages.mattermost.com/pubkey.gpg
+mattermost_apt_key_fingerprint: A1B31D46F0F3A10B02CF2D44F8F2C31744774B28
+mattermost_apt_key_asc_path: /usr/share/keyrings/mattermost-archive-keyring.asc
+mattermost_apt_keyring_path: /usr/share/keyrings/mattermost-archive-keyring.gpg
+
+mattermost_package_name: mattermost
+mattermost_config_path: /opt/mattermost/config/config.json
+
+mattermost_email_feedback_name: ~
+mattermost_email_feedback_address: ~
+mattermost_email_reply_to_address: ~
+mattermost_smtp_auth_enabled: false
+mattermost_smtp_user: ''
+mattermost_smtp_pass: ''
+mattermost_smtp_host: ~
+mattermost_smtp_port: ~
+mattermost_smtp_server_timeout: 10
+mattermost_smtp_connection_security: ~
+mattermost_smtp_skip_server_certificate_verification: false
+
+mattermost_listen_address: ~
+mattermost_pg_base: ~
+mattermost_pg_host: ~
+mattermost_pg_pass: ~
+mattermost_pg_port: ~
+mattermost_pg_user: ~
+mattermost_pg_admin_pass: ''
+mattermost_pg_admin_user: ''
+mattermost_s3_access_key: ~
+mattermost_s3_bucket: ~
+mattermost_s3_endpoint: ~
+mattermost_s3_path_prefix: ~
+mattermost_s3_region: ~
+mattermost_s3_secret_key: ~
+mattermost_s3_ssl: ~
+mattermost_site_url: ~
+mattermost_support_email: ~

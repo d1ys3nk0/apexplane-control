@@ -1,0 +1,14 @@
+---
+
+docker_swarm_dockhand_service_name: dockhand
+docker_swarm_dockhand_image_name: fnsys/dockhand
+docker_swarm_dockhand_image_tag: v1.0.29
+docker_swarm_dockhand_image_full: '{{ docker_swarm_dockhand_image_name }}:{{ docker_swarm_dockhand_image_tag }}'
+docker_swarm_dockhand_data_dir: /opt/dockhand
+docker_swarm_dockhand_docker_socket: /var/run/docker.sock
+docker_swarm_dockhand_user: '0:0'
+docker_swarm_dockhand_http_listen_port: 3000
+docker_swarm_dockhand_http_expose_port: 9999
+docker_swarm_dockhand_mem_res: 600M
+docker_swarm_dockhand_mem_lim: 900M
+docker_swarm_dockhand_enabled: true

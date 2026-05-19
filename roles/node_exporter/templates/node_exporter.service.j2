@@ -1,0 +1,24 @@
+[Unit]
+Description=Prometheus Node Exporter
+After=network-online.target
+
+[Service]
+Type=simple
+User={{ node_exporter_system_user }}
+Group={{ node_exporter_system_group }}
+ExecStart={{ node_exporter_binary_install_dir }}/node_exporter \
+  --collector.systemd \
+  --collector.textfile \
+  --collector.textfile.directory={{ node_exporter_textfile_dir }} \
+  --web.listen-address={{ node_exporter_web_listen_address }} \
+  --web.telemetry-path={{ node_exporter_web_telemetry_path }}
+SyslogIdentifier=node_exporter
+Restart=always
+RestartSec=1
+StartLimitInterval=0
+ProtectHome=yes
+NoNewPrivileges=yes
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

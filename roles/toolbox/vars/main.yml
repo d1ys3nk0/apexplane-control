@@ -1,0 +1,55 @@
+---
+
+toolbox_bin_dir: '{{ toolbox_install_dir }}/bin'
+
+toolbox_always_scripts:
+  - name: bp
+    src: bp.sh
+
+  - name: dotenv
+    src: dotenv.sh
+
+  - name: sysrep
+    src: sysrep.sh
+
+toolbox_docker_scripts:
+  - name: docker_secret
+    src: docker_secret.sh
+
+  - name: docker_cleanup
+    src: docker_cleanup.sh
+
+toolbox_haproxy_scripts:
+  - name: certbot_dns_auth
+    src: certbot_dns_auth.sh
+
+  - name: certbot_dns_cleanup
+    src: certbot_dns_cleanup.sh
+
+  - name: certbot_dns_issue
+    src: certbot_dns_issue.sh
+
+  - name: haproxy_report
+    src: haproxy_report.sh
+
+toolbox_postgres_scripts:
+  - name: pg_client
+    src: pg_client.sh
+
+  - name: pg_vacuum
+    src: pg_vacuum.sh
+
+  - name: pg_reindex
+    src: pg_reindex.sh
+
+  - name: pg_amcheck
+    src: pg_amcheck.sh
+
+  - name: pg_dump
+    src: pg_dump.sh
+
+  - name: pg_restore
+    src: pg_restore.sh
+
+  - name: pg_user
+    src: pg_user.sh

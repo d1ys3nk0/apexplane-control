@@ -1,0 +1,109 @@
+---
+
+- name: Create service accounts
+  become: true
+  ansible.builtin.user:
+    name: '{{ item.name }}'
+    shell: /bin/bash
+    create_home: true
+    append: true
+    groups: '{{ item.groups | default([], true) }}'
+  loop: '{{ iam_service_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Restrict service home directories
+  become: true
+  ansible.builtin.file:
+    path: /home/{{ item.name }}
+    state: directory
+    mode: '0750'
+    owner: '{{ item.name }}'
+    group: '{{ item.name }}'
+  loop: '{{ iam_service_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Ensure service ssh directories exist
+  become: true
+  ansible.builtin.file:
+    path: /home/{{ item.name }}/.ssh
+    state: directory
+    mode: '0700'
+    owner: '{{ item.name }}'
+    group: '{{ item.name }}'
+  loop: '{{ iam_service_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: >
+    item.private_key_file | default('', true) | string | length > 0
+    or item.public_key_file | default('', true) | string | length > 0
+    or item.authorized_key_files | default([], true) | length > 0
+
+- name: Install service ssh private keys
+  become: true
+  ansible.builtin.copy:
+    src: '{{ item.private_key_file }}'
+    dest: /home/{{ item.name }}/.ssh/id_rsa
+    owner: '{{ item.name }}'
+    group: '{{ item.name }}'
+    mode: '0600'
+  no_log: '{{ iam_nolog }}'
+  loop: '{{ iam_service_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.private_key_file | default('', true) | string | length > 0
+
+- name: Install service ssh public keys
+  become: true
+  ansible.builtin.copy:
+    src: '{{ item.public_key_file }}'
+    dest: /home/{{ item.name }}/.ssh/id_rsa.pub
+    owner: '{{ item.name }}'
+    group: '{{ item.name }}'
+    mode: '0644'
+  loop: '{{ iam_service_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.public_key_file | default('', true) | string | length > 0
+
+- name: Add service authorized ssh keys
+  become: true
+  ansible.posix.authorized_key:
+    user: '{{ item.0.name }}'
+    key: "{{ lookup('file', item.1) }}"
+    state: present
+  with_subelements:
+    - '{{ iam_service_users }}'
+    - authorized_key_files
+    - skip_missing: true
+  loop_control:
+    label: '{{ item.0.name }}:{{ item.1 }}'
+  when: not ansible_check_mode
+
+- name: Grant service sudo commands
+  become: true
+  ansible.builtin.copy:
+    content: "{{ item.name }} ALL=(ALL) NOPASSWD:{{ item.sudo_commands | join(',') }}\n"
+    dest: /etc/sudoers.d/{{ item.name }}
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+  loop: '{{ iam_service_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.sudo_commands | default([], true) | length > 0
+
+- name: Apply service .bashrc
+  become: true
+  ansible.builtin.copy:
+    remote_src: true
+    src: /etc/skel/.bashrc
+    dest: /home/{{ item.name }}/.bashrc
+    mode: '0644'
+    owner: '{{ item.name }}'
+    group: '{{ item.name }}'
+  loop: '{{ iam_service_users }}'
+  loop_control:
+    label: '{{ item.name }}'

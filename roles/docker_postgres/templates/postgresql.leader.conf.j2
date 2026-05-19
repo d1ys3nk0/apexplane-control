@@ -1,0 +1,9 @@
+{% include 'postgresql.base.conf.j2' %}
+
+{% if docker_postgres_walg_enabled | bool and docker_postgres_backup_s3_access_key | string | length > 0 and docker_postgres_backup_s3_prefix | string | length > 0 and docker_postgres_backup_s3_secret_key | string | length > 0 %}
+# WAL-G
+archive_mode = on
+archive_timeout = 300s
+archive_command = '/opt/config/walg.sh wal-push "%p" 2>&1 | tee -a /var/lib/postgresql/data/walg_archive.log'
+restore_command = '/opt/config/walg.sh wal-fetch "%f" "%p" 2>&1 | tee -a /var/lib/postgresql/data/walg_restore.log'
+{% endif %}

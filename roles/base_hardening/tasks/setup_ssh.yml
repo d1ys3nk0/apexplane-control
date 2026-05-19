@@ -1,0 +1,49 @@
+---
+
+- name: Ensure SSH drop-in directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy managed SSH hardening drop-in
+  become: true
+  ansible.builtin.template:
+    src: sshd_hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/99-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+  register: base_hardening_ssh_config
+
+- name: Ensure SSH include directive is present
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: ^\s*Include\s+/etc/ssh/sshd_config\.d/\*\.conf\s*$
+    line: Include /etc/ssh/sshd_config.d/*.conf
+    insertbefore: BOF
+    state: present
+    validate: /usr/sbin/sshd -t -f %s
+  register: base_hardening_ssh_include_directive
+
+- name: Restart SSH
+  become: true
+  ansible.builtin.service:
+    name: ssh
+    state: restarted
+  when: not ansible_check_mode and (base_hardening_ssh_config.changed or base_hardening_ssh_include_directive.changed)
+
+- name: Verify SSH service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - ssh
+  register: base_hardening_ssh_service_health
+  changed_when: false
+  when: not ansible_check_mode and (base_hardening_ssh_config.changed or base_hardening_ssh_include_directive.changed)

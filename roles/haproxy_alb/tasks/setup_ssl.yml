@@ -1,0 +1,49 @@
+---
+
+- name: Create dir for SSL certificates
+  become: true
+  ansible.builtin.file:
+    path: /etc/ssl/haproxy
+    state: directory
+    mode: '0755'
+    owner: haproxy
+    group: haproxy
+
+- name: Download DH parameters if not present
+  become: true
+  ansible.builtin.get_url:
+    url: https://ssl-config.mozilla.org/ffdhe2048.txt
+    dest: /etc/haproxy/dhparam
+    mode: '0644'
+    tmp_dest: /var/tmp
+
+- name: Check self-signed ssl cert
+  become: true
+  ansible.builtin.stat:
+    path: /etc/ssl/haproxy/_{{ haproxy_alb_self_signed_cert_domain }}.pem
+  register: haproxy_alb_self_signed_cert_stat
+
+- name: Generate self-signed ssl cert if missing
+  become: true
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: |
+      set -euo pipefail
+      umask 077
+      tmp_dir="$(mktemp -d)"
+      trap 'rm -rf "${tmp_dir}"' EXIT
+      openssl req -new -x509 -nodes -newkey rsa:2048 -sha256 -days 3650 -subj "/C=RU/ST=Moscow/L=Moscow/O=LLC/OU=Engineering/CN={{ haproxy_alb_self_signed_cert_domain }}" -keyout "${tmp_dir}/cert.key" -out "${tmp_dir}/cert.crt"
+      sed '/^$/d' "${tmp_dir}/cert.crt" "${tmp_dir}/cert.key" > "${tmp_dir}/cert.pem"
+      install -o haproxy -g haproxy -m 0600 "${tmp_dir}/cert.pem" /etc/ssl/haproxy/_{{ haproxy_alb_self_signed_cert_domain }}.pem
+    creates: /etc/ssl/haproxy/_{{ haproxy_alb_self_signed_cert_domain }}.pem
+  no_log: '{{ haproxy_alb_nolog }}'
+
+- name: Set self-signed ssl cert permissions
+  become: true
+  ansible.builtin.file:
+    path: /etc/ssl/haproxy/_{{ haproxy_alb_self_signed_cert_domain }}.pem
+    state: file
+    owner: haproxy
+    group: haproxy
+    mode: '0600'
+  when: haproxy_alb_not_check_mode | bool or haproxy_alb_self_signed_cert_stat.stat.exists | bool

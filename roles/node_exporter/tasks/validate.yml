@@ -1,0 +1,18 @@
+---
+
+- name: Assert node_exporter required variables are set
+  ansible.builtin.assert:
+    that:
+      - node_exporter_version is not none
+      - node_exporter_version | string | length > 0
+      - node_exporter_download_base_url | string | length > 0
+      - node_exporter_archive_path | string | length > 0
+      - node_exporter_extract_path | string | length > 0
+      - node_exporter_binary_install_dir | string | length > 0
+      - node_exporter_system_group | string | length > 0
+      - node_exporter_system_user | string | length > 0
+      - node_exporter_textfile_dir | string | length > 0
+      - node_exporter_web_listen_address | string | length > 0
+      - node_exporter_web_telemetry_path | string | length > 0
+      - node_exporter_verify_port | string | length > 0
+    fail_msg: Define required node_exporter_* variables before running role node_exporter.

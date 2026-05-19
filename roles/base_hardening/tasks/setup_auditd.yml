@@ -1,0 +1,28 @@
+---
+
+- name: Install audit tooling
+  become: true
+  ansible.builtin.apt:
+    name:
+      - auditd
+      - audispd-plugins
+    state: present
+
+- name: Ensure auditd service is enabled
+  become: true
+  ansible.builtin.service:
+    name: auditd
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: Verify auditd service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - auditd
+  register: base_hardening_auditd_service_health
+  changed_when: false
+  when: not ansible_check_mode

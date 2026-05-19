@@ -1,0 +1,19 @@
+---
+
+- name: Validate base bootstrap variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Run system tasks
+  ansible.builtin.include_tasks: setup_system.yml
+
+- name: Run system service tasks
+  ansible.builtin.include_tasks: setup_services.yml
+
+- name: Run system network tasks
+  ansible.builtin.include_tasks: setup_network.yml
+
+- name: Run system locale tasks
+  ansible.builtin.include_tasks: setup_locale.yml
+
+- name: Run system time and timezone tasks
+  ansible.builtin.include_tasks: setup_time.yml

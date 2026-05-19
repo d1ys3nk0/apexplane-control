@@ -1,0 +1,41 @@
+---
+
+- name: Validate assessment list inputs
+  ansible.builtin.assert:
+    that:
+      - assessment_systemd_units is iterable
+      - assessment_docker_containers is iterable
+      - assessment_swarm_services is iterable
+      - assessment_tcp_ports is iterable
+      - assessment_http_endpoints is iterable
+      - assessment_commands is iterable
+      - assessment_journal_units is iterable
+      - assessment_docker_log_containers is iterable
+      - assessment_swarm_log_services is iterable
+      - assessment_log_match_limit | int > 0
+    fail_msg: Assessment inputs must be iterable lists and assessment_log_match_limit must be positive.
+
+- name: Validate TCP port checks
+  ansible.builtin.assert:
+    that:
+      - item.port is defined
+      - item.port | int > 0
+      - item.port | int <= 65535
+    fail_msg: Each assessment_tcp_ports item must define a valid port.
+  loop: '{{ assessment_tcp_ports }}'
+
+- name: Validate HTTP endpoint checks
+  ansible.builtin.assert:
+    that:
+      - item.url is defined
+      - item.url | string | length > 0
+    fail_msg: Each assessment_http_endpoints item must define url.
+  loop: '{{ assessment_http_endpoints }}'
+
+- name: Validate custom command checks
+  ansible.builtin.assert:
+    that:
+      - item.cmd is defined
+      - item.cmd | string | length > 0
+    fail_msg: Each assessment_commands item must define cmd.
+  loop: '{{ assessment_commands }}'

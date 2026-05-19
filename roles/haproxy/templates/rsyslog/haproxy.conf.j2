@@ -1,0 +1,15 @@
+# HTTP / TCP connection and request lines (HAProxy uses local0 at info for these)
+if $syslogfacility-text == 'local0' then {
+  action(type="omfile" file="{{ haproxy_log_traffic_file }}" fileCreateMode="0640" fileOwner="{{ haproxy_rsyslog_user }}" fileGroup="{{ haproxy_rsyslog_group }}")
+{% if haproxy_rsyslog_stop_after_local0 | bool %}
+  stop
+{% endif %}
+}
+
+# Server up/down, startup, health checks when enabled (local1 at notice and above)
+if ($syslogfacility-text == 'local1' and $syslogseverity <= 5) then {
+  action(type="omfile" file="{{ haproxy_log_admin_file }}" fileCreateMode="0640" fileOwner="{{ haproxy_rsyslog_user }}" fileGroup="{{ haproxy_rsyslog_group }}")
+{% if haproxy_rsyslog_stop_after_local1 | bool %}
+  stop
+{% endif %}
+}

@@ -1,0 +1,35 @@
+---
+
+- name: Ensure HAProxy log directory exists
+  become: true
+  ansible.builtin.file:
+    path: '{{ haproxy_log_dir }}'
+    state: directory
+    mode: '0755'
+    owner: '{{ haproxy_rsyslog_user }}'
+    group: '{{ haproxy_rsyslog_group }}'
+
+- name: Deploy HAProxy rsyslog configuration
+  become: true
+  ansible.builtin.template:
+    src: rsyslog/haproxy.conf.j2
+    dest: /etc/rsyslog.d/49-haproxy-managed.conf
+    mode: '0644'
+    owner: root
+    group: root
+  notify: Restart rsyslog
+
+- name: Verify rsyslog configuration (full config including includes)
+  become: true
+  ansible.builtin.command:
+    cmd: rsyslogd -N1
+  changed_when: false
+
+- name: Deploy HAProxy logrotate configuration
+  become: true
+  ansible.builtin.template:
+    src: logrotate/haproxy.j2
+    dest: /etc/logrotate.d/haproxy
+    mode: '0644'
+    owner: root
+    group: root

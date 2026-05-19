@@ -1,0 +1,145 @@
+---
+
+- name: Validate Docker PostgreSQL inputs
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Validate PostgreSQL DR action
+  ansible.builtin.assert:
+    that:
+      - docker_postgres_dr_action in ['none', 'wait_synced', 'stop', 'promote', 'restore']
+      - docker_postgres_dr_action == 'none' or docker_postgres_dr_mode | bool
+    fail_msg: PostgreSQL DR actions require DR=1 and a valid docker_postgres_dr_action.
+
+- name: Run standalone PostgreSQL DR action
+  ansible.builtin.include_tasks: setup_dr.yml
+  when: docker_postgres_dr_action in ['wait_synced', 'stop']
+
+- name: Stop PostgreSQL role after standalone DR action
+  ansible.builtin.meta: end_host
+  when: docker_postgres_dr_action in ['wait_synced', 'stop']
+
+- name: Create host directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - /opt/postgres
+    - /opt/postgres/log
+    - /opt/postgres/config
+    - /opt/postgres/snapshots
+    - /opt/postgres/docker
+
+- name: Install PostgreSQL config
+  become: true
+  ansible.builtin.template:
+    src: postgresql.{{ docker_postgres_mode }}.conf.j2
+    dest: /opt/postgres/postgresql.conf
+    mode: '0644'
+    owner: root
+    group: root
+  no_log: '{{ docker_postgres_nolog }}'
+
+- name: Install templated PostgreSQL configs
+  become: true
+  ansible.builtin.template:
+    src: '{{ item.src }}'
+    dest: /opt/postgres/{{ item.dest }}
+    mode: '0644'
+    owner: root
+    group: root
+  loop:
+    - src: pg_hba.conf.j2
+      dest: pg_hba.conf
+
+- name: Make sure psql_history is created
+  become: true
+  ansible.builtin.copy:
+    content: ''
+    dest: /opt/postgres/psql_history
+    mode: '0644'
+    owner: root
+    group: root
+    force: false
+
+- name: Build custom PostgreSQL image with WAL-G support
+  ansible.builtin.include_tasks: setup_docker_build.yml
+  when: docker_postgres_walg_enabled | bool
+
+- name: Create Docker volume
+  community.docker.docker_volume:
+    name: '{{ docker_postgres_data_volume }}'
+
+- name: Restore PostgreSQL replica from active leader
+  ansible.builtin.include_tasks: setup_dr.yml
+  when: docker_postgres_replica_restore | bool
+
+- name: Start PostgreSQL container
+  community.docker.docker_container:
+    hostname: postgres.{{ inventory_hostname }}
+    name: '{{ docker_postgres_container_name }}'
+    image: '{{ docker_postgres_runtime_image_full }}'
+    pull: false
+    env:
+      POSTGRES_USER: '{{ docker_postgres_pg_admin_user }}'
+      POSTGRES_PASSWORD: '{{ docker_postgres_pg_admin_pass }}'
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    restart_policy: unless-stopped
+    shm_size: '{{ ((docker_postgres_mem_lim[:-1] | int) * 0.3) | int }}M'
+    memory_reservation: '{{ docker_postgres_mem_res }}'
+    memory: '{{ docker_postgres_mem_lim }}'
+    memory_swap: '{{ docker_postgres_mem_swp }}'
+    network_mode: host
+    volumes:
+      - /opt/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - /opt/postgres/pg_hba.conf:/var/lib/postgresql/pg_hba.conf:ro
+      - /opt/postgres/config:/opt/config:ro
+      - /opt/postgres/log:/var/log/postgresql
+      - /opt/postgres/psql_history:/var/lib/postgresql/.psql_history
+      - '{{ docker_postgres_data_volume }}:/var/lib/postgresql/data'
+    healthcheck:
+      test: [CMD, pg_isready, -d, postgres, -U, '{{ docker_postgres_pg_admin_user }}']
+      timeout: 2s
+      interval: 10s
+      start_period: 5s
+  no_log: '{{ docker_postgres_nolog }}'
+
+- name: Verify PostgreSQL container is running
+  community.docker.docker_container_info:
+    name: '{{ docker_postgres_container_name }}'
+  register: docker_postgres_container_info
+  until:
+    - docker_postgres_container_info.exists
+    - docker_postgres_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for PostgreSQL to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_postgres_port }}'
+    delay: 1
+    timeout: 60
+    state: started
+  when: not ansible_check_mode
+
+- name: Reload PostgreSQL config
+  ansible.builtin.command: docker exec {{ docker_postgres_container_name }} psql -U {{ docker_postgres_pg_admin_user }} -c "SELECT pg_reload_conf()"
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Promote PostgreSQL leader during DR
+  ansible.builtin.include_tasks: setup_dr.yml
+  when: docker_postgres_dr_action == 'promote'
+
+- name: Configure WAL-G
+  ansible.builtin.include_tasks: setup_walg.yml
+  when:
+    - docker_postgres_walg_enabled | bool
+    - docker_postgres_backup_s3_access_key | string | length > 0
+    - docker_postgres_backup_s3_prefix | string | length > 0
+    - docker_postgres_backup_s3_secret_key | string | length > 0

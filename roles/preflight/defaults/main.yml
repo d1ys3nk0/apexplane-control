@@ -1,0 +1,14 @@
+---
+
+preflight_cluster_platform_map: {}
+preflight_cluster_name_list: []
+preflight_cluster_realm_list: []
+
+preflight_cluster_name: ~
+preflight_cluster_realm: ~
+preflight_cluster_platform: ~
+preflight_region: ~
+preflight_target_hosts: []
+preflight_vpc_addr: ''
+preflight_vpc_cidr: ~
+preflight_zone: ~

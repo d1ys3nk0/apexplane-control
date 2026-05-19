@@ -1,0 +1,45 @@
+---
+
+- name: Get current home users before IAM cleanup
+  become: true
+  ansible.builtin.command: ls -1 /home/
+  register: iam_current_home_users
+  changed_when: false
+  when: iam_cleanup_mode | bool
+
+- name: Detect unmanaged home users
+  ansible.builtin.set_fact:
+    iam_users_to_remove: '{{ iam_current_home_users.stdout_lines | difference(iam_managed_user_names) }}'
+  when: iam_cleanup_mode | bool
+
+- name: Refuse unmanaged user removal in non-interactive mode
+  ansible.builtin.fail:
+    msg: >-
+      Unmanaged users found while INTERACTIVE is disabled: {{ iam_users_to_remove | join(', ') }}.
+      Run interactively to approve deletion or add the users to iam_admin_users or iam_service_users.
+  when:
+    - iam_cleanup_mode | bool
+    - not (iam_interactive_mode | bool)
+    - iam_users_to_remove | length > 0
+
+- name: Confirm unmanaged user removal
+  ansible.builtin.pause:
+    prompt: |-
+      The following users will be removed: {{ iam_users_to_remove | join(', ') }}.
+
+      Press ENTER to proceed
+  when:
+    - iam_cleanup_mode | bool
+    - iam_interactive_mode | bool
+    - iam_users_to_remove | length > 0
+
+- name: Remove unmanaged users
+  become: true
+  ansible.builtin.user:
+    name: '{{ item }}'
+    state: absent
+    remove: true
+  loop: '{{ iam_users_to_remove }}'
+  when:
+    - iam_cleanup_mode | bool
+    - iam_users_to_remove | length > 0

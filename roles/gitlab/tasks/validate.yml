@@ -1,0 +1,31 @@
+---
+
+- name: Assert GitLab required variables are set
+  ansible.builtin.assert:
+    that:
+      - gitlab_email_from is not none
+      - gitlab_email_from | string | length > 0
+      - gitlab_email_sender is not none
+      - gitlab_email_sender | string | length > 0
+      - gitlab_external_url is not none
+      - gitlab_external_url | string | length > 0
+      - gitlab_minio_root_pass is not none
+      - gitlab_minio_root_pass | string | length > 0
+      - gitlab_minio_root_user is not none
+      - gitlab_minio_root_user | string | length > 0
+      - gitlab_registry_external_url is not none
+      - gitlab_registry_external_url | string | length > 0
+      - gitlab_s3_endpoint is not none
+      - gitlab_s3_endpoint | string | length > 0
+      - gitlab_smtp_domain is not none
+      - gitlab_smtp_domain | string | length > 0
+      - gitlab_smtp_host is not none
+      - gitlab_smtp_host | string | length > 0
+      - gitlab_smtp_pass is not none
+      - gitlab_smtp_pass | string | length > 0
+      - gitlab_smtp_user is not none
+      - gitlab_smtp_user | string | length > 0
+      - gitlab_sre_email is not none
+      - gitlab_sre_email | string | length > 0
+    fail_msg: Define GitLab URLs, email, SMTP, S3, and MinIO variables.
+  no_log: '{{ gitlab_nolog }}'

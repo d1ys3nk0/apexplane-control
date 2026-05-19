@@ -1,0 +1,56 @@
+---
+
+- name: Create cadvisor service file
+  become: true
+  ansible.builtin.template:
+    src: cadvisor.service.j2
+    dest: /etc/systemd/system/cadvisor.service
+    owner: root
+    group: root
+    mode: '0644'
+  register: cadvisor_update_service
+
+- name: Ensure cadvisor is restarted
+  become: true
+  ansible.builtin.systemd:
+    name: cadvisor.service
+    daemon_reload: true
+    state: restarted
+  when: cadvisor_install_binary.changed or cadvisor_update_service.changed
+
+- name: Verify cadvisor service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - cadvisor.service
+  register: cadvisor_restart_service_health
+  changed_when: false
+  when: cadvisor_install_binary.changed or cadvisor_update_service.changed
+
+- name: Ensure cadvisor is enabled and started
+  become: true
+  ansible.builtin.systemd:
+    name: cadvisor.service
+    enabled: true
+    state: started
+
+- name: Verify cadvisor service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - cadvisor.service
+  register: cadvisor_service_health
+  changed_when: false
+
+- name: Verify that cadvisor URL is responding
+  ansible.builtin.uri:
+    url: http://127.0.0.1:{{ cadvisor_port }}{{ cadvisor_prometheus_endpoint }}
+    method: GET
+  register: cadvisor_verify_url_status_code
+  until: cadvisor_verify_url_status_code.status == 200
+  retries: 10
+  delay: 3

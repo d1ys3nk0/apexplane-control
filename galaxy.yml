@@ -1,0 +1,28 @@
+---
+
+namespace: apexplane
+name: control
+version: 1.0.0
+readme: README.md
+authors:
+  - ApexPlane
+description: ApexPlane Control, an Ansible-based IaC management framework.
+license:
+  - Apache-2.0
+repository: https://github.com/d1ys3nk0/apexplane-ansible-roles
+build_ignore:
+  - docs/shared
+  - scripts
+  - tests
+tags:
+  - ubuntu
+  - infrastructure
+  - linux
+  - docker
+  - monitoring
+dependencies:
+  ansible.posix: '2.1.0'
+  ansible.utils: '6.0.2'
+  community.docker: '5.2.0'
+  community.general: '12.6.0'
+  community.postgresql: '4.2.0'

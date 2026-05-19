@@ -1,0 +1,83 @@
+---
+
+- name: Create config
+  become: true
+  ansible.builtin.template:
+    src: promtail-config.yaml.j2
+    dest: '{{ promtail_config_path }}'
+    owner: root
+    group: root
+    mode: '0644'
+    validate: /usr/bin/promtail -config.expand-env=true -check-syntax -config.file %s
+  register: promtail_update_config
+
+- name: Create service file
+  become: true
+  ansible.builtin.template:
+    src: promtail.service.j2
+    dest: '{{ promtail_service_path }}'
+    owner: root
+    group: root
+    mode: '0644'
+  register: promtail_update_service
+
+- name: Ensure that Promtail is restarted
+  become: true
+  ansible.builtin.systemd:
+    name: promtail.service
+    daemon_reload: true
+    state: restarted
+  when: promtail_update_config.changed or promtail_update_service.changed
+
+- name: Verify Promtail service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - promtail.service
+  register: promtail_restart_service_health
+  changed_when: false
+  when: promtail_update_config.changed or promtail_update_service.changed
+
+- name: Ensure that Promtail is enabled and started
+  become: true
+  ansible.builtin.systemd:
+    name: promtail.service
+    enabled: true
+    state: started
+
+- name: Verify Promtail service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - promtail.service
+  register: promtail_service_health
+  changed_when: false
+
+- name: Verify that Promtail URL is responding
+  ansible.builtin.uri:
+    url: http://127.0.0.1:{{ promtail_http_listen_port }}/ready
+    method: GET
+  register: promtail_verify_url_status_code
+  until: promtail_verify_url_status_code.status == 200
+  retries: 10
+  delay: 3
+
+- name: Check if docker group exists for promtail
+  ansible.builtin.getent:
+    database: group
+    key: docker
+  register: promtail_docker_group
+  failed_when: false
+
+- name: Add promtail to docker group if applicable
+  become: true
+  ansible.builtin.user:
+    name: promtail
+    groups:
+      - docker
+    append: true
+  when: (promtail_docker_group.ansible_facts.getent_group | default({})).docker is defined

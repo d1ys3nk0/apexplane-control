@@ -1,0 +1,82 @@
+---
+
+- name: Validate PgHero variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Configure PGHero PostgreSQL resources
+  ansible.builtin.include_tasks: setup_postgresql.yml
+  when:
+    - docker_swarm_pghero_enabled | bool
+    - docker_swarm_pghero_pg_provision_enabled | bool
+    - docker_swarm_pghero_pg_user | string | length > 0
+    - docker_swarm_pghero_pg_pass | string | length > 0
+
+- name: Deploy PGHero service from generated config file
+  run_once: true
+  when: docker_swarm_pghero_enabled | bool
+  block:
+    - name: Set PgHero config data
+      ansible.builtin.set_fact:
+        docker_swarm_pghero_config_data: "{{ lookup('ansible.builtin.template', role_path ~ '/templates/pghero.yml.j2') }}"
+      no_log: '{{ docker_swarm_pghero_nolog }}'
+
+    - name: Set PgHero config hash
+      ansible.builtin.set_fact:
+        docker_swarm_pghero_config_name: pghero-{{ docker_swarm_pghero_config_data | hash('md5') }}
+      no_log: '{{ docker_swarm_pghero_nolog }}'
+
+    - name: Ensure PgHero docker config created
+      community.docker.docker_config:
+        name: '{{ docker_swarm_pghero_config_name }}'
+        data: '{{ docker_swarm_pghero_config_data }}'
+        state: present
+      no_log: '{{ docker_swarm_pghero_nolog }}'
+
+    - name: Ensure PgHero swarm service created
+      community.docker.docker_swarm_service:
+        name: pghero
+        image: '{{ docker_swarm_pghero_image_full }}'
+        env: {}
+        configs:
+          - config_name: '{{ docker_swarm_pghero_config_name }}'
+            filename: /app/config/pghero.yml
+        mode: replicated
+        endpoint_mode: vip
+        publish:
+          - target_port: 8080
+            published_port: '{{ docker_swarm_pghero_public_port }}'
+            protocol: tcp
+            mode: ingress
+        reservations:
+          cpus: 0.1
+          memory: '{{ docker_swarm_pghero_mem_res }}'
+        limits:
+          cpus: 0.5
+          memory: '{{ docker_swarm_pghero_mem_lim }}'
+      when: not ansible_check_mode
+
+    - name: Verify PGHero swarm service has a running task
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ps
+          - --filter
+          - desired-state=running
+          - --format
+          - "{% raw %}{{.CurrentState}}{% endraw %}"
+          - pghero
+      register: docker_swarm_pghero_config_service_tasks
+      until: docker_swarm_pghero_config_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
+      retries: 30
+      delay: 2
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Wait for PGHero published port to be ready
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: '{{ docker_swarm_pghero_public_port }}'
+        delay: 1
+        timeout: 30
+      when: not ansible_check_mode

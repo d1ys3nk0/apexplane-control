@@ -1,0 +1,16 @@
+---
+
+- name: Validate IAM variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Configure root user
+  ansible.builtin.include_tasks: setup_root.yml
+
+- name: Configure admin users
+  ansible.builtin.include_tasks: setup_admin_users.yml
+
+- name: Configure service users
+  ansible.builtin.include_tasks: setup_service_users.yml
+
+- name: Remove unmanaged users
+  ansible.builtin.include_tasks: setup_cleanup.yml

@@ -1,0 +1,487 @@
+{% set alloy_logs_enabled = alloy_logs_url | default('', true) | string | length > 0 %}
+{% set alloy_logs_basic_auth_enabled = alloy_logs_user | default('', true) | string | length > 0 or alloy_logs_pass | default('', true) | string | length > 0 %}
+{% set alloy_metrics_enabled = alloy_metrics_url | default('', true) | string | length > 0 %}
+{% set alloy_metrics_basic_auth_enabled = alloy_metrics_user | default('', true) | string | length > 0 or alloy_metrics_pass | default('', true) | string | length > 0 %}
+{% set alloy_traces_enabled = alloy_traces_url | default('', true) | string | length > 0 %}
+{% set alloy_traces_basic_auth_enabled = alloy_traces_user | default('', true) | string | length > 0 or alloy_traces_pass | default('', true) | string | length > 0 %}
+{% set alloy_extra_metrics_targets = alloy_metrics_extra_targets | default([], true) %}
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+{% if alloy_traces_enabled %}
+tracing {
+  sampling_fraction = 1
+  write_to = [otelcol.exporter.otlp.tempo.input]
+}
+
+{% endif %}
+{% if (alloy_logs_enabled or alloy_metrics_enabled) and alloy_docker_enabled | bool %}
+discovery.docker "local" {
+  host = "unix:///var/run/docker.sock"
+}
+
+{% endif %}
+{% if alloy_metrics_enabled %}
+// Prometheus Metrics
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "{{ alloy_metrics_url }}"
+{% if alloy_metrics_basic_auth_enabled %}
+
+    basic_auth {
+      username = "{{ alloy_metrics_user }}"
+      password = "{{ alloy_metrics_pass }}"
+    }
+{% endif %}
+  }
+}
+
+// Host Metrics aka Node Exporter
+
+prometheus.exporter.unix "local" {
+  set_collectors = [
+    "arp",
+    "btrfs",
+    "conntrack",
+    "cpu",
+    "cpufreq",
+    "diskstats",
+    "entropy",
+    "filesystem",
+    "hwmon",
+    "infiniband",
+    "loadavg",
+    "mdadm",
+    "meminfo",
+    "netclass",
+    "netdev",
+    "netstat",
+    "pressure",
+    "processes",
+    "sockstat",
+    "stat",
+    "thermal_zone",
+    "time",
+    "timex",
+    "vmstat",
+    "zfs",
+  ]
+}
+
+discovery.relabel "host_metrics" {
+  targets = prometheus.exporter.unix.local.targets
+
+  rule {
+    target_label = "cluster"
+    replacement  = "{{ alloy_cluster_name }}"
+  }
+
+  rule {
+    target_label = "realm"
+    replacement  = "{{ alloy_cluster_realm }}"
+  }
+
+  rule {
+    target_label = "platform"
+    replacement  = "{{ alloy_cluster_platform }}"
+  }
+
+  rule {
+    target_label = "instance"
+    replacement  = "{{ ansible_hostname }}"
+  }
+
+  rule {
+    target_label = "component"
+    replacement  = "linux"
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "node"
+  }
+}
+
+prometheus.scrape "host_metrics" {
+  targets         = discovery.relabel.host_metrics.output
+  forward_to      = [prometheus.remote_write.default.receiver]
+  scrape_interval = "15s"
+  scrape_timeout  = "5s"
+}
+
+{% if alloy_docker_enabled | bool %}
+// Container Metrics aka cAdvisor
+
+prometheus.exporter.cadvisor "docker" {
+  docker_host      = "unix:///var/run/docker.sock"
+  storage_duration = "5m"
+}
+
+discovery.relabel "docker_metrics" {
+  targets = prometheus.exporter.cadvisor.docker.targets
+
+  rule {
+    target_label = "cluster"
+    replacement  = "{{ alloy_cluster_name }}"
+  }
+
+  rule {
+    target_label = "realm"
+    replacement  = "{{ alloy_cluster_realm }}"
+  }
+
+  rule {
+    target_label = "platform"
+    replacement  = "{{ alloy_cluster_platform }}"
+  }
+
+  rule {
+    target_label = "instance"
+    replacement  = "{{ ansible_hostname }}"
+  }
+
+  rule {
+    target_label = "component"
+    replacement  = "docker"
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "docker"
+  }
+}
+
+prometheus.relabel "docker_metrics" {
+  forward_to = [prometheus.remote_write.default.receiver]
+
+  rule {
+    source_labels = ["name"]
+    regex         = "/?([^\\.]+).*"
+    target_label  = "service_name"
+  }
+
+  rule {
+    source_labels = ["name"]
+    regex         = "/?([^\\.]+)"
+    target_label  = "container_name"
+  }
+
+  rule {
+    source_labels = ["name"]
+    regex         = "/?(.+\\..+)"
+    target_label  = "swarm_task"
+  }
+
+  rule {
+    source_labels = ["swarm_task"]
+    regex         = "([^\\.]+)\\..+"
+    target_label  = "swarm_service"
+  }
+
+  rule {
+    source_labels = ["container_label_com_docker_swarm_service_name"]
+    regex         = "(.+)"
+    target_label  = "swarm_service"
+  }
+
+  rule {
+    source_labels = ["container_label_com_docker_compose_service"]
+    regex         = "(.+)"
+    target_label  = "service_name"
+  }
+}
+
+prometheus.scrape "docker_metrics" {
+  targets         = discovery.relabel.docker_metrics.output
+  forward_to      = [prometheus.relabel.docker_metrics.receiver]
+  scrape_interval = "15s"
+  scrape_timeout  = "5s"
+}
+
+{% endif %}
+{% for extra_target in alloy_extra_metrics_targets %}
+// Extra Metrics: {{ extra_target.job_name }}
+
+prometheus.scrape "extra_{{ loop.index0 }}" {
+  targets = [
+{% for target in extra_target.targets %}
+    {
+      __address__ = "{{ target }}",
+      cluster     = "{{ alloy_cluster_name }}",
+      realm       = "{{ alloy_cluster_realm }}",
+      platform    = "{{ alloy_cluster_platform }}",
+      instance    = "{{ ansible_hostname }}",
+      job         = "{{ extra_target.job_name }}",
+{% for label_key, label_value in extra_target.labels | default({}) | dictsort %}
+      {{ label_key }} = "{{ label_value }}",
+{% endfor %}
+    },
+{% endfor %}
+  ]
+  forward_to      = [prometheus.remote_write.default.receiver]
+  scrape_interval = "{{ extra_target.scrape_interval | default('15s') }}"
+  scrape_timeout  = "5s"
+{% if extra_target.metrics_path is defined %}
+  metrics_path    = "{{ extra_target.metrics_path }}"
+{% endif %}
+}
+
+{% endfor %}
+{% endif %}
+{% if alloy_logs_enabled %}
+// Loki Logs
+
+loki.write "default" {
+  endpoint {
+    url = "{{ alloy_logs_url }}"
+{% if alloy_logs_basic_auth_enabled %}
+
+    basic_auth {
+      username = "{{ alloy_logs_user }}"
+      password = "{{ alloy_logs_pass }}"
+    }
+{% endif %}
+  }
+}
+
+local.file_match "system_logs" {
+  path_targets = [
+    {
+      __path__ = "/var/log/*.log",
+      job      = "systemd",
+    },
+    {
+      __path__ = "/var/log/syslog",
+      job      = "syslog",
+    },
+    {
+      __path__ = "/var/log/auth.log",
+      job      = "auth",
+    },
+    {
+      __path__ = "/var/log/kern.log",
+      job      = "kernel",
+    },
+  ]
+}
+
+loki.source.file "system_logs" {
+  targets    = local.file_match.system_logs.targets
+  forward_to = [loki.relabel.system_logs.receiver]
+
+  tail_from_end = true
+}
+
+loki.relabel "system_logs" {
+  forward_to = [loki.write.default.receiver]
+
+  rule {
+    target_label = "platform"
+    replacement  = "{{ alloy_cluster_platform }}"
+  }
+
+  rule {
+    target_label = "realm"
+    replacement  = "{{ alloy_cluster_realm }}"
+  }
+
+  rule {
+    target_label = "cluster"
+    replacement  = "{{ alloy_cluster_name }}"
+  }
+
+  rule {
+    target_label = "instance"
+    replacement  = "{{ ansible_hostname }}"
+  }
+
+  rule {
+    target_label = "component"
+    replacement  = "linux"
+  }
+}
+
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+
+  rule {
+    source_labels = ["__journal__hostname"]
+    target_label  = "host"
+  }
+}
+
+loki.source.journal "journal_logs" {
+  forward_to    = [loki.relabel.journal_logs.receiver]
+  relabel_rules = loki.relabel.journal.rules
+
+  max_age = "24h"
+}
+
+loki.relabel "journal_logs" {
+  forward_to = [loki.write.default.receiver]
+
+  rule {
+    target_label = "cluster"
+    replacement  = "{{ alloy_cluster_name }}"
+  }
+
+  rule {
+    target_label = "realm"
+    replacement  = "{{ alloy_cluster_realm }}"
+  }
+
+  rule {
+    target_label = "platform"
+    replacement  = "{{ alloy_cluster_platform }}"
+  }
+
+  rule {
+    target_label = "instance"
+    replacement  = "{{ ansible_hostname }}"
+  }
+
+  rule {
+    target_label = "component"
+    replacement  = "linux"
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "journal"
+  }
+}
+
+{% if alloy_docker_enabled | bool %}
+// Container Logs
+
+discovery.relabel "docker_logs" {
+  targets = []
+
+  rule {
+    target_label = "cluster"
+    replacement  = "{{ alloy_cluster_name }}"
+  }
+
+  rule {
+    target_label = "realm"
+    replacement  = "{{ alloy_cluster_realm }}"
+  }
+
+  rule {
+    target_label = "platform"
+    replacement  = "{{ alloy_cluster_platform }}"
+  }
+
+  rule {
+    target_label = "instance"
+    replacement  = "{{ ansible_hostname }}"
+  }
+
+  rule {
+    target_label = "component"
+    replacement  = "docker"
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "docker"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?([^\\.]+).*"
+    target_label  = "service_name"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?([^\\.]+)"
+    target_label  = "container_name"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.+\\..+)"
+    target_label  = "swarm_task"
+  }
+
+  rule {
+    source_labels = ["swarm_task"]
+    regex         = "([^\\.]+)\\..+"
+    target_label  = "swarm_service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+
+  rule {
+    action = "labelkeep"
+    regex  = "cluster|realm|platform|instance|component|job|service_name|container_name|swarm_task|swarm_service|stream"
+  }
+}
+
+loki.source.docker "docker_logs" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.local.targets
+  relabel_rules = discovery.relabel.docker_logs.rules
+  forward_to    = [loki.write.default.receiver]
+}
+
+{% endif %}
+{% endif %}
+{% if alloy_traces_enabled %}
+// OTLP Traces
+
+{% if alloy_traces_basic_auth_enabled %}
+otelcol.auth.basic "traces" {
+  username = "{{ alloy_traces_user }}"
+  password = "{{ alloy_traces_pass }}"
+}
+
+{% endif %}
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "{{ alloy_traces_url }}"
+{% if alloy_traces_basic_auth_enabled %}
+    auth     = otelcol.auth.basic.traces.handler
+{% endif %}
+{% if alloy_traces_tls_insecure | bool %}
+    tls {
+      insecure = true
+    }
+{% endif %}
+  }
+}
+
+otelcol.processor.batch "main" {
+  timeout         = "1s"
+  send_batch_size = 1000
+  output {
+    traces = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+otelcol.receiver.otlp "edge" {
+  grpc {
+    endpoint = "0.0.0.0:{{ alloy_otlp_grpc_port }}"
+  }
+
+  http {
+    endpoint = "0.0.0.0:{{ alloy_otlp_http_port }}"
+  }
+
+  output {
+    traces = [otelcol.processor.batch.main.input]
+  }
+}
+{% endif %}

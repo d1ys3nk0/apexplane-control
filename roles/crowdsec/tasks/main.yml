@@ -1,0 +1,211 @@
+---
+
+- name: Validate CrowdSec variable contract
+  ansible.builtin.include_tasks: validate.yml
+  when: crowdsec_enabled | bool
+
+- name: Disable CrowdSec services
+  when:
+    - not crowdsec_enabled | bool
+    - not ansible_check_mode
+  block:
+    - name: Gather service facts before disabling CrowdSec
+      become: true
+      ansible.builtin.service_facts:
+
+    - name: Stop and disable CrowdSec services
+      become: true
+      ansible.builtin.systemd:
+        name: '{{ item }}'
+        enabled: false
+        state: stopped
+      loop:
+        - crowdsec
+        - crowdsec-spoa-bouncer
+      when: item ~ '.service' in ansible_facts.services
+
+- name: Configure CrowdSec services
+  when: crowdsec_enabled | bool
+  block:
+
+    - name: Add CrowdSec repository key
+      become: true
+      ansible.builtin.get_url:
+        url: '{{ crowdsec_apt_key_url }}'
+        dest: '{{ crowdsec_apt_key_path }}'
+        mode: '0644'
+
+    - name: Add CrowdSec apt repository
+      become: true
+      ansible.builtin.apt_repository:
+        repo: deb [signed-by={{ crowdsec_apt_key_path }}] {{ crowdsec_apt_repo_url }} {{ crowdsec_apt_repo_distribution }} {{ crowdsec_apt_repo_component }}
+        state: present
+        filename: crowdsec
+
+    - name: Create CrowdSec SPOA bouncer group
+      become: true
+      ansible.builtin.group:
+        name: '{{ crowdsec_spoa_system_group }}'
+        system: true
+        state: present
+
+    - name: Create CrowdSec SPOA bouncer user
+      become: true
+      ansible.builtin.user:
+        name: '{{ crowdsec_spoa_system_user }}'
+        group: '{{ crowdsec_spoa_system_group }}'
+        comment: CrowdSec HAProxy SPOA bouncer
+        system: true
+        create_home: false
+        home: /nonexistent
+        shell: /usr/sbin/nologin
+        state: present
+
+    - name: Install CrowdSec agent and HAProxy SPOA bouncer
+      become: true
+      ansible.builtin.apt:
+        name:
+          - crowdsec
+          - crowdsec-haproxy-spoa-bouncer
+        state: present
+        update_cache: true
+      when: not ansible_check_mode
+
+    - name: Ensure CrowdSec config directories exist
+      become: true
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      loop:
+        - /etc/crowdsec/acquis.d
+        - /etc/crowdsec/appsec-configs
+        - /etc/crowdsec/bouncers
+
+    - name: Deploy CrowdSec AppSec config
+      become: true
+      ansible.builtin.template:
+        src: appsec-config.yaml.j2
+        dest: /etc/crowdsec/appsec-configs/{{ crowdsec_appsec_config_filename }}
+        mode: '0644'
+      register: crowdsec_appsec_config_update
+
+    - name: Deploy acquisition config for HAProxy logs
+      become: true
+      ansible.builtin.copy:
+        src: acquis.yml
+        dest: /etc/crowdsec/acquis.yaml
+        mode: '0644'
+      register: crowdsec_haproxy_acquis_update
+
+    - name: Deploy acquisition config for CrowdSec AppSec
+      become: true
+      ansible.builtin.template:
+        src: appsec.yaml.j2
+        dest: /etc/crowdsec/acquis.d/appsec.yaml
+        mode: '0644'
+      register: crowdsec_appsec_acquis_update
+
+    - name: Install CrowdSec collections
+      become: true
+      ansible.builtin.command:
+        cmd: cscli collections install {{ item }}
+      loop: '{{ crowdsec_collections }}'
+      register: crowdsec_collection_install
+      failed_when:
+        - crowdsec_collection_install.rc != 0
+        - "'already installed' not in ((crowdsec_collection_install.stdout ~ crowdsec_collection_install.stderr) | lower)"
+        - "'nothing to install or remove' not in ((crowdsec_collection_install.stdout ~ crowdsec_collection_install.stderr) | lower)"
+      changed_when:
+        - crowdsec_collection_install.rc == 0
+        - "'already installed' not in ((crowdsec_collection_install.stdout ~ crowdsec_collection_install.stderr) | lower)"
+        - "'nothing to install or remove' not in ((crowdsec_collection_install.stdout ~ crowdsec_collection_install.stderr) | lower)"
+      when: not ansible_check_mode
+
+    - name: Enable and start CrowdSec
+      become: true
+      ansible.builtin.systemd:
+        name: crowdsec
+        enabled: true
+        state: started
+      when: not ansible_check_mode
+
+    - name: Verify CrowdSec service is active
+      become: true
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-active
+          - crowdsec
+      register: crowdsec_service_health
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Reload CrowdSec on config change
+      become: true
+      ansible.builtin.systemd:
+        name: crowdsec
+        state: reloaded
+      when: (crowdsec_appsec_config_update.changed or crowdsec_haproxy_acquis_update.changed or crowdsec_appsec_acquis_update.changed or (crowdsec_collection_install is defined and crowdsec_collection_install.changed)) and not ansible_check_mode
+
+    - name: Register HAProxy SPOA bouncer key with CrowdSec LAPI
+      become: true
+      ansible.builtin.command:
+        cmd: cscli bouncers add {{ crowdsec_spoa_bouncer_name }} --key "{{ crowdsec_bouncer_key }}" -o raw
+      register: crowdsec_bouncer_add
+      no_log: '{{ crowdsec_nolog }}'
+      failed_when:
+        - crowdsec_bouncer_add.rc != 0
+        - "'already exists' not in crowdsec_bouncer_add.stderr"
+      changed_when: crowdsec_bouncer_add.rc == 0
+      when: not ansible_check_mode
+
+    - name: Deploy CrowdSec SPOA bouncer config
+      become: true
+      ansible.builtin.template:
+        src: crowdsec-spoa-bouncer.yaml.j2
+        dest: /etc/crowdsec/bouncers/crowdsec-spoa-bouncer.yaml
+        mode: '0640'
+        owner: root
+        group: '{{ crowdsec_spoa_system_group }}'
+      register: crowdsec_spoa_bouncer_config_update
+      no_log: '{{ crowdsec_nolog }}'
+
+    - name: Restart CrowdSec SPOA bouncer on config change
+      become: true
+      ansible.builtin.systemd:
+        name: crowdsec-spoa-bouncer
+        state: restarted
+      when: crowdsec_spoa_bouncer_config_update.changed and not ansible_check_mode
+
+    - name: Verify CrowdSec SPOA bouncer service is active after restart
+      become: true
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-active
+          - crowdsec-spoa-bouncer
+      register: crowdsec_spoa_bouncer_restart_service_health
+      changed_when: false
+      when: crowdsec_spoa_bouncer_config_update.changed and not ansible_check_mode
+
+    - name: Enable and start CrowdSec SPOA bouncer
+      become: true
+      ansible.builtin.systemd:
+        name: crowdsec-spoa-bouncer
+        enabled: true
+        state: started
+      when: not ansible_check_mode
+
+    - name: Verify CrowdSec SPOA bouncer service is active
+      become: true
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-active
+          - crowdsec-spoa-bouncer
+      register: crowdsec_spoa_bouncer_service_health
+      changed_when: false
+      when: not ansible_check_mode

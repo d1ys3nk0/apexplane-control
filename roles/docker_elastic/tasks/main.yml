@@ -1,0 +1,56 @@
+---
+
+- name: Show Elastic memory limit
+  ansible.builtin.debug:
+    var: docker_elastic_mem_lim
+
+- name: Create docker volumes
+  community.docker.docker_volume:
+    name: '{{ docker_elastic_data_volume }}'
+
+- name: Start elastic container
+  community.docker.docker_container:
+    hostname: elastic.{{ inventory_hostname }}
+    name: elastic
+    image: '{{ docker_elastic_image_full }}'
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_elastic_mem_res }}'
+    memory: '{{ docker_elastic_mem_lim }}'
+    memory_swap: '{{ docker_elastic_mem_swp }}'
+    env: "{{ (docker_elastic_mode == 'cluster') | ternary(docker_elastic_env_cluster_mode, docker_elastic_env_single_mode) }}"
+    network_mode: host
+    volumes:
+      - '{{ docker_elastic_data_volume }}:/usr/share/elasticsearch/data'
+    healthcheck:
+      test: ['CMD-SHELL', "curl -fsS 'http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=1s' | grep -E '(green|yellow)'"]
+      timeout: 2s
+      interval: 10s
+      start_period: 30s
+  no_log: '{{ docker_elastic_nolog }}'
+
+- name: Verify elastic container is running
+  community.docker.docker_container_info:
+    name: elastic
+  register: docker_elastic_container_info
+  until:
+    - docker_elastic_container_info.exists
+    - docker_elastic_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for elastic HTTP port to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 9200
+    delay: 1
+    timeout: 30
+  when: not ansible_check_mode
+
+- name: Run extra single-node Elastic instances
+  ansible.builtin.include_tasks: setup_extra_instance.yml
+  loop: '{{ docker_elastic_extra_instances }}'
+  loop_control:
+    loop_var: docker_elastic_extra_instance
+    label: '{{ docker_elastic_extra_instance.name }}'
+  when: docker_elastic_extra_instances | length > 0

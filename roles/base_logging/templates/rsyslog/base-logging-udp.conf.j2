@@ -1,0 +1,6 @@
+{% if base_logging_rsyslog_udp_enabled | bool %}
+{% if not (base_logging_rsyslog_imudp_module_loaded | default(false) | bool) %}
+module(load="imudp")
+{% endif %}
+input(type="imudp" port="{{ base_logging_rsyslog_udp_port }}" address="{{ base_logging_rsyslog_udp_address }}")
+{% endif %}

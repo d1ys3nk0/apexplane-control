@@ -1,0 +1,11 @@
+---
+
+dnsmasq_bind_addresses: []
+dnsmasq_config_dir: /etc/dnsmasq.d
+dnsmasq_config_path: '{{ dnsmasq_config_dir }}/apexplane.conf'
+dnsmasq_exact_records: []
+dnsmasq_health_check_server: ''
+dnsmasq_health_checks: []
+dnsmasq_local_resolver: ''
+dnsmasq_upstream_servers: []
+dnsmasq_wildcard_records: []

@@ -1,0 +1,164 @@
+---
+
+- name: Validate HAProxy ALB variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Configure self-signed SSL certificate
+  ansible.builtin.include_tasks: setup_ssl.yml
+
+- name: Find HAProxy ALB backend fragments
+  become: true
+  ansible.builtin.find:
+    paths: /etc/haproxy/conf.d
+    patterns: be_*.cfg
+    file_type: file
+  register: haproxy_alb_backend_files_before_clean
+
+- name: Store desired HAProxy ALB backend fragment paths
+  ansible.builtin.set_fact:
+    haproxy_alb_desired_backend_fragment_paths: >-
+      {{
+        ['/etc/haproxy/conf.d/be_system.cfg', '/etc/haproxy/conf.d/be_local.cfg']
+        + (
+          haproxy_alb_route_backend_groups
+          | map('regex_replace', '^(.*)$', '/etc/haproxy/conf.d/be_\1.cfg')
+          | list
+        )
+        + (
+          haproxy_alb_throttles
+          | map(attribute='name')
+          | map('regex_replace', '^(.*)$', '/etc/haproxy/conf.d/be_throttle_\1.cfg')
+          | list
+        )
+      }}
+
+- name: Remove unmanaged HAProxy ALB backend fragments
+  become: true
+  ansible.builtin.file:
+    path: '{{ item.path }}'
+    state: absent
+  loop: '{{ haproxy_alb_backend_files_before_clean.files | default([]) }}'
+  loop_control:
+    label: '{{ item.path }}'
+  register: haproxy_alb_backend_fragment_cleanup
+  when: item.path not in haproxy_alb_desired_backend_fragment_paths
+
+- name: Update HAProxy system backend fragment
+  become: true
+  ansible.builtin.template:
+    src: haproxy/be_system.cfg.j2
+    dest: /etc/haproxy/conf.d/be_system.cfg
+    mode: '0644'
+  register: haproxy_alb_be_system_update
+
+- name: Update HAProxy local backend fragment
+  become: true
+  ansible.builtin.template:
+    src: haproxy/be_local.cfg.j2
+    dest: /etc/haproxy/conf.d/be_local.cfg
+    mode: '0644'
+  register: haproxy_alb_be_local_update
+
+- name: Update HAProxy backend fragments per target group
+  become: true
+  ansible.builtin.template:
+    src: haproxy/be_group.cfg.j2
+    dest: /etc/haproxy/conf.d/be_{{ item }}.cfg
+    mode: '0644'
+  loop: '{{ haproxy_alb_route_backend_groups }}'
+  loop_control:
+    label: '{{ item }}'
+  vars:
+    haproxy_alb_backend_group: '{{ item }}'
+  register: haproxy_alb_be_group_update
+
+- name: Update HAProxy throttle backend fragments
+  become: true
+  ansible.builtin.template:
+    src: haproxy/be_throttle.cfg.j2
+    dest: /etc/haproxy/conf.d/be_throttle_{{ item.name }}.cfg
+    mode: '0644'
+  loop: '{{ haproxy_alb_throttles }}'
+  loop_control:
+    label: '{{ item.name }}'
+  vars:
+    haproxy_alb_throttle: '{{ item }}'
+  register: haproxy_alb_be_throttle_update
+
+- name: Update HAProxy frontend config
+  become: true
+  ansible.builtin.template:
+    src: haproxy/fe_web.cfg.j2
+    dest: /etc/haproxy/conf.d/fe_web.cfg
+    mode: '0640'
+    owner: root
+    group: haproxy
+  register: haproxy_alb_fe_web_update
+  no_log: '{{ haproxy_alb_nolog }}'
+
+- name: Update HAProxy CrowdSec SPOE config
+  become: true
+  ansible.builtin.copy:
+    src: haproxy/crowdsec.cfg
+    dest: /etc/haproxy/crowdsec.cfg
+    mode: '0644'
+  register: haproxy_alb_config_crowdsec_update
+  when: haproxy_alb_crowdsec_enabled | bool
+
+- name: Remove HAProxy CrowdSec SPOE config
+  become: true
+  ansible.builtin.file:
+    path: /etc/haproxy/crowdsec.cfg
+    state: absent
+  register: haproxy_alb_config_crowdsec_remove
+  when: haproxy_alb_crowdsec_disabled | bool
+
+- name: Update HAProxy main config
+  become: true
+  ansible.builtin.template:
+    src: haproxy/haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    mode: '0640'
+    owner: root
+    group: haproxy
+  register: haproxy_alb_config_main_update
+  no_log: '{{ haproxy_alb_nolog }}'
+
+- name: Validate HAProxy configs together after all changes
+  become: true
+  ansible.builtin.command:
+    cmd: haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/conf.d
+  register: haproxy_alb_conf_check
+  changed_when: false
+  failed_when: false
+
+- name: Assert HAProxy validation output is correct
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_conf_check.stdout | trim == "Configuration file is valid"
+      - haproxy_alb_conf_check.stderr | trim == ""
+    fail_msg: "HAProxy check returned extra output:\n\nstdout: '{{ haproxy_alb_conf_check.stdout }}'\n\nstderr: '{{ haproxy_alb_conf_check.stderr }}'"
+    success_msg: HAProxy check returned no extra output
+  when: haproxy_alb_not_check_mode | bool
+
+- name: Reload HAProxy
+  become: true
+  ansible.builtin.systemd:
+    name: haproxy
+    state: reloaded
+  when: haproxy_alb_config_changed | bool
+
+- name: Verify HAProxy service is active after reload
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - haproxy
+  register: haproxy_alb_reload_service_health
+  changed_when: false
+  when: haproxy_alb_config_changed | bool
+
+- name: Get Let's Encrypt certificates using Certbot
+  ansible.builtin.include_tasks: setup_certbot.yml
+  when: haproxy_alb_letsencrypt_enabled | bool

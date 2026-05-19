@@ -1,0 +1,410 @@
+---
+
+- name: Assert HAProxy required scalar variables are set
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_self_signed_cert_domain is not none
+      - haproxy_alb_self_signed_cert_domain | string | length > 0
+      - haproxy_alb_crowdsec_spoa_port | string | length > 0
+      - haproxy_alb_stats_port | string | length > 0
+      - haproxy_alb_prometheus_exporter_port | string | length > 0
+      - haproxy_alb_bypass_http_port | string | length > 0
+      - haproxy_alb_default_target_port | string | length > 0
+    fail_msg: Define required haproxy_alb_* scalar variables before running role haproxy_alb.
+  no_log: '{{ haproxy_alb_nolog }}'
+
+- name: Assert HAProxy ALB mode variables are valid
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_interactive_mode | type_debug == 'bool'
+      - haproxy_alb_letsencrypt_enabled | type_debug == 'bool'
+      - haproxy_alb_whitelist_enforced is boolean
+    fail_msg: Define HAProxy ALB mode variables with valid types before running role haproxy_alb.
+
+- name: Assert haproxy_alb_target_groups is a mapping
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_target_groups is defined
+      - haproxy_alb_target_groups is mapping
+      - haproxy_alb_target_groups.keys() | select('match', '.*-.*') | list | length == 0
+      - >-
+        haproxy_alb_default_target_group is not defined
+        or haproxy_alb_default_target_group is none
+        or haproxy_alb_default_target_group | string | length == 0
+        or haproxy_alb_default_target_group in haproxy_alb_target_groups
+      - >-
+        (haproxy_alb_default_target_group | default('', true) | string | length == 0)
+        or (haproxy_alb_default_target_host | default('', true) | string | length == 0)
+    fail_msg: >-
+      haproxy_alb_target_groups must be a mapping of underscore-separated group name to host dict, include configured
+      haproxy_alb_default_target_group={{ haproxy_alb_default_target_group | default('UNDEFINED') }}, and not set both
+      haproxy_alb_default_target_group and haproxy_alb_default_target_host.
+
+- name: Derive HAProxy route backend fragment group list
+  ansible.builtin.set_fact:
+    haproxy_alb_route_backend_groups: '{{ haproxy_alb_target_groups.keys() | list | sort }}'
+
+- name: Assert haproxy_alb_target_groups keys do not collide with pseudo backend groups
+  ansible.builtin.assert:
+    that:
+      - ('local' not in haproxy_alb_target_groups) and ('system' not in haproxy_alb_target_groups)
+    fail_msg: haproxy_alb_target_groups must not define reserved pseudo group names local or system
+
+- name: Assert haproxy_alb_routes is a non-empty list
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_routes is defined
+      - haproxy_alb_routes is iterable
+      - haproxy_alb_routes is not string
+      - haproxy_alb_routes | length > 0
+    fail_msg: haproxy_alb_routes must be a non-empty list of route dicts
+
+- name: Assert haproxy_alb_certs is a non-empty mapping
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_certs is defined
+      - haproxy_alb_certs is mapping
+      - haproxy_alb_certs | length > 0
+    fail_msg: haproxy_alb_certs must be a non-empty mapping of cert name to domain list when haproxy_alb_letsencrypt_enabled is true
+  when: haproxy_alb_letsencrypt_enabled | bool
+
+- name: Assert haproxy_alb_auth is a list when set
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_auth is not defined or (haproxy_alb_auth is iterable and haproxy_alb_auth is not string)
+    fail_msg: haproxy_alb_auth must be a list of auth rule dicts
+
+- name: Assert haproxy_alb_throttles is a list
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_throttles is defined
+      - haproxy_alb_throttles is iterable
+      - haproxy_alb_throttles is not string
+    fail_msg: haproxy_alb_throttles must be a list of throttle rule dicts
+
+- name: Assert HAProxy ALB throttle defaults are valid
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_throttle_table_size | string | trim is match('^[1-9][0-9]*[kKmMgG]?$')
+      - haproxy_alb_throttle_deny_status | int >= 400
+      - haproxy_alb_throttle_deny_status | int <= 599
+    fail_msg: haproxy_alb_throttle_table_size must be a HAProxy table size and haproxy_alb_throttle_deny_status must be an HTTP 4xx or 5xx status code
+
+- name: Assert haproxy_alb_whitelist is a list
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_whitelist is defined
+      - haproxy_alb_whitelist is iterable
+      - haproxy_alb_whitelist is not string
+      - not (haproxy_alb_whitelist_enforced | bool) or haproxy_alb_whitelist | length > 0
+    fail_msg: haproxy_alb_whitelist must be a list of IPv4 CIDR strings and cannot be empty when enforcement is enabled
+
+- name: Assert haproxy_alb_whitelist values are IPv4 CIDRs
+  ansible.builtin.assert:
+    that:
+      - >-
+        haproxy_alb_whitelist
+        | map('string')
+        | map('trim')
+        | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
+        | list
+        | length == (haproxy_alb_whitelist | length)
+    fail_msg: haproxy_alb_whitelist must contain only IPv4 CIDR strings
+
+- name: Assert haproxy_alb_trusted_proxy_cidrs is a list
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_trusted_proxy_cidrs is defined
+      - haproxy_alb_trusted_proxy_cidrs is iterable
+      - haproxy_alb_trusted_proxy_cidrs is not string
+    fail_msg: haproxy_alb_trusted_proxy_cidrs must be a list of IPv4 CIDR strings
+
+- name: Assert haproxy_alb_trusted_proxy_cidrs values are IPv4 CIDRs
+  ansible.builtin.assert:
+    that:
+      - >-
+        haproxy_alb_trusted_proxy_cidrs
+        | map('string')
+        | map('trim')
+        | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
+        | list
+        | length == (haproxy_alb_trusted_proxy_cidrs | length)
+    fail_msg: haproxy_alb_trusted_proxy_cidrs must contain only IPv4 CIDR strings
+
+- name: Assert haproxy_alb_userlists is a mapping
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_userlists is defined
+      - haproxy_alb_userlists is mapping
+    fail_msg: haproxy_alb_userlists must be a mapping
+  no_log: '{{ haproxy_alb_nolog }}'
+
+- name: Assert each certificate has one or more domains
+  ansible.builtin.assert:
+    that:
+      - >-
+        haproxy_alb_certs[item] is string
+        or (haproxy_alb_certs[item] is iterable and haproxy_alb_certs[item] is not string)
+      - haproxy_alb_certs[item] | length > 0
+    fail_msg: Certificate '{{ item }}' must define at least one domain as a string or list
+  loop: '{{ haproxy_alb_certs.keys() | sort }}'
+  loop_control:
+    label: '{{ item }}'
+
+- name: Initialize HAProxy ALB automatic certificate flag
+  ansible.builtin.set_fact:
+    haproxy_alb_has_automatic_cert: false
+  when: haproxy_alb_letsencrypt_enabled | bool
+
+- name: Detect HAProxy ALB automatic certificate entries
+  ansible.builtin.set_fact:
+    haproxy_alb_has_automatic_cert: true
+  vars:
+    _cert_domains: "{{ [haproxy_alb_certs[item]] if haproxy_alb_certs[item] is string else haproxy_alb_certs[item] }}"
+  loop: '{{ haproxy_alb_certs.keys() | sort }}'
+  loop_control:
+    label: '{{ item }}'
+  when:
+    - haproxy_alb_letsencrypt_enabled | bool
+    - (_cert_domains | select('match', '^[*][.]') | list | length) == 0
+
+- name: Assert HAProxy ALB Certbot variables are set for automatic certificates
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_certbot_email is not none
+      - haproxy_alb_certbot_email | string | length > 0
+      - haproxy_alb_certbot_http_port | string | length > 0
+      - haproxy_alb_certbot_http_dns_wait_retries | int > 0
+      - haproxy_alb_certbot_http_dns_wait_delay | int > 0
+    fail_msg: Define Certbot variables when haproxy_alb_certs includes non-wildcard certificates managed by haproxy_alb.
+  when: haproxy_alb_has_automatic_cert | default(false) | bool
+  no_log: '{{ haproxy_alb_nolog }}'
+
+- name: Assert each route has required fields
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.name | string | length > 0
+      - item.domain is defined
+      - >-
+        item.domain is string
+        or (item.domain is iterable and item.domain is not string and item.domain | length > 0)
+      - >-
+        (item.domain is string and item.domain | trim | length > 0)
+        or (
+          item.domain is iterable
+          and item.domain is not string
+          and item.domain | map('string') | map('trim') | select | list | length == item.domain | length
+        )
+      - item.target_port is defined
+      - item.target_port | string | length > 0
+      - (item.proto | default('https')) in ['https', 'both']
+      - item.force_https is not defined or item.force_https is boolean
+      - (item.backend_proto | default('http')) in ['http', 'h2']
+      - (item.target_group | default('') | string | length > 0) or (item.target_host | default('') | string | length > 0)
+      - not ((item.target_group | default('') | string | length > 0) and (item.target_host | default('') | string | length > 0))
+      - (item.target_group | default('') | string | length == 0) or (item.target_group in haproxy_alb_target_groups)
+    fail_msg: >-
+      Invalid route {{ item }}: need name, domain, target_port, proto in [https, both], optional force_https bool, backend_proto in [http, h2], and exactly one of target_group (must exist in haproxy_alb_target_groups) or target_host.
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name | default("?") }}'
+
+- name: Assert route names are unique
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_routes | map(attribute='name') | list | unique | length == haproxy_alb_routes | length
+    fail_msg: haproxy_alb_routes contains duplicate name values
+
+- name: Assert optional route prefix is valid when set
+  ansible.builtin.assert:
+    that:
+      - item.prefix is not defined or item.prefix is none or ( (item.prefix | string | trim | length) > 0 and (item.prefix | string | trim) is match('^/') )
+    fail_msg: 'Route {{ item.name }}: prefix must be a non-empty path starting with / when set'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Initialize route identity key list
+  ansible.builtin.set_fact:
+    haproxy_alb_route_domain_prefix_keys: []
+
+- name: Accumulate route (domain, prefix) identity keys
+  ansible.builtin.set_fact:
+    haproxy_alb_route_domain_prefix_keys: '{{ haproxy_alb_route_domain_prefix_keys + _keys }}'
+  vars:
+    _domains: "{{ [item.domain] if item.domain is string else item.domain }}"
+    _trimmed_prefix: "{{ item.prefix | default('', true) | string | trim }}"
+    _keys: "{{ _domains | map('regex_replace', '$', '::' ~ _trimmed_prefix) | list }}"
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Assert route (domain, prefix) pairs are unique
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_route_domain_prefix_keys | length == haproxy_alb_route_domain_prefix_keys | unique | length
+    fail_msg: haproxy_alb_routes contains duplicate (domain, prefix) combinations
+
+- name: Assert each auth rule has required fields
+  ansible.builtin.assert:
+    that:
+      - item.domain is defined
+      - >-
+        item.domain is string
+        or (item.domain is iterable and item.domain is not string and item.domain | length > 0)
+      - >-
+        (item.domain is string and item.domain | trim | length > 0)
+        or (
+          item.domain is iterable
+          and item.domain is not string
+          and item.domain | map('string') | map('trim') | select | list | length == item.domain | length
+        )
+      - item.userlist is defined
+      - item.userlist | string | trim | length > 0
+      - item.userlist in haproxy_alb_userlists
+      - item.prefix is not defined or item.prefix is none or ((item.prefix | string | trim | length) > 0 and (item.prefix | string | trim) is match('^/'))
+      - item.cidr_whitelist is not defined or (item.cidr_whitelist is iterable and item.cidr_whitelist is not string and item.cidr_whitelist | length > 0)
+      - >-
+        item.prefix_whitelist is not defined
+        or (
+          item.prefix_whitelist is iterable
+          and item.prefix_whitelist is not string
+          and item.prefix_whitelist | length > 0
+        )
+      - >-
+        item.prefix_whitelist is not defined
+        or (
+          item.prefix_whitelist
+          | map('string')
+          | map('trim')
+          | select('match', '^/')
+          | list
+          | length == (item.prefix_whitelist | length)
+        )
+      - >-
+        item.cidr_whitelist is not defined
+        or (
+          item.cidr_whitelist
+          | map('string')
+          | map('trim')
+          | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
+          | list
+          | length == (item.cidr_whitelist | length)
+        )
+    fail_msg: >-
+      Invalid auth rule {{ item }}: need domain as a string or non-empty list, known userlist,
+      optional prefix starting with /, optional non-empty cidr_whitelist list of IPv4 CIDR strings,
+      and optional non-empty prefix_whitelist list with values starting with /
+  loop: '{{ haproxy_alb_auth | default([]) }}'
+  loop_control:
+    label: '{{ item.domain | default("?") }}'
+  no_log: '{{ haproxy_alb_nolog }}'
+
+- name: Initialize auth identity key list
+  ansible.builtin.set_fact:
+    haproxy_alb_auth_domain_prefix_keys: []
+
+- name: Accumulate auth (domain, prefix) identity keys
+  ansible.builtin.set_fact:
+    haproxy_alb_auth_domain_prefix_keys: '{{ haproxy_alb_auth_domain_prefix_keys + _keys }}'
+  vars:
+    _domains: "{{ [item.domain] if item.domain is string else item.domain }}"
+    _trimmed_prefix: "{{ item.prefix | default('', true) | string | trim }}"
+    _keys: "{{ _domains | map('regex_replace', '$', '::' ~ _trimmed_prefix) | list }}"
+  loop: '{{ haproxy_alb_auth | default([]) }}'
+  loop_control:
+    label: '{{ item.domain | default("?") }}'
+
+- name: Assert auth (domain, prefix) pairs are unique
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_auth_domain_prefix_keys | length == haproxy_alb_auth_domain_prefix_keys | unique | length
+    fail_msg: haproxy_alb_auth contains duplicate (domain, prefix) combinations
+
+- name: Assert each throttle rule has required fields
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.name | string | trim is match('^[A-Za-z0-9][A-Za-z0-9_-]*$')
+      - item.domain is defined
+      - >-
+        item.domain is string
+        or (item.domain is iterable and item.domain is not string and item.domain | length > 0)
+      - >-
+        (item.domain is string and item.domain | trim | length > 0)
+        or (
+          item.domain is iterable
+          and item.domain is not string
+          and item.domain | map('string') | map('trim') | select | list | length == item.domain | length
+        )
+      - item.prefix is defined
+      - item.prefix | string | trim is match('^/')
+      - item.requests is defined
+      - item.requests | int > 0
+      - item.period is defined
+      - item.period | string | trim is match('^[1-9][0-9]*(us|ms|s|m|h|d)$')
+      - item.table_size is not defined or item.table_size | string | trim is match('^[1-9][0-9]*[kKmMgG]?$')
+    fail_msg: >-
+      Invalid throttle rule {{ item }}: need safe name, domain as a string or non-empty list, prefix starting with /,
+      requests > 0, period as a HAProxy duration, and optional valid table_size.
+  loop: '{{ haproxy_alb_throttles }}'
+  loop_control:
+    label: '{{ item.name | default("?") }}'
+
+- name: Assert throttle names are unique
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_throttles | map(attribute='name') | list | unique | length == haproxy_alb_throttles | length
+    fail_msg: haproxy_alb_throttles contains duplicate name values
+
+- name: Initialize throttle identity key list
+  ansible.builtin.set_fact:
+    haproxy_alb_throttle_domain_prefix_keys: []
+
+- name: Accumulate throttle (domain, prefix) identity keys
+  ansible.builtin.set_fact:
+    haproxy_alb_throttle_domain_prefix_keys: '{{ haproxy_alb_throttle_domain_prefix_keys + _keys }}'
+  vars:
+    _domains: "{{ [item.domain] if item.domain is string else item.domain }}"
+    _trimmed_prefix: "{{ item.prefix | string | trim }}"
+    _keys: "{{ _domains | map('regex_replace', '$', '::' ~ _trimmed_prefix) | list }}"
+  loop: '{{ haproxy_alb_throttles }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Assert throttle (domain, prefix) pairs are unique
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_throttle_domain_prefix_keys | length == haproxy_alb_throttle_domain_prefix_keys | unique | length
+    fail_msg: haproxy_alb_throttles contains duplicate (domain, prefix) combinations
+
+- name: Assert auth rule headers are non-empty mappings when set
+  ansible.builtin.assert:
+    that:
+      - item.headers is mapping
+      - item.headers | length > 0
+    fail_msg: 'Auth rule {{ item.domain }}: headers must be a non-empty mapping when set'
+  loop: '{{ haproxy_alb_auth | default([]) }}'
+  loop_control:
+    label: '{{ item.domain | default("?") }}'
+  no_log: '{{ haproxy_alb_nolog }}'
+  when: item.headers is defined
+
+- name: Assert auth rule header mappings have non-empty string keys and values
+  ansible.builtin.assert:
+    that:
+      - item.headers | dictsort | map(attribute=0) | select | list | length == item.headers | length
+      - item.headers | dictsort | map(attribute=1) | map('string') | select | list | length == item.headers | length
+    fail_msg: 'Auth rule {{ item.domain }}: headers mapping must have non-empty string keys and values'
+  loop: '{{ haproxy_alb_auth | default([]) }}'
+  loop_control:
+    label: '{{ item.domain | default("?") }}'
+  no_log: '{{ haproxy_alb_nolog }}'
+  when: item.headers is defined
+
+- name: Assert at least one route requires auth
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_auth | default([]) | length > 0
+    fail_msg: At least one auth rule must be defined

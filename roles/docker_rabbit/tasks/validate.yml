@@ -1,0 +1,10 @@
+---
+
+- name: Assert RabbitMQ required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_rabbit_default_user | string | length > 0
+      - docker_rabbit_default_pass is not none
+      - docker_rabbit_default_pass | string | length > 0
+    fail_msg: Define docker_rabbit_default_pass before running role docker_rabbit.
+  no_log: '{{ docker_rabbit_nolog }}'

@@ -1,0 +1,13 @@
+[Unit]
+Description=Promtail Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/promtail -config.file {{ promtail_config_path }}
+TimeoutSec=10
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

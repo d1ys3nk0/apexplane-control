@@ -1,0 +1,24 @@
+{% if haproxy_alb_crowdsec_enabled | bool %}
+backend crowdsec-spoa
+  mode tcp
+  timeout connect 2s
+  timeout server 60s
+  server localhost:{{ haproxy_alb_crowdsec_spoa_port }} 127.0.0.1:{{ haproxy_alb_crowdsec_spoa_port }}
+
+{% endif %}
+backend certbot
+  mode http
+  server localhost:{{ haproxy_alb_certbot_http_port }} 127.0.0.1:{{ haproxy_alb_certbot_http_port }} init-addr libc,none
+
+{% if haproxy_alb_default_target_host | default('', true) | string | length > 0 %}
+backend default
+  mode http
+  server default:{{ haproxy_alb_default_target_port }} {{ haproxy_alb_default_target_host }}:{{ haproxy_alb_default_target_port }} check inter 5s fall 2 rise 1
+{% elif haproxy_alb_default_target_group | default('', true) | string | length > 0 %}
+backend default
+  mode http
+  balance leastconn
+{% for slug, host in haproxy_alb_target_groups[haproxy_alb_default_target_group] | dictsort %}
+  server {{ slug }}:{{ haproxy_alb_default_target_port }} {{ host }}:{{ haproxy_alb_default_target_port }} check inter 5s fall 2 rise 1
+{% endfor %}
+{% endif %}

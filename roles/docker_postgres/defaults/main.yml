@@ -1,0 +1,47 @@
+---
+
+docker_postgres_image_name: postgres
+docker_postgres_image_tag: '18'
+docker_postgres_image_full: '{{ docker_postgres_image_name }}:{{ docker_postgres_image_tag }}'
+docker_postgres_walg_base_name: ''
+docker_postgres_walg_base_tag: ''
+docker_postgres_walg_base_image_full: '{{ docker_postgres_walg_base_name }}:{{ docker_postgres_walg_base_tag }}'
+docker_postgres_walg_image_name: '{{ docker_postgres_walg_base_name }}-walg'
+docker_postgres_walg_image_tag: '{{ docker_postgres_walg_base_tag }}'
+docker_postgres_walg_enabled: "{{ docker_postgres_walg_base_name | string | length > 0 and docker_postgres_walg_base_tag | string | length > 0 }}"
+docker_postgres_walg_image_full: '{{ docker_postgres_walg_image_name }}:{{ docker_postgres_walg_image_tag }}'
+docker_postgres_runtime_image_full: "{{ docker_postgres_walg_image_full if (docker_postgres_walg_enabled | bool) else docker_postgres_image_full }}"
+docker_postgres_binary_version: 3.0.7
+docker_postgres_connections: 100
+docker_postgres_container_name: postgres
+docker_postgres_data_volume: postgres-data
+docker_postgres_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+docker_postgres_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+docker_postgres_nolog: '{{ (docker_postgres_ci_mode | bool) and not (docker_postgres_debug_mode | bool) }}'
+docker_postgres_dr_action: none
+docker_postgres_dr_mode: false
+docker_postgres_max_wal_size: 8GB
+docker_postgres_mem_res: 1000M
+docker_postgres_mem_lim: 1500M
+docker_postgres_mem_swp: 2000M
+docker_postgres_min_wal_size: 2GB
+docker_postgres_pg_admin_pass: ~
+docker_postgres_pg_admin_user: ~
+docker_postgres_pg_fallback_host: ''
+docker_postgres_pg_fallback_port: 5432
+docker_postgres_pg_fallback_src: ''
+docker_postgres_pg_replicator_pass: ''
+docker_postgres_pg_replicator_user: ''
+docker_postgres_port: 5432
+docker_postgres_replica_restore: "{{ docker_postgres_dr_action == 'restore' }}"
+docker_postgres_mode: ~
+docker_postgres_utility_image_name: busybox
+docker_postgres_utility_image_tag: 1.37.0
+docker_postgres_utility_image_full: '{{ docker_postgres_utility_image_name }}:{{ docker_postgres_utility_image_tag }}'
+
+# S3 Backup Uploads
+docker_postgres_backup_s3_endpoint: ''
+docker_postgres_backup_s3_region: ''
+docker_postgres_backup_s3_access_key: ''
+docker_postgres_backup_s3_secret_key: ''
+docker_postgres_backup_s3_prefix: ''

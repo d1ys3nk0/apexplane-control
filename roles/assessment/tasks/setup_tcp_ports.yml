@@ -1,0 +1,12 @@
+---
+
+- name: Verify TCP ports are ready
+  ansible.builtin.wait_for:
+    host: "{{ item.host | default('127.0.0.1', true) }}"
+    port: '{{ item.port }}'
+    state: started
+    timeout: "{{ item.timeout | default(5, true) }}"
+  changed_when: false
+  loop: '{{ assessment_tcp_ports }}'
+  loop_control:
+    label: "{{ item.name | default(item.host | default('127.0.0.1', true) ~ ':' ~ (item.port | string), true) }}"

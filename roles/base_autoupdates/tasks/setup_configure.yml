@@ -1,0 +1,124 @@
+---
+
+- name: Install automatic update tooling
+  become: true
+  ansible.builtin.apt:
+    name:
+      - unattended-upgrades
+      - needrestart
+    state: present
+
+- name: Configure unattended upgrades periodic schedule
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: '0644'
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+      APT::Periodic::Download-Upgradeable-Packages "1";
+
+- name: Configure apt daily upgrade timer override directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/system/apt-daily-upgrade.timer.d
+    state: directory
+    mode: '0755'
+
+- name: Configure unattended upgrades maintenance window
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/apt-daily-upgrade.timer.d/override.conf
+    mode: '0644'
+    content: |
+      [Timer]
+      OnCalendar=
+      OnCalendar={{ base_autoupdates_maintenance_window }}
+      RandomizedDelaySec=300
+  register: base_autoupdates_apt_daily_upgrade_timer
+
+- name: Reload systemd after maintenance window change
+  become: true
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: base_autoupdates_apt_daily_upgrade_timer.changed
+
+- name: Restart apt daily upgrade timer after maintenance window change
+  become: true
+  ansible.builtin.service:
+    name: apt-daily-upgrade.timer
+    state: restarted
+  when:
+    - not ansible_check_mode
+    - base_autoupdates_apt_daily_upgrade_timer.changed
+
+- name: Verify apt daily upgrade timer is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - apt-daily-upgrade.timer
+  register: base_autoupdates_apt_daily_upgrade_restart_health
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - base_autoupdates_apt_daily_upgrade_timer.changed
+
+- name: Configure unattended upgrades policy
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/50unattended-upgrades
+    mode: '0644'
+    content: |
+      Unattended-Upgrade::Allowed-Origins {
+        "${distro_id}:${distro_codename}";
+        "${distro_id}:${distro_codename}-security";
+      };
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";
+      Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "{{ base_autoupdates_maintenance_window | regex_search('[0-9]{1,2}:[0-9]{2}') }}";
+
+- name: Configure needrestart to auto-restart services
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/needrestart/conf.d/90-auto-restart.conf
+    mode: '0644'
+    content: |
+      $nrconf{restart} = 'a';
+
+- name: Ensure unattended-upgrades service is enabled
+  become: true
+  ansible.builtin.service:
+    name: unattended-upgrades
+    enabled: true
+    state: started
+
+- name: Verify unattended-upgrades service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - unattended-upgrades
+  register: base_autoupdates_unattended_upgrades_service_health
+  changed_when: false
+
+- name: Ensure apt daily upgrade timer is enabled
+  become: true
+  ansible.builtin.service:
+    name: apt-daily-upgrade.timer
+    enabled: true
+    state: started
+
+- name: Verify apt daily upgrade timer is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - apt-daily-upgrade.timer
+  register: base_autoupdates_apt_daily_upgrade_service_health
+  changed_when: false

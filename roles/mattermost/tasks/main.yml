@@ -1,0 +1,46 @@
+---
+
+- name: Validate Mattermost variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Assert supported Mattermost host OS
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Ubuntu'
+      - ansible_distribution_release | lower in mattermost_supported_ubuntu_releases
+    fail_msg: Mattermost package deployment supports Ubuntu focal, jammy, and noble.
+
+- name: Assert required Mattermost vars are defined
+  ansible.builtin.assert:
+    that:
+      - mattermost_site_url is defined
+      - mattermost_listen_address is defined
+      - mattermost_pg_host is defined
+      - mattermost_pg_port is defined
+      - mattermost_pg_user is defined
+      - mattermost_pg_base is defined
+      - mattermost_s3_endpoint is defined
+      - mattermost_s3_region is defined
+      - mattermost_s3_bucket is defined
+      - mattermost_s3_ssl is defined
+      - mattermost_s3_path_prefix is defined
+      - mattermost_pg_pass is defined
+      - mattermost_s3_access_key is defined
+      - mattermost_s3_secret_key is defined
+      - mattermost_email_feedback_address | length > 0
+      - mattermost_email_reply_to_address | length > 0
+      - mattermost_smtp_host | length > 0
+      - mattermost_smtp_port | string | length > 0
+      - not mattermost_smtp_auth_enabled | bool or mattermost_smtp_user | length > 0
+      - not mattermost_smtp_auth_enabled | bool or mattermost_smtp_pass | length > 0
+    fail_msg: Define Mattermost PostgreSQL, S3, SMTP, and service settings.
+
+- name: Install Mattermost packages
+  ansible.builtin.include_tasks: setup_install.yml
+
+- name: Configure Mattermost PostgreSQL resources
+  ansible.builtin.include_tasks: setup_postgresql.yml
+  when: mattermost_pg_provision_enabled | bool
+
+- name: Configure Mattermost services
+  ansible.builtin.include_tasks: setup_config.yml

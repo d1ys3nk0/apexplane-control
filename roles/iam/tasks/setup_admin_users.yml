@@ -1,0 +1,75 @@
+---
+
+- name: Create a group for admins
+  become: true
+  ansible.builtin.group:
+    name: '{{ iam_admin_group }}'
+
+- name: Grant sudo access without password to the group
+  become: true
+  ansible.builtin.copy:
+    content: "%{{ iam_admin_group }} ALL=(ALL:ALL) NOPASSWD:ALL\n"
+    dest: '/etc/sudoers.d/{{ iam_admin_group }}'
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Create admin accounts
+  become: true
+  ansible.builtin.user:
+    name: '{{ item.name }}'
+    shell: /bin/bash
+    append: true
+    groups: "{{ ([iam_admin_group] + (item.groups | default([], true))) | unique | list }}"
+  loop: '{{ iam_admin_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Check admin ssh private keys
+  become: true
+  ansible.builtin.stat:
+    path: /home/{{ item.name }}/.ssh/id_rsa
+  register: iam_admin_ssh_private_keys
+  loop: '{{ iam_admin_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Generate missing admin ssh keys
+  become: true
+  ansible.builtin.user:
+    name: '{{ item.item.name }}'
+    generate_ssh_key: true
+    ssh_key_bits: 2048
+    ssh_key_file: .ssh/id_rsa
+    ssh_key_comment: '{{ item.item.name }}@{{ ansible_nodename }}'
+  loop: '{{ iam_admin_ssh_private_keys.results }}'
+  loop_control:
+    label: '{{ item.item.name }}'
+  when: not item.stat.exists
+
+- name: Add admin authorized ssh keys
+  become: true
+  ansible.posix.authorized_key:
+    user: '{{ item.0.name }}'
+    key: "{{ lookup('file', item.1) }}"
+    state: present
+  with_subelements:
+    - '{{ iam_admin_users }}'
+    - authorized_key_files
+    - skip_missing: true
+  loop_control:
+    label: '{{ item.0.name }}:{{ item.1 }}'
+
+- name: Apply admin .bashrc
+  become: true
+  ansible.builtin.copy:
+    remote_src: true
+    src: /etc/skel/.bashrc
+    dest: /home/{{ item.name }}/.bashrc
+    mode: '0644'
+    owner: '{{ item.name }}'
+    group: '{{ item.name }}'
+  loop: '{{ iam_admin_users }}'
+  loop_control:
+    label: '{{ item.name }}'

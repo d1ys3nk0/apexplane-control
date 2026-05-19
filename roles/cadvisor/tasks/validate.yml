@@ -1,0 +1,16 @@
+---
+
+- name: Assert cadvisor required variables are set
+  ansible.builtin.assert:
+    that:
+      - cadvisor_version is not none
+      - cadvisor_version | string | length > 0
+      - cadvisor_download_base_url | string | length > 0
+      - cadvisor_binary_path | string | length > 0
+      - cadvisor_binary_install_dir | string | length > 0
+      - cadvisor_listen_ip | string | length > 0
+      - cadvisor_port | string | length > 0
+      - cadvisor_prometheus_endpoint | string | length > 0
+      - cadvisor_system_group | string | length > 0
+      - cadvisor_system_user | string | length > 0
+    fail_msg: Define required cadvisor_* variables before running role cadvisor.

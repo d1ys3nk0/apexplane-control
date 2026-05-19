@@ -1,0 +1,39 @@
+---
+
+docker_elastic_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+docker_elastic_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+docker_elastic_nolog: '{{ (docker_elastic_ci_mode | bool) and not (docker_elastic_debug_mode | bool) }}'
+docker_elastic_mode: single
+
+docker_elastic_env_common: &docker_elastic_env_common
+  node.name: '{{ inventory_hostname }}'
+  network.host: 0.0.0.0
+  # bootstrap.memory_lock: "true"
+  xpack.license.self_generated.type: basic
+  xpack.security.enabled: 'false'
+  xpack.security.http.ssl.enabled: 'false'
+  ELASTIC_PASSWORD: '{{ docker_elastic_admin_pass }}'
+
+docker_elastic_env_cluster_mode:
+  <<: *docker_elastic_env_common
+  node.master: "{{ (inventory_hostname == groups[docker_elastic_cluster_nodes_group][0]) | ternary('true', 'false') }}"
+  node.data: 'true'
+  discovery.seed_hosts: "{{ groups[docker_elastic_cluster_nodes_group] | map('extract', hostvars, 'ansible_default_ipv4') | map(attribute='address') | join(',') }}"
+  cluster.name: '{{ docker_elastic_cluster_name }}'
+  cluster.initial_master_nodes: '{{ groups[docker_elastic_cluster_nodes_group][0] }}'
+
+docker_elastic_env_single_mode:
+  <<: *docker_elastic_env_common
+  discovery.type: single-node
+
+docker_elastic_admin_pass: ''
+docker_elastic_cluster_nodes_group: ''
+docker_elastic_cluster_name: elastic
+docker_elastic_extra_instances: []
+docker_elastic_image_name: elasticsearch
+docker_elastic_image_tag: 7.17.3
+docker_elastic_image_full: '{{ docker_elastic_image_name }}:{{ docker_elastic_image_tag }}'
+docker_elastic_data_volume: elastic-data
+docker_elastic_mem_res: 1000M
+docker_elastic_mem_lim: 1500M
+docker_elastic_mem_swp: 2000M

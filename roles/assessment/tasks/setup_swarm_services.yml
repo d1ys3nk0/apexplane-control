@@ -1,0 +1,29 @@
+---
+
+- name: Inspect Docker Swarm services
+  become: true
+  community.docker.docker_swarm_service_info:
+    name: '{{ item }}'
+  register: assessment_swarm_service_info
+  failed_when: not assessment_swarm_service_info.exists
+  changed_when: false
+  loop: '{{ assessment_swarm_services }}'
+
+- name: Verify Docker Swarm services have running tasks
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - ps
+      - --filter
+      - desired-state=running
+      - --format
+      - "{% raw %}{{.CurrentState}}{% endraw %}"
+      - '{{ item }}'
+  register: assessment_swarm_service_tasks
+  changed_when: false
+  failed_when: >-
+    assessment_swarm_service_tasks.rc != 0
+    or (assessment_swarm_service_tasks.stdout_lines | select('match', '^Running') | list | length) == 0
+  loop: '{{ assessment_swarm_services }}'

@@ -1,0 +1,32 @@
+---
+
+- name: Validate required Docker PostgreSQL variables
+  ansible.builtin.assert:
+    that:
+      - docker_postgres_pg_admin_pass is not none
+      - docker_postgres_pg_admin_pass | string | length > 0
+      - docker_postgres_pg_admin_user is not none
+      - docker_postgres_pg_admin_user | string | length > 0
+      - docker_postgres_mode is not none
+      - docker_postgres_mode | string | length > 0
+      - docker_postgres_mode in ['leader', 'follower']
+      - docker_postgres_image_name | string | length > 0
+      - docker_postgres_image_tag | string | length > 0
+
+- name: Validate Docker PostgreSQL image mode
+  ansible.builtin.assert:
+    that:
+      - >
+        (docker_postgres_walg_base_name | string | length == 0
+        and docker_postgres_walg_base_tag | string | length == 0)
+        or
+        (docker_postgres_walg_base_name | string | length > 0
+        and docker_postgres_walg_base_tag | string | length > 0)
+      - >
+        docker_postgres_walg_enabled | bool == (
+        docker_postgres_walg_base_name | string | length > 0
+        and docker_postgres_walg_base_tag | string | length > 0)
+    fail_msg: >-
+      Set both docker_postgres_walg_base_name and docker_postgres_walg_base_tag
+      to build a WAL-G image, or set neither and use docker_postgres_image_name /
+      docker_postgres_image_tag directly.

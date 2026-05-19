@@ -1,0 +1,122 @@
+---
+
+- name: Create temporary Mattermost config overrides file
+  become: true
+  ansible.builtin.tempfile:
+    state: file
+    suffix: mattermost-config-overrides.json
+  register: mattermost_config_overrides_temp
+  changed_when: false
+  check_mode: false
+
+- name: Create temporary merged Mattermost config file
+  become: true
+  ansible.builtin.tempfile:
+    state: file
+    suffix: mattermost-config-merged.json
+  register: mattermost_config_merged_temp
+  changed_when: false
+  check_mode: false
+
+- name: Render Mattermost config overrides
+  become: true
+  ansible.builtin.copy:
+    content: "{{ mattermost_config_overrides | to_nice_json }}\n"
+    dest: '{{ mattermost_config_overrides_temp.path }}'
+    mode: '0600'
+    validate: python3 -m json.tool %s
+  changed_when: false
+  check_mode: false
+  no_log: '{{ mattermost_nolog }}'
+
+- name: Merge Mattermost config overrides into current config
+  become: true
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import json
+        import sys
+
+        current_path, overrides_path, merged_path = sys.argv[1:4]
+
+        with open(current_path, encoding="utf-8") as current_file:
+            current = json.load(current_file)
+
+        with open(overrides_path, encoding="utf-8") as overrides_file:
+            overrides = json.load(overrides_file)
+
+        def merge(current_value, override_value, path):
+            if isinstance(override_value, dict):
+                if not isinstance(current_value, dict):
+                    raise TypeError(f"{path} must be an object in the current Mattermost config")
+
+                for key, override_child in override_value.items():
+                    if key in current_value:
+                        current_value[key] = merge(current_value[key], override_child, f"{path}.{key}")
+                    else:
+                        raise KeyError(f"{path}.{key} is missing from the current Mattermost config")
+
+                return current_value
+
+            if isinstance(current_value, bool) and isinstance(override_value, str):
+                normalized_override = override_value.lower()
+                if normalized_override in {"true", "yes", "1"}:
+                    return True
+                if normalized_override in {"false", "no", "0"}:
+                    return False
+
+            if isinstance(current_value, int) and not isinstance(current_value, bool):
+                return int(override_value)
+
+            if isinstance(current_value, float):
+                return float(override_value)
+
+            return override_value
+
+        merged = merge(current, overrides, "$")
+
+        with open(merged_path, "w", encoding="utf-8") as merged_file:
+            json.dump(merged, merged_file, indent=4, ensure_ascii=False)
+            merged_file.write("\n")
+      - '{{ mattermost_config_path }}'
+      - '{{ mattermost_config_overrides_temp.path }}'
+      - '{{ mattermost_config_merged_temp.path }}'
+  changed_when: false
+  check_mode: false
+  no_log: '{{ mattermost_nolog }}'
+
+- name: Install Mattermost config
+  become: true
+  ansible.builtin.copy:
+    src: '{{ mattermost_config_merged_temp.path }}'
+    dest: '{{ mattermost_config_path }}'
+    remote_src: true
+    mode: '0600'
+    owner: mattermost
+    group: mattermost
+    validate: python3 -m json.tool %s
+    backup: true
+  notify: Restart Mattermost
+  no_log: '{{ mattermost_nolog }}'
+
+- name: Mattermost service is started and enabled
+  become: true
+  ansible.builtin.systemd:
+    name: mattermost
+    state: started
+    enabled: true
+    daemon_reload: true
+  when: not ansible_check_mode or not (mattermost_package.changed | default(true))
+
+- name: Verify Mattermost service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - mattermost
+  register: mattermost_service_health
+  changed_when: false
+  when: not ansible_check_mode or not (mattermost_package.changed | default(true))

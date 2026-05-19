@@ -1,0 +1,13 @@
+---
+
+- name: Generate locale
+  become: true
+  community.general.locale_gen:
+    name: en_US.UTF-8
+    state: present
+  register: base_bootstrap_locale_gen
+
+- name: Set locale
+  become: true
+  ansible.builtin.command: update-locale LANG=en_US.UTF-8
+  when: base_bootstrap_locale_gen.changed

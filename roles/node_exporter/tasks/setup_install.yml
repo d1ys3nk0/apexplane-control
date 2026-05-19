@@ -1,0 +1,64 @@
+---
+
+- name: Create node_exporter group
+  become: true
+  ansible.builtin.group:
+    name: '{{ node_exporter_system_group }}'
+    system: true
+    state: present
+
+- name: Create node_exporter user
+  become: true
+  ansible.builtin.user:
+    name: '{{ node_exporter_system_user }}'
+    group: '{{ node_exporter_system_group }}'
+    system: true
+    create_home: false
+    shell: /usr/sbin/nologin
+    state: present
+
+- name: Download node_exporter archive
+  become: true
+  ansible.builtin.get_url:
+    url: '{{ node_exporter_download_base_url }}/v{{ node_exporter_version }}/{{ node_exporter_archive_name }}.tar.gz'
+    dest: '{{ node_exporter_archive_path }}'
+    checksum: "{{ node_exporter_archive_checksum if node_exporter_archive_checksum | string | length > 0 else omit }}"
+    mode: '0644'
+  register: node_exporter_download_archive
+
+- name: Remove stale node_exporter extraction path
+  become: true
+  ansible.builtin.file:
+    path: '{{ node_exporter_extract_path }}'
+    state: absent
+  when: node_exporter_download_archive.changed
+
+- name: Create node_exporter extraction path
+  become: true
+  ansible.builtin.file:
+    path: '{{ node_exporter_extract_path }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Extract node_exporter archive
+  become: true
+  ansible.builtin.unarchive:
+    src: '{{ node_exporter_archive_path }}'
+    dest: '{{ node_exporter_extract_path }}'
+    remote_src: true
+    extra_opts:
+      - --strip-components=1
+    creates: '{{ node_exporter_extract_path }}/node_exporter'
+
+- name: Install node_exporter binary
+  become: true
+  ansible.builtin.copy:
+    src: '{{ node_exporter_extract_path }}/node_exporter'
+    dest: '{{ node_exporter_binary_install_dir }}/node_exporter'
+    owner: root
+    group: root
+    mode: '0755'
+    remote_src: true
+  register: node_exporter_install_binary

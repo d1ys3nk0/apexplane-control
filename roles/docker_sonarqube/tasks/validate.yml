@@ -1,0 +1,11 @@
+---
+
+- name: Assert SonarQube required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_sonarqube_postgres_user | string | length > 0
+      - docker_sonarqube_postgres_pass is not none
+      - docker_sonarqube_postgres_pass | string | length > 0
+      - docker_sonarqube_postgres_database | string | length > 0
+    fail_msg: Define docker_sonarqube_postgres_pass before running role docker_sonarqube.
+  no_log: '{{ docker_sonarqube_nolog }}'

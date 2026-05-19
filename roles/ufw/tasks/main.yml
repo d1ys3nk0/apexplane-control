@@ -1,0 +1,72 @@
+---
+
+- name: Validate UFW variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Validate UFW port lists are defined
+  ansible.builtin.assert:
+    that:
+      - ufw_public_ports is defined
+      - ufw_private_ports is defined
+      - ufw_public_ports is iterable
+      - ufw_private_ports is iterable
+    fail_msg: Define ufw_public_ports and ufw_private_ports before running role ufw.
+
+- name: Validate UFW port rule format
+  ansible.builtin.assert:
+    that:
+      - item.port is defined
+      - item.proto | default('all') in ['tcp', 'udp', 'all']
+      - item.tcp is not defined
+      - item.udp is not defined
+    fail_msg: UFW port rules must use port with optional proto tcp, udp, or all; old tcp/udp keys are not supported.
+  loop: '{{ ufw_public_ports + ufw_private_ports }}'
+
+- name: Gather service facts
+  become: true
+  ansible.builtin.service_facts:
+
+- name: Set default forward policy to ACCEPT
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/default/ufw
+    regexp: ^DEFAULT_FORWARD_POLICY=
+    line: DEFAULT_FORWARD_POLICY="REJECT"
+
+- name: Generate user IPv4 rules
+  become: true
+  ansible.builtin.template:
+    src: user.rules.j2
+    dest: /etc/ufw/user.rules
+    mode: '0644'
+    backup: true
+  register: ufw_user_rules_update
+
+- name: Generate empty IPv6 rules
+  become: true
+  ansible.builtin.copy:
+    src: user6.rules
+    dest: /etc/ufw/user6.rules
+    mode: '0644'
+    backup: true
+  register: ufw_user6_rules_update
+
+- name: Install after rules
+  become: true
+  ansible.builtin.template:
+    src: after.rules.j2
+    mode: '0644'
+    dest: /etc/ufw/after.rules
+    backup: true
+  register: ufw_after_rules_update
+
+- name: Enable UFW
+  become: true
+  community.general.ufw:
+    state: enabled
+
+- name: Reload UFW
+  become: true
+  community.general.ufw:
+    state: reloaded
+  when: ufw_user_rules_update.changed or ufw_user6_rules_update.changed or ufw_after_rules_update.changed

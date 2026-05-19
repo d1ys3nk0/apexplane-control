@@ -1,0 +1,93 @@
+---
+
+- name: Validate Docker Swarm Zitadel inputs
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Deploy Zitadel swarm service from Docker Swarm manager
+  become: true
+  run_once: true
+  when: docker_swarm_zitadel_enabled | bool
+  block:
+    - name: Configure Zitadel PostgreSQL resources
+      ansible.builtin.include_tasks: setup_postgresql.yml
+      when: docker_swarm_zitadel_pg_provision_enabled | bool
+
+    - name: Ensure Zitadel swarm service is started
+      community.docker.docker_swarm_service:
+        name: '{{ docker_swarm_zitadel_service_name }}'
+        hostname: '{{ docker_swarm_zitadel_service_name }}.{{ inventory_hostname }}'
+        image: '{{ docker_swarm_zitadel_image_full }}'
+        args:
+          - start
+          - --masterkey
+          - '{{ docker_swarm_zitadel_masterkey }}'
+          - --tlsMode
+          - external
+        env:
+          ZITADEL_LOG_LEVEL: info
+          ZITADEL_LOGSTORE_ACCESS_STDOUT_ENABLED: 'true'
+          ZITADEL_TLS_ENABLED: 'false'
+          ZITADEL_EXTERNALDOMAIN: '{{ docker_swarm_zitadel_domain }}'
+          ZITADEL_EXTERNALPORT: '443'
+          ZITADEL_EXTERNALSECURE: 'true'
+          ZITADEL_DATABASE_POSTGRES_HOST: '{{ docker_swarm_zitadel_pg_host }}'
+          ZITADEL_DATABASE_POSTGRES_PORT: '{{ docker_swarm_zitadel_pg_port | string }}'
+          ZITADEL_DATABASE_POSTGRES_DATABASE: '{{ docker_swarm_zitadel_pg_base }}'
+          ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: '{{ docker_swarm_zitadel_pg_ssl }}'
+          ZITADEL_DATABASE_POSTGRES_USER_USERNAME: '{{ docker_swarm_zitadel_pg_user }}'
+          ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: '{{ docker_swarm_zitadel_pg_pass }}'
+          ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: '{{ docker_swarm_zitadel_pg_ssl }}'
+          ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: '{{ docker_swarm_zitadel_pg_user }}'
+          ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: '{{ docker_swarm_zitadel_pg_pass }}'
+          ZITADEL_DATABASE_POSTGRES_ADMIN_EXISTINGDATABASE: '{{ docker_swarm_zitadel_pg_base }}'
+          ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: 'false'
+        healthcheck:
+          test: [CMD, /app/zitadel, ready]
+          timeout: 10s
+          interval: 10s
+          start_period: 30s
+          retries: 3
+        publish:
+          - target_port: '{{ docker_swarm_zitadel_http_listen_port }}'
+            published_port: '{{ docker_swarm_zitadel_http_public_port }}'
+            protocol: tcp
+            mode: ingress
+        mode: replicated
+        replicas: 1
+        endpoint_mode: vip
+        restart_config:
+          condition: any
+        reservations:
+          cpus: 0.1
+          memory: '{{ docker_swarm_zitadel_mem_res }}'
+        limits:
+          cpus: 0.5
+          memory: '{{ docker_swarm_zitadel_mem_lim }}'
+      no_log: '{{ docker_swarm_zitadel_nolog }}'
+      when: not ansible_check_mode
+
+    - name: Verify Zitadel swarm service has a running task
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ps
+          - --filter
+          - desired-state=running
+          - --format
+          - "{% raw %}{{.CurrentState}}{% endraw %}"
+          - '{{ docker_swarm_zitadel_service_name }}'
+      register: docker_swarm_zitadel_service_tasks
+      until: docker_swarm_zitadel_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
+      retries: 60
+      delay: 5
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Wait for Zitadel port to be ready
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: '{{ docker_swarm_zitadel_http_public_port }}'
+        delay: 1
+        timeout: 30
+      when: not ansible_check_mode

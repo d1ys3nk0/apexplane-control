@@ -1,0 +1,64 @@
+---
+
+- name: Validate GitLab runner variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Ensure GitLab runner config directory exists
+  become: true
+  ansible.builtin.file:
+    path: '{{ docker_gitlab_runner_config_dir }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Write GitLab runner config
+  become: true
+  ansible.builtin.template:
+    src: config.toml.j2
+    dest: '{{ docker_gitlab_runner_config_path }}'
+    owner: root
+    group: root
+    mode: '0600'
+  register: docker_gitlab_runner_config
+  no_log: '{{ docker_gitlab_runner_nolog }}'
+
+- name: Start GitLab runner container
+  become: true
+  community.docker.docker_container:
+    name: '{{ docker_gitlab_runner_container_name }}'
+    hostname: gitlab-runner.{{ inventory_hostname }}
+    image: '{{ docker_gitlab_runner_image_full }}'
+    pull: always
+    restart_policy: always
+    restart: '{{ docker_gitlab_runner_config.changed }}'
+    state: started
+    memory_reservation: '{{ docker_gitlab_runner_mem_res }}'
+    memory: '{{ docker_gitlab_runner_mem_lim }}'
+    memory_swap: '{{ docker_gitlab_runner_mem_swp }}'
+    volumes:
+      - '{{ docker_gitlab_runner_config_dir }}:/etc/gitlab-runner'
+      - /var/run/docker.sock:/var/run/docker.sock
+
+- name: Verify GitLab runner container is running
+  become: true
+  community.docker.docker_container_info:
+    name: '{{ docker_gitlab_runner_container_name }}'
+  register: docker_gitlab_runner_container_info
+  until:
+    - docker_gitlab_runner_container_info.exists
+    - docker_gitlab_runner_container_info.container.State.Running | bool
+  retries: 20
+  delay: 3
+  when: not ansible_check_mode
+
+- name: Verify GitLab runner
+  become: true
+  community.docker.docker_container_exec:
+    container: '{{ docker_gitlab_runner_container_name }}'
+    argv:
+      - gitlab-runner
+      - verify
+      - --delete
+  changed_when: false
+  when: not ansible_check_mode

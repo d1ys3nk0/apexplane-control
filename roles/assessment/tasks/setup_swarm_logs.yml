@@ -1,0 +1,31 @@
+---
+
+- name: Gather recent Docker Swarm service logs
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - logs
+      - --raw
+      - --since
+      - '{{ assessment_log_since_docker }}'
+      - '{{ item }}'
+  register: assessment_swarm_log_result
+  failed_when: assessment_swarm_log_result.rc != 0
+  changed_when: false
+  loop: '{{ assessment_swarm_log_services }}'
+
+- name: Assert recent Docker Swarm service logs contain no error patterns
+  ansible.builtin.assert:
+    that:
+      - _assessment_log_matches | length == 0
+    fail_msg: |-
+      Recent Docker Swarm logs for {{ item.item }} contain error patterns:
+      {{ (_assessment_log_matches[: assessment_log_match_limit | int]) | join('\n') }}
+  vars:
+    _assessment_log_lines: '{{ item.stdout_lines + item.stderr_lines }}'
+    _assessment_log_matches: "{{ _assessment_log_lines | select('search', assessment_log_error_regex) | reject('search', assessment_log_ignore_regex) | list }}"
+  loop: '{{ assessment_swarm_log_result.results | default([]) }}'
+  loop_control:
+    label: '{{ item.item }}'

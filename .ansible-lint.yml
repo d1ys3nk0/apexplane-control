@@ -1,0 +1,18 @@
+---
+
+profile: production
+offline: true
+
+exclude_paths:
+  - '**/_vault.yml'
+  - '**/*.vault.yml'
+
+skip_list:
+  - yaml
+  - no-handler
+  - no-changed-when
+
+extra_vars:
+  cluster_name: app
+  cluster_realm: lab
+  target_hosts: all

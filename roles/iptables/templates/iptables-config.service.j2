@@ -1,0 +1,15 @@
+[Unit]
+Description=Firewall Configuration
+{% if iptables_docker_enabled | bool %}
+Requires=docker.service
+{% endif %}
+After=network.target{% if iptables_docker_enabled | bool %} docker.service{% endif +%}
+
+[Service]
+Type=oneshot
+ExecStart=/opt/iptables/iptables-config start
+ExecStop=/opt/iptables/iptables-config stop
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

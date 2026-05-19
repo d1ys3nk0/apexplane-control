@@ -1,0 +1,139 @@
+---
+
+- name: Validate Prometheus variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Create mount directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/prometheus
+
+- name: Update config
+  become: true
+  ansible.builtin.template:
+    src: '{{ docker_prometheus_config_template }}'
+    dest: /opt/prometheus/prometheus.yml
+    mode: '0644'
+  register: docker_prometheus_update_config
+  when: docker_prometheus_config_content | string | length == 0
+
+- name: Update config from content
+  become: true
+  ansible.builtin.copy:
+    content: '{{ docker_prometheus_config_content }}'
+    dest: /opt/prometheus/prometheus.yml
+    mode: '0644'
+  register: docker_prometheus_update_config_content
+  when: docker_prometheus_config_content | string | length > 0
+
+- name: Update rules
+  become: true
+  ansible.builtin.template:
+    src: '{{ docker_prometheus_rules_template }}'
+    dest: /opt/prometheus/alerts.yml
+    mode: '0644'
+  register: docker_prometheus_update_rules
+  when: docker_prometheus_rules_content | string | length == 0
+
+- name: Update rules from content
+  become: true
+  ansible.builtin.copy:
+    content: '{{ docker_prometheus_rules_content }}'
+    dest: /opt/prometheus/alerts.yml
+    mode: '0644'
+  register: docker_prometheus_update_rules_content
+  when: docker_prometheus_rules_content | string | length > 0
+
+- name: Create docker volumes
+  community.docker.docker_volume:
+    name: prometheus-data
+
+- name: Check config
+  become: true
+  community.docker.docker_container:
+    name: prometheus-config-check
+    hostname: prometheus-config-check.{{ inventory_hostname }}
+    image: '{{ docker_prometheus_promtool_image_full }}'
+    command: check config /etc/prometheus/prometheus.yml
+    volumes:
+      - /opt/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /opt/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    detach: false
+    cleanup: true
+  changed_when: false
+
+- name: Check rules
+  become: true
+  community.docker.docker_container:
+    name: prometheus-config-check
+    hostname: prometheus-config-check.{{ inventory_hostname }}
+    image: '{{ docker_prometheus_promtool_image_full }}'
+    command: check rules /etc/prometheus/alerts.yml
+    volumes:
+      - /opt/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /opt/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    detach: false
+    cleanup: true
+  changed_when: false
+
+- name: Start prometheus container
+  community.docker.docker_container:
+    hostname: prometheus.{{ inventory_hostname }}
+    name: prometheus
+    image: '{{ docker_prometheus_image_full }}'
+    command: >-
+      {{
+        [
+          '--config.file=/etc/prometheus/prometheus.yml',
+          '--storage.tsdb.path=/prometheus',
+          '--web.console.libraries=/etc/prometheus/console_libraries',
+          '--web.console.templates=/etc/prometheus/consoles',
+          '--web.enable-lifecycle',
+        ]
+        + (['--web.external-url=' ~ docker_prometheus_web_external_url] if docker_prometheus_web_external_url | string | length > 0 else [])
+        + docker_prometheus_extra_args
+      }}
+    env:
+      BLACKBOX_EXPORTER_URL: http://127.0.0.1:9115/probe
+    restart: >-
+      {{
+        docker_prometheus_update_config.changed | default(false)
+        or docker_prometheus_update_config_content.changed | default(false)
+        or docker_prometheus_update_rules.changed | default(false)
+        or docker_prometheus_update_rules_content.changed | default(false)
+      }}
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_prometheus_mem_res }}'
+    memory: '{{ docker_prometheus_mem_lim }}'
+    memory_swap: '{{ docker_prometheus_mem_swp }}'
+    network_mode: host
+    volumes:
+      - /opt/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /opt/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+
+- name: Configure blackbox exporter
+  ansible.builtin.include_tasks: setup_blackbox.yml
+
+- name: Verify prometheus container is running
+  community.docker.docker_container_info:
+    name: prometheus
+  register: docker_prometheus_container_info
+  until:
+    - docker_prometheus_container_info.exists
+    - docker_prometheus_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for prometheus to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_prometheus_http_port }}'
+    delay: 1
+    timeout: 10
+  when: not ansible_check_mode

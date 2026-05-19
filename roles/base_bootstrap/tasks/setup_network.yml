@@ -1,0 +1,66 @@
+---
+
+- name: Read eth0 MTU from netplan
+  become: true
+  ansible.builtin.command: netplan get ethernets.eth0.mtu
+  register: base_bootstrap_netplan_mtu_current
+  changed_when: false
+  failed_when: false
+  when: base_bootstrap_mtu | string | trim | length > 0
+
+- name: Set MTU for eth0 interface
+  become: true
+  ansible.builtin.command: 'netplan set ethernets.eth0.mtu={{ base_bootstrap_mtu }}'
+  register: base_bootstrap_netplan_mtu_config
+  changed_when: true
+  when:
+    - base_bootstrap_mtu | string | trim | length > 0
+    - base_bootstrap_netplan_mtu_current.stdout | default('') | string | trim != base_bootstrap_mtu | string | trim
+
+- name: Read eth0 DNS resolver from netplan
+  become: true
+  ansible.builtin.command: netplan get ethernets.eth0.nameservers.addresses
+  register: base_bootstrap_netplan_dns_current
+  changed_when: false
+  failed_when: false
+  when: base_bootstrap_dns_resolver | string | trim | length > 0
+
+- name: Check that configured DNS resolver is reachable
+  ansible.builtin.wait_for:
+    host: '{{ base_bootstrap_dns_resolver }}'
+    port: 53
+    timeout: 5
+    connect_timeout: 5
+  when: base_bootstrap_dns_resolver | string | trim | length > 0
+
+- name: Probe configured domains using configured DNS resolver before applying it locally
+  ansible.builtin.command: resolvectl query --legend=no --type=A --server={{ base_bootstrap_dns_resolver }} {{ item.domain }}
+  loop: '{{ base_bootstrap_dns_resolver_checks }}'
+  register: base_bootstrap_resolvectl_custom_dns_probe
+  failed_when: (item.ip | string) not in base_bootstrap_resolvectl_custom_dns_probe.stdout
+  changed_when: false
+  when: base_bootstrap_dns_resolver | string | trim | length > 0
+
+- name: Set DNS resolver for eth0 interface
+  become: true
+  ansible.builtin.command: netplan set ethernets.eth0.nameservers.addresses=[{{ base_bootstrap_dns_resolver }}]
+  register: base_bootstrap_netplan_dns_config
+  changed_when: true
+  when:
+    - base_bootstrap_dns_resolver | string | trim | length > 0
+    - (base_bootstrap_dns_resolver | string | trim) not in (base_bootstrap_netplan_dns_current.stdout | default(''))
+
+- name: Apply netplan
+  become: true
+  ansible.builtin.command: netplan apply
+  changed_when: true
+  when: >
+    base_bootstrap_netplan_mtu_config.changed | default(false)
+    or base_bootstrap_netplan_dns_config.changed | default(false)
+
+- name: Check configured domains using local DNS resolution
+  ansible.builtin.command: resolvectl query --legend=no --type=A {{ item.domain }}
+  loop: '{{ base_bootstrap_dns_resolver_checks }}'
+  register: base_bootstrap_resolvectl_local_dns
+  failed_when: (item.ip | string) not in base_bootstrap_resolvectl_local_dns.stdout
+  changed_when: false

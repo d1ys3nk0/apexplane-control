@@ -1,0 +1,32 @@
+---
+
+- name: Assert Docker Swarm Zitadel enabled flag is valid
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_zitadel_enabled is boolean
+    fail_msg: docker_swarm_zitadel_enabled must be boolean.
+
+- name: Assert Docker Swarm Zitadel required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_zitadel_service_name | string | length > 0
+      - docker_swarm_zitadel_domain is not none
+      - docker_swarm_zitadel_domain | string | length > 0
+      - docker_swarm_zitadel_http_listen_port | int > 0
+      - docker_swarm_zitadel_http_public_port | int > 0
+      - docker_swarm_zitadel_image_full | string | length > 0
+      - docker_swarm_zitadel_masterkey is not none
+      - docker_swarm_zitadel_masterkey | string | length > 0
+      - docker_swarm_zitadel_pg_base is not none
+      - docker_swarm_zitadel_pg_base | string | length > 0
+      - docker_swarm_zitadel_pg_host is not none
+      - docker_swarm_zitadel_pg_host | string | length > 0
+      - docker_swarm_zitadel_pg_pass is not none
+      - docker_swarm_zitadel_pg_pass | string | length > 0
+      - docker_swarm_zitadel_pg_port | int > 0
+      - docker_swarm_zitadel_pg_ssl | string | length > 0
+      - docker_swarm_zitadel_pg_user is not none
+      - docker_swarm_zitadel_pg_user | string | length > 0
+    fail_msg: Define Docker Swarm Zitadel service, domain, master key, and PostgreSQL variables.
+  no_log: '{{ docker_swarm_zitadel_nolog }}'
+  when: docker_swarm_zitadel_enabled | bool

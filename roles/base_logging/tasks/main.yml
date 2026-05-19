@@ -1,0 +1,98 @@
+---
+
+- name: Configure systemd journald SystemMaxUse
+  become: true
+  ansible.builtin.replace:
+    path: /etc/systemd/journald.conf
+    regexp: ^#?SystemMaxUse=.*$
+    replace: SystemMaxUse={{ base_logging_journald_system_max_use }}
+    backup: true
+  register: base_logging_journald_config_update
+
+- name: Restart systemd-journald
+  become: true
+  ansible.builtin.service:
+    name: systemd-journald
+    state: restarted
+  when: not ansible_check_mode and base_logging_journald_config_update.changed
+
+- name: Verify systemd-journald service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - systemd-journald
+  register: base_logging_journald_service_health
+  changed_when: false
+  when: not ansible_check_mode and base_logging_journald_config_update.changed
+
+- name: Install rsyslog
+  become: true
+  ansible.builtin.apt:
+    name: rsyslog
+    state: present
+  when: base_logging_rsyslog_enabled | bool
+
+- name: Detect existing rsyslog imudp module load
+  become: true
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -E
+      - '^[[:space:]]*(module[[:space:]]*\([[:space:]]*[l]oad="imudp"|\$ModLoad[[:space:]]+imudp)([[:space:])]|$)'
+      - /etc/rsyslog.conf
+  register: base_logging_rsyslog_imudp_module_probe
+  changed_when: false
+  failed_when: false
+  when:
+    - base_logging_rsyslog_enabled | bool
+    - base_logging_rsyslog_udp_enabled | bool
+
+- name: Remember existing rsyslog imudp module load
+  ansible.builtin.set_fact:
+    base_logging_rsyslog_imudp_module_loaded: '{{ base_logging_rsyslog_imudp_module_probe.rc == 0 }}'
+  when:
+    - base_logging_rsyslog_enabled | bool
+    - base_logging_rsyslog_udp_enabled | bool
+
+- name: Deploy base rsyslog UDP configuration
+  become: true
+  ansible.builtin.template:
+    src: rsyslog/base-logging-udp.conf.j2
+    dest: /etc/rsyslog.d/20-base-logging-udp.conf
+    mode: '0644'
+    owner: root
+    group: root
+  when: base_logging_rsyslog_enabled | bool
+  notify: Restart rsyslog
+
+- name: Verify rsyslog configuration
+  become: true
+  ansible.builtin.command:
+    cmd: rsyslogd -N1
+  changed_when: false
+  when: base_logging_rsyslog_enabled | bool
+
+- name: Ensure rsyslog is enabled and running
+  become: true
+  ansible.builtin.systemd:
+    name: rsyslog
+    enabled: true
+    state: started
+  when: base_logging_rsyslog_enabled | bool
+
+- name: Verify rsyslog service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - rsyslog
+  register: base_logging_rsyslog_service_health
+  changed_when: false
+  when: base_logging_rsyslog_enabled | bool
+
+- name: Apply rsyslog handler before dependent roles
+  ansible.builtin.meta: flush_handlers
+  when: base_logging_rsyslog_enabled | bool

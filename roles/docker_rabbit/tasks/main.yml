@@ -1,0 +1,49 @@
+---
+
+- name: Validate RabbitMQ variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Create docker volumes
+  community.docker.docker_volume:
+    name: '{{ docker_rabbit_data_volume }}'
+
+- name: Start rabbit container
+  community.docker.docker_container:
+    name: rabbit
+    hostname: rabbit.{{ inventory_hostname }}
+    image: '{{ docker_rabbit_image_full }}'
+    env:
+      RABBITMQ_DEFAULT_USER: '{{ docker_rabbit_default_user }}'
+      RABBITMQ_DEFAULT_PASS: '{{ docker_rabbit_default_pass }}'
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_rabbit_mem_res }}'
+    memory: '{{ docker_rabbit_mem_lim }}'
+    memory_swap: '{{ docker_rabbit_mem_swp }}'
+    network_mode: host
+    volumes:
+      - '{{ docker_rabbit_data_volume }}:/var/lib/rabbitmq'
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, ping]
+      timeout: 2s
+      interval: 10s
+      start_period: 5s
+  no_log: '{{ docker_rabbit_nolog }}'
+
+- name: Verify rabbit container is running
+  community.docker.docker_container_info:
+    name: rabbit
+  register: docker_rabbit_container_info
+  until:
+    - docker_rabbit_container_info.exists
+    - docker_rabbit_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for rabbit AMQP port to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 5672
+    delay: 1
+    timeout: 30
+  when: not ansible_check_mode

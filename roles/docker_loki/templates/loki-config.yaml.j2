@@ -1,0 +1,57 @@
+auth_enabled: false
+
+server:
+  log_level: warn
+  grpc_listen_port: {{ docker_loki_grpc_listen_port }}
+  http_listen_port: {{ docker_loki_http_listen_port }}
+  http_server_read_timeout: 60s
+  http_server_write_timeout: 60s
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+ruler:
+  alertmanager_url: http://{{ docker_loki_alertmanager_host }}:{{ docker_loki_alertmanager_port }}
+
+limits_config:
+  retention_period: 168h
+  max_query_lookback: 168h
+  max_label_name_length: 1024
+  max_label_value_length: 2048
+  max_global_streams_per_user: 10000
+
+ingester:
+  chunk_encoding: snappy
+  chunk_target_size: 16777216
+  chunk_idle_period: 3m
+  flush_op_timeout: 1m
+  max_chunk_age: 1h
+  query_store_max_look_back_period: -1
+
+compactor:
+  working_directory: /loki/retention
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 10m
+  retention_delete_worker_count: 10
+  delete_request_store: filesystem
+  delete_request_cancel_period: 10m

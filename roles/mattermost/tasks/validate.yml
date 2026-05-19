@@ -1,0 +1,49 @@
+---
+
+- name: Assert Mattermost required variables are set
+  ansible.builtin.assert:
+    that:
+      - mattermost_email_feedback_address is not none
+      - mattermost_email_feedback_address | string | length > 0
+      - mattermost_email_feedback_name is not none
+      - mattermost_email_feedback_name | string | length > 0
+      - mattermost_email_reply_to_address is not none
+      - mattermost_email_reply_to_address | string | length > 0
+      - mattermost_listen_address is not none
+      - mattermost_listen_address | string | length > 0
+      - mattermost_pg_base is not none
+      - mattermost_pg_base | string | length > 0
+      - mattermost_pg_host is not none
+      - mattermost_pg_host | string | length > 0
+      - mattermost_pg_pass is not none
+      - mattermost_pg_pass | string | length > 0
+      - mattermost_pg_port is not none
+      - mattermost_pg_port | string | length > 0
+      - mattermost_pg_user is not none
+      - mattermost_pg_user | string | length > 0
+      - mattermost_s3_access_key is not none
+      - mattermost_s3_access_key | string | length > 0
+      - mattermost_s3_bucket is not none
+      - mattermost_s3_bucket | string | length > 0
+      - mattermost_s3_endpoint is not none
+      - mattermost_s3_endpoint | string | length > 0
+      - mattermost_s3_path_prefix is not none
+      - mattermost_s3_path_prefix | string | length > 0
+      - mattermost_s3_region is not none
+      - mattermost_s3_region | string | length > 0
+      - mattermost_s3_secret_key is not none
+      - mattermost_s3_secret_key | string | length > 0
+      - mattermost_s3_ssl is not none
+      - mattermost_s3_ssl | string | length > 0
+      - mattermost_site_url is not none
+      - mattermost_site_url | string | length > 0
+      - mattermost_smtp_connection_security is not none
+      - mattermost_smtp_connection_security | string | length > 0
+      - mattermost_smtp_host is not none
+      - mattermost_smtp_host | string | length > 0
+      - mattermost_smtp_port is not none
+      - mattermost_smtp_port | string | length > 0
+      - mattermost_support_email is not none
+      - mattermost_support_email | string | length > 0
+    fail_msg: Define Mattermost PostgreSQL, S3, SMTP, and service settings.
+  no_log: '{{ mattermost_nolog }}'

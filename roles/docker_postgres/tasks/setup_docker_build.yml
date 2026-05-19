@@ -1,0 +1,36 @@
+---
+
+- name: Create directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - /opt/postgres/docker
+
+- name: Install Dockerfile
+  become: true
+  ansible.builtin.copy:
+    src: docker/{{ item }}
+    dest: /opt/postgres/docker/{{ item }}
+    mode: '0644'
+    owner: root
+    group: root
+  loop:
+    - Dockerfile
+
+- name: Build container image
+  community.docker.docker_image:
+    name: '{{ docker_postgres_walg_image_name }}'
+    tag: '{{ docker_postgres_walg_image_tag }}'
+    source: build
+    force_source: true
+    build:
+      path: /opt/postgres/docker
+      dockerfile: Dockerfile
+      args:
+        POSTGRES_IMAGE: '{{ docker_postgres_walg_base_image_full }}'
+        WALG_VERSION: '{{ docker_postgres_binary_version }}'

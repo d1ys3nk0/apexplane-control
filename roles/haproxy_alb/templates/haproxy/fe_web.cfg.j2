@@ -1,0 +1,200 @@
+{% macro route_match(route) -%}
+{%- set route_domains = [route.domain] if route.domain is string else route.domain -%}
+{%- set route_prefix = route.prefix | default('', true) | string | trim -%}
+{ hdr(host) -i {{ route_domains | join(' ') }} }{%- if route_prefix | length > 0 %} { path_beg {{ route_prefix }} }{%- endif -%}
+{%- endmacro %}
+
+{% macro auth_more_specific_exclusions(auth_rule) -%}
+{%- set auth_domains = [auth_rule.domain] if auth_rule.domain is string else auth_rule.domain -%}
+{%- set auth_prefix = auth_rule.prefix | default('', true) | string | trim -%}
+{%- for other_rule in haproxy_alb_auth | default([]) -%}
+{%- set other_domains = [other_rule.domain] if other_rule.domain is string else other_rule.domain -%}
+{%- set other_prefix = other_rule.prefix | default('', true) | string | trim -%}
+{%- if auth_domains | intersect(other_domains) | list | length > 0 and other_prefix | length > auth_prefix | length and (auth_prefix | length == 0 or other_prefix.startswith(auth_prefix)) %}{{ " " }}!{ path_beg {{ other_prefix }} }{%- endif -%}
+{%- endfor -%}
+{%- endmacro %}
+
+{% macro throttle_more_specific_exclusions(throttle_rule) -%}
+{%- set throttle_domains = [throttle_rule.domain] if throttle_rule.domain is string else throttle_rule.domain -%}
+{%- set throttle_prefix = throttle_rule.prefix | string | trim -%}
+{%- for other_rule in haproxy_alb_throttles | default([]) -%}
+{%- set other_domains = [other_rule.domain] if other_rule.domain is string else other_rule.domain -%}
+{%- set other_prefix = other_rule.prefix | string | trim -%}
+{%- if throttle_domains | intersect(other_domains) | list | length > 0 and other_prefix | length > throttle_prefix | length and other_prefix.startswith(throttle_prefix) %}{{ " " }}!{ path_beg {{ other_prefix }} }{%- endif -%}
+{%- endfor -%}
+{%- endmacro %}
+
+{% macro auth_requirements(auth_rule) -%}
+{%- if auth_rule.headers is defined -%}
+{%- for hdr_name, hdr_val in auth_rule.headers.items() %}{{ " " }}!{ hdr({{ hdr_name }}) -m str {{ hdr_val }} }{%- endfor -%}
+{%- endif -%}
+{%- if auth_rule.cidr_whitelist is defined -%}
+{{ " " }}!{ src -m ip {{ auth_rule.cidr_whitelist | join(' ') }} }
+{%- endif -%}
+{%- if auth_rule.prefix_whitelist is defined -%}
+{%- for path_prefix in auth_rule.prefix_whitelist %}{{ " " }}!{ path_beg {{ path_prefix }} }{%- endfor -%}
+{%- endif -%}
+{{ " " }}!{ http_auth({{ auth_rule.userlist }}) }
+{%- endmacro %}
+
+{% macro throttle_rule_lines(throttle_rule) -%}
+{{ "  " }}http-request track-sc0 src table throttle_{{ throttle_rule.name }} if !is_acme {{ route_match(throttle_rule) }}{{ throttle_more_specific_exclusions(throttle_rule) }}
+{{ "  " }}http-request deny deny_status {{ haproxy_alb_throttle_deny_status }} if !is_acme {{ route_match(throttle_rule) }}{{ throttle_more_specific_exclusions(throttle_rule) }} { sc_http_req_rate(0,throttle_{{ throttle_rule.name }}) gt {{ throttle_rule.requests }} }
+{%- endmacro %}
+
+{% macro auth_rule_line(auth_rule) -%}
+{{ "  " }}http-request auth realm infra if !is_acme {{ route_match(auth_rule) }}{{ auth_more_specific_exclusions(auth_rule) }}{{ auth_requirements(auth_rule) }}
+{%- endmacro %}
+
+{% macro route_request_header_rewrites(route) -%}
+{%- for rewrite in route.request_header_rewrites | default([]) %}
+  http-request replace-header {{ rewrite.name }} {{ rewrite.pattern }} {{ rewrite.replacement }} if {{ route_match(route) }}
+{%- endfor -%}
+{%- endmacro %}
+
+{% set haproxy_route_prefix_lengths = namespace(values=[]) %}
+{% for route in haproxy_alb_routes %}
+{% set route_prefix = route.prefix | default('', true) | string | trim %}
+{% if route_prefix | length > 0 and route_prefix | length not in haproxy_route_prefix_lengths.values %}
+{% set haproxy_route_prefix_lengths.values = haproxy_route_prefix_lengths.values + [route_prefix | length] %}
+{% endif %}
+{% endfor %}
+
+{% set haproxy_auth_prefix_lengths = namespace(values=[]) %}
+{% for auth_rule in haproxy_alb_auth | default([]) %}
+{% set auth_prefix = auth_rule.prefix | default('', true) | string | trim %}
+{% if auth_prefix | length > 0 and auth_prefix | length not in haproxy_auth_prefix_lengths.values %}
+{% set haproxy_auth_prefix_lengths.values = haproxy_auth_prefix_lengths.values + [auth_prefix | length] %}
+{% endif %}
+{% endfor %}
+
+{% set haproxy_throttle_prefix_lengths = namespace(values=[]) %}
+{% for throttle_rule in haproxy_alb_throttles | default([]) %}
+{% set throttle_prefix = throttle_rule.prefix | string | trim %}
+{% if throttle_prefix | length > 0 and throttle_prefix | length not in haproxy_throttle_prefix_lengths.values %}
+{% set haproxy_throttle_prefix_lengths.values = haproxy_throttle_prefix_lengths.values + [throttle_prefix | length] %}
+{% endif %}
+{% endfor %}
+
+frontend web
+  mode http
+  option httplog
+  option http-buffer-request
+  log global
+  log-format "t=%tr c=%ST b=%B q=%{+Q}r rt=%TR/%Tw/%Tc/%Tr/%Ta s=%ci:%cp d=%H/%ft/%b/%s ts=%tsc cs=%ac/%fc/%bc/%sc/%rc qs=%sq/%bq"
+  bind :80
+  bind :443 ssl crt /etc/ssl/haproxy alpn h2,http/1.1
+  maxconn 1000
+  monitor-uri /_health
+  unique-id-format %[uuid()]
+  unique-id-header X-Unique-ID
+  http-request set-log-level info
+
+{% if haproxy_alb_crowdsec_enabled | bool %}
+  # CrowdSec
+  filter spoe engine crowdsec config /etc/haproxy/crowdsec.cfg
+{% endif %}
+
+  acl is_acme path_beg /.well-known/acme-challenge/
+{% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
+  acl from_trusted_proxy src -m ip {{ haproxy_alb_trusted_proxy_cidrs | join(' ') }}
+{% endif %}
+{% if haproxy_alb_crowdsec_enabled | bool %}
+  # CrowdSec
+  acl has_request_body req.body_size -m found
+  acl body_within_limit req.body_size -m int le {{ haproxy_alb_crowdsec_body_limit }}
+{% endif %}
+{% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
+  http-request set-src hdr_ip(X-Forwarded-For,-1) if from_trusted_proxy { hdr_ip(X-Forwarded-For,-1) -m found }
+{% endif %}
+{% if haproxy_alb_whitelist | default([]) | length > 0 %}
+  acl from_whitelist src -m ip {{ haproxy_alb_whitelist | join(' ') }}
+{% endif %}
+{% if haproxy_alb_whitelist_enforced | bool %}
+  http-request deny deny_status 403 if !is_acme !from_whitelist
+{% endif %}
+{% if haproxy_alb_redirect_all_http | default(false) | bool %}
+  http-request redirect scheme https code 301 if !{ ssl_fc } !is_acme
+{% endif %}
+{% for prefix_length in haproxy_route_prefix_lengths.values | sort(reverse=true) %}
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{% set route_prefix = route.prefix | default('', true) | string | trim %}
+{% if not haproxy_alb_redirect_all_http | default(false) | bool and route_prefix | length == prefix_length and (route.proto | default('https')) != 'both' and (route.force_https | default(true)) | bool %}
+  http-request redirect scheme https code 301 if !{ ssl_fc } !is_acme {{ route_match(route) }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{% set route_prefix = route.prefix | default('', true) | string | trim %}
+{% if not haproxy_alb_redirect_all_http | default(false) | bool and route_prefix | length == 0 and (route.proto | default('https')) != 'both' and (route.force_https | default(true)) | bool %}
+  http-request redirect scheme https code 301 if !{ ssl_fc } !is_acme {{ route_match(route) }}
+{% endif %}
+{% endfor %}
+{% for prefix_length in haproxy_throttle_prefix_lengths.values | sort(reverse=true) %}
+{% for throttle_rule in haproxy_alb_throttles | default([]) %}
+{% set throttle_prefix = throttle_rule.prefix | string | trim %}
+{% if throttle_prefix | length == prefix_length %}
+{{ throttle_rule_lines(throttle_rule) }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% for prefix_length in haproxy_auth_prefix_lengths.values | sort(reverse=true) %}
+{% for auth_rule in haproxy_alb_auth | default([]) %}
+{% set auth_prefix = auth_rule.prefix | default('', true) | string | trim %}
+{% if auth_prefix | length == prefix_length %}
+{{ auth_rule_line(auth_rule) }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% for auth_rule in haproxy_alb_auth | default([]) %}
+{% set auth_prefix = auth_rule.prefix | default('', true) | string | trim %}
+{% if auth_prefix | length == 0 %}
+{{ auth_rule_line(auth_rule) }}
+{% endif %}
+{% endfor %}
+
+{% if haproxy_alb_crowdsec_enabled | bool %}
+  # CrowdSec
+  http-request send-spoe-group crowdsec crowdsec-http-body if !is_acme !has_request_body
+  http-request send-spoe-group crowdsec crowdsec-http-body if !is_acme has_request_body body_within_limit
+  http-request send-spoe-group crowdsec crowdsec-http-no-body if !is_acme has_request_body !body_within_limit
+  http-request redirect code 302 location %[url] if { var(txn.crowdsec.remediation) -m str "allow" } { var(txn.crowdsec.redirect) -m found }
+  http-request lua.crowdsec_handle if { var(txn.crowdsec.remediation) -m str "captcha" }
+  http-request lua.crowdsec_handle if { var(txn.crowdsec.remediation) -m str "ban" }
+{% endif %}
+
+  # Forwarded Headers
+  http-request set-header X-Forwarded-For %[src]
+  http-request set-header X-Forwarded-Host %[req.hdr(host)]
+  http-request set-header X-Forwarded-Proto https if { ssl_fc }
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{{ route_request_header_rewrites(route) }}
+{% endfor %}
+
+  # ALB Header
+  http-response set-header X-ALB %[hostname]
+
+{% if haproxy_alb_crowdsec_enabled | bool %}
+  # CrowdSec
+  http-after-response set-header Set-Cookie %[var(txn.crowdsec.captcha_cookie)] if { var(txn.crowdsec.captcha_status) -m found } { var(txn.crowdsec.captcha_cookie) -m found }
+  http-after-response set-header Set-Cookie %[var(txn.crowdsec.captcha_cookie)] if { var(txn.crowdsec.captcha_cookie) -m found } !{ var(txn.crowdsec.captcha_status) -m found }
+{% endif %}
+
+  use_backend certbot if is_acme
+{% for prefix_length in haproxy_route_prefix_lengths.values | sort(reverse=true) %}
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{% set route_prefix = route.prefix | default('', true) | string | trim %}
+{% if route_prefix | length == prefix_length %}
+  use_backend {{ route.name }} if {{ route_match(route) }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{% set route_prefix = route.prefix | default('', true) | string | trim %}
+{% if route_prefix | length == 0 %}
+  use_backend {{ route.name }} if {{ route_match(route) }}
+{% endif %}
+{% endfor %}
+{% if haproxy_alb_default_target_host | default('', true) | string | length > 0 or haproxy_alb_default_target_group | default('', true) | string | length > 0 %}
+  default_backend default
+{% endif %}

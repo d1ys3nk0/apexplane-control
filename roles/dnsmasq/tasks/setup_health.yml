@@ -1,0 +1,26 @@
+---
+
+- name: Wait for dnsmasq listeners
+  ansible.builtin.wait_for:
+    host: '{{ item }}'
+    port: 53
+    timeout: 10
+    connect_timeout: 2
+  loop: '{{ dnsmasq_bind_addresses }}'
+  when: not ansible_check_mode
+
+- name: Check dnsmasq records
+  ansible.builtin.command:
+    argv:
+      - dig
+      - +short
+      - '@{{ dnsmasq_health_check_server | default(dnsmasq_bind_addresses | first, true) }}'
+      - '{{ item.domain }}'
+      - A
+  loop: '{{ dnsmasq_health_checks }}'
+  register: dnsmasq_record_check
+  failed_when: item.ip | string not in dnsmasq_record_check.stdout_lines
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - dnsmasq_health_checks | length > 0

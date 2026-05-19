@@ -1,0 +1,10 @@
+---
+
+- name: Assert iptables required variables are set
+  ansible.builtin.assert:
+    that:
+      - iptables_ssh_cidr is not none
+      - iptables_ssh_cidr | string | length > 0
+      - iptables_vpc_cidr is not none
+      - iptables_vpc_cidr | string | length > 0
+    fail_msg: Define iptables SSH and VPC CIDR variables before running role iptables.

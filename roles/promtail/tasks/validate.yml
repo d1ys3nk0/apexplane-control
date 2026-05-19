@@ -1,0 +1,23 @@
+---
+
+- name: Assert promtail required variables are set
+  ansible.builtin.assert:
+    that:
+      - promtail_version is not none
+      - promtail_version | string | length > 0
+      - promtail_download_base_url | string | length > 0
+      - promtail_deb_package_path | string | length > 0
+      - promtail_config_path | string | length > 0
+      - promtail_service_path | string | length > 0
+      - promtail_http_listen_address | string | length > 0
+      - promtail_http_listen_port is not none
+      - promtail_http_listen_port | string | length > 0
+      - promtail_grpc_listen_address | string | length > 0
+      - promtail_grpc_listen_port | string | length > 0
+      - promtail_positions_path | string | length > 0
+      - promtail_loki_host is not none
+      - promtail_loki_host | string | length > 0
+      - promtail_loki_port is not none
+      - promtail_loki_port | string | length > 0
+      - promtail_scrape_certbot_enabled is boolean
+    fail_msg: Define required promtail_* variables before running role promtail.

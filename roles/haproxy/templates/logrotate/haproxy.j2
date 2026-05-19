@@ -1,0 +1,15 @@
+{{ haproxy_log_dir }}/*.log {
+    {{ haproxy_logrotate_frequency }}
+    rotate {{ haproxy_logrotate_rotate }}
+    missingok
+    notifempty
+{% if haproxy_logrotate_compress | bool %}
+    compress
+    delaycompress
+{% endif %}
+    create 0640 {{ haproxy_rsyslog_user }} {{ haproxy_rsyslog_group }}
+    sharedscripts
+    postrotate
+        [ ! -x /usr/lib/rsyslog/rsyslog-rotate ] || /usr/lib/rsyslog/rsyslog-rotate
+    endscript
+}

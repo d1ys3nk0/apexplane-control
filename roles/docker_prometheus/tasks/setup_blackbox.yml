@@ -1,0 +1,61 @@
+---
+
+- name: Create blackbox exporter config directory
+  become: true
+  ansible.builtin.file:
+    path: /opt/prometheus/blackbox_exporter
+    state: directory
+    mode: '0755'
+
+- name: Deploy blackbox exporter configuration
+  become: true
+  ansible.builtin.copy:
+    src: blackbox/config.yml
+    dest: /opt/prometheus/blackbox_exporter/config.yml
+    owner: '65534'
+    group: '65534'
+    mode: '0640'
+  register: docker_prometheus_blackbox_update_config
+  no_log: '{{ docker_prometheus_nolog }}'
+  when: docker_prometheus_blackbox_config_content | string | length == 0
+
+- name: Deploy blackbox exporter configuration from content
+  become: true
+  ansible.builtin.copy:
+    content: '{{ docker_prometheus_blackbox_config_content }}'
+    dest: /opt/prometheus/blackbox_exporter/config.yml
+    owner: '65534'
+    group: '65534'
+    mode: '0640'
+  register: docker_prometheus_blackbox_update_config_content
+  no_log: '{{ docker_prometheus_nolog }}'
+  when: docker_prometheus_blackbox_config_content | string | length > 0
+
+- name: Start blackbox exporter container
+  community.docker.docker_container:
+    name: blackbox-exporter
+    hostname: blackbox-exporter.{{ inventory_hostname }}
+    image: '{{ docker_prometheus_blackbox_image_full }}'
+    restart: >-
+      {{
+        docker_prometheus_blackbox_update_config.changed | default(false)
+        or docker_prometheus_blackbox_update_config_content.changed | default(false)
+      }}
+    restart_policy: unless-stopped
+    network_mode: host
+    memory_reservation: '{{ docker_prometheus_blackbox_mem_res }}'
+    memory: '{{ docker_prometheus_blackbox_mem_lim }}'
+    memory_swap: '{{ docker_prometheus_blackbox_mem_swp }}'
+    volumes:
+      - /opt/prometheus/blackbox_exporter/config.yml:/etc/blackbox_exporter/config.yml:ro
+
+- name: Verify blackbox exporter container is running
+  community.docker.docker_container_info:
+    name: blackbox-exporter
+  register: docker_prometheus_blackbox_container_info
+  until:
+    - docker_prometheus_blackbox_container_info.exists
+    - docker_prometheus_blackbox_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode

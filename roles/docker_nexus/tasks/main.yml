@@ -1,0 +1,37 @@
+---
+
+- name: Create docker volumes
+  community.docker.docker_volume:
+    name: nexus-data
+
+- name: Start nexus container
+  community.docker.docker_container:
+    hostname: nexus.{{ inventory_hostname }}
+    name: nexus
+    image: '{{ docker_nexus_image_full }}'
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_nexus_mem_res }}'
+    memory: '{{ docker_nexus_mem_lim }}'
+    memory_swap: '{{ docker_nexus_mem_swp }}'
+    network_mode: host
+    volumes:
+      - nexus-data:/nexus-data
+
+- name: Verify nexus container is running
+  community.docker.docker_container_info:
+    name: nexus
+  register: docker_nexus_container_info
+  until:
+    - docker_nexus_container_info.exists
+    - docker_nexus_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for nexus HTTP port to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_nexus_http_port }}'
+    delay: 1
+    timeout: 60
+  when: not ansible_check_mode

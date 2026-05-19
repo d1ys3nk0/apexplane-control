@@ -1,0 +1,20 @@
+---
+
+docker_swarm_traefik_letsencrypt_enabled: "{{ docker_swarm_traefik_letsencrypt_email is not none and docker_swarm_traefik_letsencrypt_email | string | length > 0 }}"
+docker_swarm_traefik_published_ports: >-
+  {{
+    [
+      {
+        'published_port': docker_swarm_traefik_http_expose_port,
+        'target_port': 80,
+        'protocol': 'tcp',
+        'mode': 'host',
+      },
+      {
+        'published_port': docker_swarm_traefik_https_expose_port,
+        'target_port': 443,
+        'protocol': 'tcp',
+        'mode': 'host',
+      },
+    ]
+  }}

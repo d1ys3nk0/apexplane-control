@@ -1,0 +1,3 @@
+---
+
+ufw_docker_enabled: "{{ 'docker.service' in (ansible_facts.services | default({})) }}"

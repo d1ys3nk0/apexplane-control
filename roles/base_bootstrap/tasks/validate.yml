@@ -1,0 +1,30 @@
+---
+
+- name: Assert base bootstrap required variables are set
+  ansible.builtin.assert:
+    that:
+      - base_bootstrap_cluster_realm is not none
+      - base_bootstrap_cluster_realm | string | length > 0
+      - base_bootstrap_fqdn_ext is not none
+      - base_bootstrap_fqdn_ext | string | length > 0
+      - base_bootstrap_fqdn_int is not none
+      - base_bootstrap_fqdn_int | string | length > 0
+    fail_msg: Define base_bootstrap cluster realm and FQDN variables before running role base_bootstrap.
+
+- name: Assert base bootstrap optional variable contracts are valid
+  ansible.builtin.assert:
+    that:
+      - base_bootstrap_disabled_services is not string
+      - base_bootstrap_dns_resolver_checks is not string
+      - (base_bootstrap_dns_resolver | string | trim | length > 0) or (base_bootstrap_dns_resolver_checks | length == 0)
+    fail_msg: Define base_bootstrap optional variables as lists, and set base_bootstrap_dns_resolver when DNS checks are configured.
+
+- name: Assert base bootstrap DNS resolver checks are valid
+  ansible.builtin.assert:
+    that:
+      - item.domain is defined
+      - item.domain | string | length > 0
+      - item.ip is defined
+      - item.ip | string | length > 0
+    fail_msg: Define every base_bootstrap_dns_resolver_checks item with non-empty domain and ip values.
+  loop: '{{ base_bootstrap_dns_resolver_checks }}'

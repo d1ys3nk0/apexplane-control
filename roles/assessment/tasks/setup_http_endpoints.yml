@@ -1,0 +1,14 @@
+---
+
+- name: Verify HTTP endpoints are ready
+  ansible.builtin.uri:
+    url: '{{ item.url }}'
+    method: "{{ item.method | default('GET', true) }}"
+    status_code: "{{ item.status_code | default(200, true) }}"
+    timeout: "{{ item.timeout | default(5, true) }}"
+    validate_certs: "{{ item.validate_certs | default(false, true) }}"
+  register: assessment_http_endpoint_health
+  changed_when: false
+  loop: '{{ assessment_http_endpoints }}'
+  loop_control:
+    label: "{{ item.name | default(item.url, true) }}"

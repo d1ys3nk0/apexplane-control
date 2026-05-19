@@ -1,0 +1,28 @@
+---
+
+- name: Assert Docker Swarm required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_cidr is not none
+      - docker_swarm_cidr | string | length > 0
+      - docker_swarm_cluster_nodes_group is not none
+      - docker_swarm_cluster_nodes_group | string | length > 0
+      - docker_swarm_mode is not none
+      - docker_swarm_mode | string | length > 0
+      - docker_swarm_mode in ['leader', 'manager', 'worker']
+      - docker_swarm_vpc_cidr is not none
+      - docker_swarm_vpc_cidr | string | length > 0
+    fail_msg: Define Docker Swarm network and mode variables before running role docker_swarm.
+
+- name: Assert exactly one Docker Swarm leader is declared
+  ansible.builtin.assert:
+    that:
+      - >-
+        groups[docker_swarm_cluster_nodes_group]
+        | map('extract', hostvars)
+        | selectattr('docker_swarm_mode', 'defined')
+        | selectattr('docker_swarm_mode', 'equalto', 'leader')
+        | list
+        | length == 1
+    fail_msg: Define exactly one Docker Swarm leader in docker_swarm_cluster_nodes_group.
+  run_once: true

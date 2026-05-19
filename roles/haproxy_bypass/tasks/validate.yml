@@ -1,0 +1,47 @@
+---
+
+- name: Assert haproxy_bypass_endpoints is a list
+  ansible.builtin.assert:
+    that:
+      - haproxy_bypass_endpoints is iterable
+      - haproxy_bypass_endpoints is not string
+    fail_msg: haproxy_bypass_endpoints must be a list of endpoint mappings.
+
+- name: Assert each HAProxy bypass endpoint has required fields
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.name is defined
+      - item.name | string | length > 0
+      - item.name is match('^[a-z0-9_][a-z0-9_-]*$')
+      - item.bind is defined
+      - item.bind | string | length > 0
+      - item.bind | int | string == item.bind | string
+      - item.bind | int > 0
+      - item.host is defined
+      - item.host | string | length > 0
+      - item.host | string != item.host | int | string
+      - item.port is defined
+      - item.port | string | length > 0
+      - item.port | int | string == item.port | string
+      - item.port | int > 0
+      - item.client_timeout is not defined or item.client_timeout | string | length > 0
+      - item.server_timeout is not defined or item.server_timeout | string | length > 0
+    fail_msg: >-
+      Invalid haproxy_bypass_endpoints item {{ item }}: expected name, bind, host, port,
+      where bind and port are numeric ports and host is a hostname or IP address.
+  loop: '{{ haproxy_bypass_endpoints }}'
+  loop_control:
+    label: '{{ item.name | default("?") }}'
+
+- name: Assert HAProxy bypass endpoint names are unique
+  ansible.builtin.assert:
+    that:
+      - haproxy_bypass_endpoints | map(attribute='name') | list | unique | length == haproxy_bypass_endpoints | length
+    fail_msg: haproxy_bypass_endpoints contains duplicate name values.
+
+- name: Assert HAProxy bypass bind ports are unique
+  ansible.builtin.assert:
+    that:
+      - haproxy_bypass_endpoints | map(attribute='bind') | map('string') | list | unique | length == haproxy_bypass_endpoints | length
+    fail_msg: haproxy_bypass_endpoints contains duplicate bind ports.

@@ -1,0 +1,14 @@
+---
+
+docker_rabbit_image_name: rabbitmq
+docker_rabbit_image_tag: 4.2.3-management
+docker_rabbit_image_full: '{{ docker_rabbit_image_name }}:{{ docker_rabbit_image_tag }}'
+docker_rabbit_data_volume: rabbit-data
+docker_rabbit_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+docker_rabbit_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+docker_rabbit_nolog: '{{ (docker_rabbit_ci_mode | bool) and not (docker_rabbit_debug_mode | bool) }}'
+docker_rabbit_default_user: admin
+docker_rabbit_default_pass: ~
+docker_rabbit_mem_res: 200M
+docker_rabbit_mem_lim: 300M
+docker_rabbit_mem_swp: 400M

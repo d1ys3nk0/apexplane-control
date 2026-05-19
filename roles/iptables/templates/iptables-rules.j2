@@ -1,0 +1,69 @@
+# local
+INPUT -i lo -j ACCEPT
+
+# icmp
+INPUT -p icmp -m icmp --icmp-type 3 -j ACCEPT
+INPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
+INPUT -p icmp -m icmp --icmp-type 12 -j ACCEPT
+
+# ongoing
+INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+{% if iptables_docker_enabled | bool %}
+DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# docker
+INPUT -i docker0 -j ACCEPT
+INPUT -s 172.16.0.0/12 -j ACCEPT
+{% endif %}
+
+# ssh
+INPUT -p tcp -m tcp --dport {{ ansible_port }} -s {{ iptables_ssh_cidr | default(iptables_vpc_cidr) }} -j ACCEPT
+
+# public ports
+{% for item in iptables_public_ports %}
+{% set proto = item.proto | default('all') %}
+{% set sources = ([item.src] if item.src is string else item.src) if item.src is defined else [None] %}
+{% for src in sources %}
+{% if proto in ['tcp', 'all'] %}
+INPUT -p tcp -m tcp --dport {{ item.port }}{% if src %} -s {{ src }}{% endif %} -j ACCEPT
+{% if iptables_docker_enabled | bool %}
+DOCKER-USER -p tcp -m conntrack --ctorigdstport {{ item.port }}{% if src %} --ctorigsrc {{ src }}{% endif %} -j ACCEPT
+{% endif %}
+{% endif %}
+{% if proto in ['udp', 'all'] %}
+INPUT -p udp -m udp --dport {{ item.port }}{% if src %} -s {{ src }}{% endif %} -j ACCEPT
+{% if iptables_docker_enabled | bool %}
+DOCKER-USER -p udp -m conntrack --ctorigdstport {{ item.port }}{% if src %} --ctorigsrc {{ src }}{% endif %} -j ACCEPT
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+
+# private ports
+{% for item in iptables_private_ports %}
+{% set proto = item.proto | default('all') %}
+{% set sources = ([item.src] if item.src is string else item.src) if item.src is defined else [iptables_vpc_cidr | default(ansible_default_ipv4.address)] %}
+{% for src in sources %}
+{% if proto in ['tcp', 'all'] %}
+INPUT -p tcp -m tcp --dport {{ item.port }} -s {{ src }} -j ACCEPT
+{% if iptables_docker_enabled | bool %}
+DOCKER-USER -p tcp -m conntrack --ctorigdstport {{ item.port }} --ctorigsrc {{ src }} -j ACCEPT
+{% endif %}
+{% endif %}
+{% if proto in ['udp', 'all'] %}
+INPUT -p udp -m udp --dport {{ item.port }} -s {{ src }} -j ACCEPT
+{% if iptables_docker_enabled | bool %}
+DOCKER-USER -p udp -m conntrack --ctorigdstport {{ item.port }} --ctorigsrc {{ src }} -j ACCEPT
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+
+# drop otherwise
+INPUT -j LOG_N_DROP
+{% if iptables_docker_enabled | bool %}
+DOCKER-USER -i eth0 -j LOG_N_DROP
+{% endif %}
+{% if not (iptables_docker_enabled | bool) %}
+FORWARD -j LOG_N_DROP
+{% endif %}

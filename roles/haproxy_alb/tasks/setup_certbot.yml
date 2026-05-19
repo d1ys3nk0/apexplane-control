@@ -1,0 +1,461 @@
+---
+
+- name: Initialize HAProxy SSL certificate metadata
+  ansible.builtin.set_fact:
+    haproxy_alb_ssl_cert_items: []
+  when: haproxy_alb_manage_certs | bool
+
+- name: Derive HAProxy SSL certificate metadata
+  ansible.builtin.set_fact:
+    haproxy_alb_ssl_cert_items: '{{ haproxy_alb_ssl_cert_items + [_cert_item] }}'
+  vars:
+    _cert_domains: "{{ ([item.value] if item.value is string else item.value) | sort }}"
+    _cert_domain_arg: '{{ _cert_domains | join(",") }}'
+    _cert_hash: '{{ _cert_domain_arg | hash("md5") }}'
+    _cert_basename: '{{ item.key }}-{{ _cert_hash }}.pem'
+    _cert_item:
+      name: '{{ item.key }}'
+      domains: '{{ _cert_domains }}'
+      domain_arg: '{{ _cert_domain_arg }}'
+      has_wildcard: "{{ (_cert_domains | select('match', '^[*][.]') | list | length) > 0 }}"
+      hash: '{{ _cert_hash }}'
+      basename: '{{ _cert_basename }}'
+      path: /etc/ssl/haproxy/{{ _cert_basename }}
+      lineage_path: /etc/letsencrypt/live/{{ item.key }}
+  loop: "{{ haproxy_alb_certs | dict2items | sort(attribute='key') }}"
+  loop_control:
+    label: '{{ item.key }}'
+  when: haproxy_alb_manage_certs | bool
+
+- name: Initialize HAProxy SSL certificate management groups
+  ansible.builtin.set_fact:
+    haproxy_alb_automatic_ssl_cert_items: []
+    haproxy_alb_manual_ssl_cert_items: []
+  when: haproxy_alb_manage_certs | bool
+
+- name: Store automatic HAProxy SSL certificate metadata
+  ansible.builtin.set_fact:
+    haproxy_alb_automatic_ssl_cert_items: '{{ haproxy_alb_automatic_ssl_cert_items + [item] }}'
+  loop: '{{ haproxy_alb_ssl_cert_items | default([]) }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when:
+    - haproxy_alb_manage_certs | bool
+    - not (item.has_wildcard | bool)
+
+- name: Store manually managed HAProxy SSL certificate metadata
+  ansible.builtin.set_fact:
+    haproxy_alb_manual_ssl_cert_items: '{{ haproxy_alb_manual_ssl_cert_items + [item] }}'
+  loop: '{{ haproxy_alb_ssl_cert_items | default([]) }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when:
+    - haproxy_alb_manage_certs | bool
+    - item.has_wildcard | bool
+
+- name: Install Certbot for automatic HAProxy certificates
+  become: true
+  ansible.builtin.apt:
+    name: certbot
+    state: present
+    update_cache: true
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_automatic_ssl_cert_items | length > 0
+
+- name: Create letsencrypt renewal-hooks deploy directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/letsencrypt/renewal-hooks/deploy
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_automatic_ssl_cert_items | length > 0
+
+- name: Install deploy hook for HAProxy reload
+  become: true
+  ansible.builtin.copy:
+    src: certbot/haproxy_reload.sh
+    dest: /etc/letsencrypt/renewal-hooks/deploy/haproxy_reload.sh
+    mode: '0755'
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_automatic_ssl_cert_items | length > 0
+
+- name: Check automatic Let's Encrypt certificate lineages
+  become: true
+  ansible.builtin.stat:
+    path: '{{ item.lineage_path }}/fullchain.pem'
+  loop: '{{ haproxy_alb_automatic_ssl_cert_items | default([]) }}'
+  loop_control:
+    label: '{{ item.lineage_path }}/fullchain.pem'
+  register: haproxy_alb_letsencrypt_cert_stats
+  when: haproxy_alb_manage_certs_now | bool
+
+- name: Check automatic Let's Encrypt certificate domain coverage
+  become: true
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      expected_file=$(mktemp)
+      actual_file=$(mktemp)
+      trap 'rm -f "${expected_file}" "${actual_file}"' EXIT
+
+      {% for _domain in item.domains %}
+      printf '%s\n' {{ _domain | quote }} >>"${expected_file}"
+      {% endfor %}
+      sort -u -o "${expected_file}" "${expected_file}"
+
+      openssl x509 -in "{{ item.lineage_path }}/fullchain.pem" -noout -ext subjectAltName |
+        tr ',' '\n' |
+        sed -n 's/.*[Dd][Nn][Ss]://p' |
+        sed 's/^[[:space:]]*//' |
+        sort -u >"${actual_file}"
+
+      if cmp -s "${expected_file}" "${actual_file}"; then
+          echo MATCH
+      else
+          echo MISMATCH
+          echo "Expected domains:"
+          cat "${expected_file}"
+          echo "Actual domains:"
+          cat "${actual_file}"
+      fi
+    executable: /bin/bash
+  register: haproxy_alb_letsencrypt_cert_domain_checks
+  changed_when: false
+  failed_when: false
+  loop: '{{ haproxy_alb_automatic_ssl_cert_items | default([]) }}'
+  loop_control:
+    extended: true
+    label: '{{ item.name }}'
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_current_lineage_exists | bool
+
+- name: Check automatic Certbot renewal configs
+  become: true
+  ansible.builtin.stat:
+    path: /etc/letsencrypt/renewal/{{ item.name }}.conf
+  loop: '{{ haproxy_alb_automatic_ssl_cert_items | default([]) }}'
+  loop_control:
+    label: /etc/letsencrypt/renewal/{{ item.name }}.conf
+  register: haproxy_alb_letsencrypt_renewal_conf_stats
+  when: haproxy_alb_manage_certs_now | bool
+
+- name: Remove stored HAProxy deploy hooks from automatic Certbot renewal configs
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/letsencrypt/renewal/{{ item.name }}.conf
+    regexp: '^(deploy_hook|renew_hook) = /etc/letsencrypt/renewal-hooks/deploy/haproxy_reload\.sh$'
+    state: absent
+  loop: '{{ haproxy_alb_automatic_ssl_cert_items | default([]) }}'
+  loop_control:
+    extended: true
+    label: /etc/letsencrypt/renewal/{{ item.name }}.conf
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_current_renewal_conf_exists | bool
+
+- name: Obtain non-wildcard Let's Encrypt certificates using http challenge
+  ansible.builtin.include_tasks: certbot_http.yml
+  loop: '{{ haproxy_alb_automatic_ssl_cert_items | default([]) }}'
+  loop_control:
+    extended: true
+    loop_var: haproxy_alb_http_cert_item
+    label: '{{ haproxy_alb_http_cert_item.name }}'
+  when: haproxy_alb_http_cert_needs_issue | bool
+
+- name: Check Certbot renewal directory before cleanup
+  become: true
+  ansible.builtin.stat:
+    path: /etc/letsencrypt/renewal
+  register: haproxy_alb_certbot_renewal_dir
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_automatic_ssl_cert_items | length > 0
+
+- name: Get Certbot renewal configs before cleanup
+  become: true
+  ansible.builtin.find:
+    paths: /etc/letsencrypt/renewal
+    patterns: '*.conf'
+    file_type: file
+  register: haproxy_alb_certbot_renewal_configs
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_automatic_ssl_cert_items | length > 0
+    - haproxy_alb_certbot_renewal_dir_exists | bool
+
+- name: Store unmanaged Certbot certificate names
+  ansible.builtin.set_fact:
+    haproxy_alb_certbot_unmanaged_names: >-
+      {{
+        (
+          haproxy_alb_certbot_renewal_configs.files
+          | default([])
+          | map(attribute='path')
+          | map('basename')
+          | map('regex_replace', '[.]conf$', '')
+          | list
+        )
+        | difference(haproxy_alb_certs.keys() | list)
+        | sort
+      }}
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_automatic_ssl_cert_items | length > 0
+
+- name: Refuse unmanaged Certbot certificate removal in non-interactive mode
+  ansible.builtin.fail:
+    msg: >-
+      Certbot certificates absent from haproxy_alb_certs would be removed while INTERACTIVE is disabled:
+      {{ haproxy_alb_certbot_unmanaged_names | join(', ') }}.
+      Run interactively to approve removal or add the certificates to haproxy_alb_certs.
+  when: haproxy_alb_should_refuse_unmanaged_certbot_cleanup | bool
+
+- name: Confirm unmanaged Certbot certificate removal
+  ansible.builtin.pause:
+    prompt: |-
+      The following Certbot certificates are absent from haproxy_alb_certs and will be removed:
+      {% for cert_name in haproxy_alb_certbot_unmanaged_names %}
+      - {{ cert_name }}
+      {% endfor %}
+
+      Press ENTER to proceed
+  when: haproxy_alb_should_confirm_unmanaged_certbot_cleanup | bool
+
+- name: Remove unmanaged Certbot certificates
+  become: true
+  ansible.builtin.command:
+    argv:
+      - certbot
+      - delete
+      - --non-interactive
+      - --cert-name
+      - '{{ item }}'
+  changed_when: true
+  loop: '{{ haproxy_alb_certbot_unmanaged_names | default([]) }}'
+  loop_control:
+    label: '{{ item }}'
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_automatic_ssl_cert_items | length > 0
+
+- name: Install automatic HAProxy SSL certificates
+  become: true
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      tmp_file=$(mktemp "{{ item.path }}.tmp.XXXXXX")
+      trap 'rm -f "${tmp_file}"' EXIT
+      sed '/^$/d' "{{ item.lineage_path }}/privkey.pem" "{{ item.lineage_path }}/fullchain.pem" >"${tmp_file}"
+      chown haproxy:haproxy "${tmp_file}"
+      chmod 600 "${tmp_file}"
+
+      if [ -f "{{ item.path }}" ] && cmp -s "${tmp_file}" "{{ item.path }}"; then
+          rm -f "${tmp_file}"
+      else
+          mv "${tmp_file}" "{{ item.path }}"
+          echo INSTALLED
+      fi
+      trap - EXIT
+    executable: /bin/bash
+  register: haproxy_alb_ssl_cert_install
+  changed_when: "'INSTALLED' in haproxy_alb_ssl_cert_install.stdout"
+  loop: '{{ haproxy_alb_automatic_ssl_cert_items | default([]) }}'
+  loop_control:
+    label: '{{ item.path }}'
+  when: haproxy_alb_manage_certs_now | bool
+
+- name: Check manually managed wildcard HAProxy SSL certificates
+  become: true
+  ansible.builtin.stat:
+    path: '{{ item.path }}'
+  loop: '{{ haproxy_alb_manual_ssl_cert_items | default([]) }}'
+  loop_control:
+    label: '{{ item.path }}'
+  register: haproxy_alb_manual_ssl_cert_stats
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_manual_ssl_cert_items | length > 0
+
+- name: Assert manually managed wildcard HAProxy SSL certificates exist
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_manual_ssl_cert_stats.results | selectattr('stat.exists', 'equalto', false) | list | length == 0
+    fail_msg: >-
+      Wildcard HAProxy certificates must be generated manually before running haproxy_alb.
+      Expected PEM files: {{ haproxy_alb_manual_ssl_cert_items | map(attribute='path') | list | sort }}.
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_manual_ssl_cert_items | length > 0
+
+- name: Get HAProxy SSL certificate files
+  become: true
+  ansible.builtin.find:
+    paths: /etc/ssl/haproxy
+    patterns: '*.pem'
+    file_type: file
+  register: haproxy_alb_ssl_cert_files
+  when: haproxy_alb_manage_certs | bool
+
+- name: Remove HAProxy SSL certificates unmanaged by haproxy_alb_certs
+  become: true
+  ansible.builtin.file:
+    path: '{{ item.path }}'
+    state: absent
+  loop: '{{ haproxy_alb_ssl_cert_files.files | default([]) | sort(attribute="path") }}'
+  loop_control:
+    label: '{{ item.path }}'
+  register: haproxy_alb_unmanaged_ssl_cert_cleanup
+  when: haproxy_alb_unmanaged_ssl_cert_cleanup_item | bool
+
+- name: Get HAProxy SSL certificate files after cleanup
+  become: true
+  ansible.builtin.find:
+    paths: /etc/ssl/haproxy
+    patterns: '*.pem'
+    file_type: file
+  register: haproxy_alb_ssl_cert_files_after_cleanup
+  when: haproxy_alb_manage_certs_now | bool
+
+- name: Assert HAProxy SSL certificate list is correct
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          haproxy_alb_ssl_cert_files_after_cleanup.files
+          | map(attribute='path')
+          | map('basename')
+          | reject('match', '^_')
+          | sort
+        ) == (haproxy_alb_ssl_cert_items | map(attribute='basename') | list | sort)
+    fail_msg: >-
+      /etc/ssl/haproxy must contain exactly the desired HAProxy SSL certificate files.
+      Expected: {{ haproxy_alb_ssl_cert_items | map(attribute='basename') | list | sort }}.
+      Found: {{ haproxy_alb_ssl_cert_files_after_cleanup.files | map(attribute='path') | map('basename') | reject('match', '^_') | sort }}.
+  when: haproxy_alb_manage_certs_now | bool
+
+- name: Check HAProxy SSL certificate domain coverage
+  become: true
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      expected_file=$(mktemp)
+      actual_file=$(mktemp)
+      trap 'rm -f "${expected_file}" "${actual_file}"' EXIT
+
+      {% for _domain in item.domains %}
+      printf '%s\n' {{ _domain | quote }} >>"${expected_file}"
+      {% endfor %}
+      sort -u -o "${expected_file}" "${expected_file}"
+
+      openssl x509 -in "{{ item.path }}" -noout -ext subjectAltName |
+        tr ',' '\n' |
+        sed -n 's/.*[Dd][Nn][Ss]://p' |
+        sed 's/^[[:space:]]*//' |
+        sort -u >"${actual_file}"
+
+      if [ "$(comm -23 "${expected_file}" "${actual_file}" | wc -l)" -eq 0 ]; then
+          echo MATCH
+      else
+          echo MISMATCH
+          echo "Expected domains:"
+          cat "${expected_file}"
+          echo "Actual domains:"
+          cat "${actual_file}"
+      fi
+    executable: /bin/bash
+  register: haproxy_alb_ssl_cert_domain_checks
+  changed_when: false
+  failed_when: false
+  loop: '{{ haproxy_alb_ssl_cert_items | default([]) }}'
+  loop_control:
+    label: '{{ item.path }}'
+  when: haproxy_alb_manage_certs_now | bool
+
+- name: Assert HAProxy SSL certificate domain coverage is correct
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_ssl_cert_domain_checks.results | map(attribute='stdout') | map('trim') | list | difference(['MATCH']) | length == 0
+    fail_msg: >-
+      Every HAProxy SSL certificate in haproxy_alb_certs must cover its configured domains.
+      Results: {{ haproxy_alb_ssl_cert_domain_checks.results | map(attribute='stdout_lines') | list }}.
+  when: haproxy_alb_manage_certs_now | bool
+
+- name: Validate HAProxy configs after SSL certificate changes
+  become: true
+  ansible.builtin.command:
+    cmd: haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/conf.d
+  register: haproxy_alb_ssl_cert_conf_check
+  changed_when: false
+  failed_when: false
+  when: haproxy_alb_ssl_cert_reload_needed | bool
+
+- name: Assert HAProxy validation output is correct after SSL certificate changes
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_ssl_cert_conf_check.stdout | trim == "Configuration file is valid"
+      - haproxy_alb_ssl_cert_conf_check.stderr | trim == ""
+    fail_msg: "HAProxy check returned extra output after SSL certificate changes:\n\nstdout: '{{ haproxy_alb_ssl_cert_conf_check.stdout }}'\n\nstderr: '{{ haproxy_alb_ssl_cert_conf_check.stderr }}'"
+    success_msg: HAProxy check returned no extra output after SSL certificate changes
+  when: haproxy_alb_ssl_cert_reload_needed | bool
+
+- name: Reload HAProxy after SSL certificate changes
+  become: true
+  ansible.builtin.systemd:
+    name: haproxy
+    state: reloaded
+  when: haproxy_alb_ssl_cert_reload_needed | bool
+
+- name: Verify HAProxy service is active after SSL certificate reload
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - haproxy
+  register: haproxy_alb_ssl_cert_reload_service_health
+  changed_when: false
+  when: haproxy_alb_ssl_cert_reload_needed | bool
+
+- name: Check HAProxy SSL certificate expiry
+  become: true
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - x509
+      - -in
+      - '{{ item.path }}'
+      - -noout
+      - -subject
+      - -issuer
+      - -enddate
+      - -checkend
+      - '2592000'
+  loop: '{{ haproxy_alb_ssl_cert_items | default([]) }}'
+  loop_control:
+    label: '{{ item.path }}'
+  register: haproxy_alb_ssl_cert_expiry_checks
+  changed_when: false
+  failed_when: false
+  when: haproxy_alb_manage_certs_now | bool
+
+- name: Print HAProxy SSL certificate expiry
+  ansible.builtin.debug:
+    msg: '{{ item.stdout_lines }}'
+  loop: '{{ haproxy_alb_ssl_cert_expiry_checks.results | default([]) }}'
+  loop_control:
+    label: '{{ item.item }}'
+  when: haproxy_alb_manage_certs_now | bool
+
+- name: Assert HAProxy SSL certificates expire in more than 30 days
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_ssl_cert_expiry_checks.results | map(attribute='rc') | max == 0
+    fail_msg: "Every HAProxy SSL certificate in haproxy_alb_certs must exist in /etc/ssl/haproxy and expire in more than 30 days. Results: {{ haproxy_alb_ssl_cert_expiry_checks.results | map(attribute='stdout_lines') | list }}"
+  when: haproxy_alb_manage_certs_now | bool

@@ -1,0 +1,84 @@
+---
+
+- name: Install dnsmasq packages
+  become: true
+  ansible.builtin.apt:
+    name:
+      - dnsmasq
+      - dnsutils
+    state: present
+    update_cache: true
+  register: dnsmasq_package_install
+
+- name: Create dnsmasq config directory
+  become: true
+  ansible.builtin.file:
+    path: '{{ dnsmasq_config_dir }}'
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Deploy dnsmasq configuration
+  become: true
+  ansible.builtin.template:
+    src: apexplane.conf.j2
+    dest: '{{ dnsmasq_config_path }}'
+    mode: '0644'
+    owner: root
+    group: root
+    backup: true
+  register: dnsmasq_config_update
+
+- name: Verify dnsmasq configuration
+  become: true
+  ansible.builtin.command:
+    argv:
+      - dnsmasq
+      - --test
+      - --conf-file={{ dnsmasq_config_path }}
+  register: dnsmasq_config_test
+  changed_when: false
+  when: not (ansible_check_mode and dnsmasq_package_install.changed)
+
+- name: Ensure dnsmasq service is enabled and running
+  become: true
+  ansible.builtin.systemd:
+    name: dnsmasq
+    enabled: true
+    state: started
+  when: not (ansible_check_mode and dnsmasq_package_install.changed)
+
+- name: Verify dnsmasq service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - dnsmasq
+  register: dnsmasq_service_health
+  changed_when: false
+  when: not (ansible_check_mode and dnsmasq_package_install.changed)
+
+- name: Restart dnsmasq after configuration changes
+  become: true
+  ansible.builtin.systemd:
+    name: dnsmasq
+    enabled: true
+    state: restarted
+  when:
+    - dnsmasq_config_update.changed
+    - not (ansible_check_mode and dnsmasq_package_install.changed)
+
+- name: Verify dnsmasq service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - dnsmasq
+  register: dnsmasq_restart_service_health
+  changed_when: false
+  when:
+    - dnsmasq_config_update.changed
+    - not (ansible_check_mode and dnsmasq_package_install.changed)

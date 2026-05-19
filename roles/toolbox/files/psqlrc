@@ -1,0 +1,18 @@
+\x auto
+\timing
+
+\pset linestyle unicode
+\pset null 'NULL'
+
+\set HISTFILE /var/lib/postgresql/.psql_history
+\set HISTSIZE 10000
+
+\set long_running 'SELECT pid, now() - pg_stat_activity.xact_start AS duration, query, state FROM pg_stat_activity WHERE (now() - pg_stat_activity.xact_start) > interval ''5 minutes'' ORDER by 2 DESC;'
+\set cache_hit 'SELECT ''index hit rate'' AS name, (sum(idx_blks_hit)) / nullif(sum(idx_blks_hit + idx_blks_read),0) AS ratio FROM pg_statio_user_indexes UNION ALL SELECT ''table hit rate'' AS name, sum(heap_blks_hit) / nullif(sum(heap_blks_hit) + sum(heap_blks_read),0) AS ratio FROM pg_statio_user_tables;'
+\set table_sizes 'SELECT c.relname AS name, pg_size_pretty(pg_table_size(c.oid)) AS size FROM pg_class c LEFT JOIN pg_namespace n ON (n.oid = c.relnamespace) WHERE n.nspname NOT IN (''pg_catalog'', ''information_schema'') AND n.nspname !~ ''^pg_toast'' AND c.relkind=''r'' ORDER BY pg_table_size(c.oid) DESC;'
+\set unused_indexes 'SELECT schemaname || ''.'' || relname AS table, indexrelname AS index, pg_size_pretty(pg_relation_size(i.indexrelid)) AS index_size, idx_scan as index_scans FROM pg_stat_user_indexes ui JOIN pg_index i ON ui.indexrelid = i.indexrelid WHERE NOT indisunique AND idx_scan < 50 AND pg_relation_size(relid) > 5 * 8192 ORDER BY pg_relation_size(i.indexrelid) / nullif(idx_scan, 0) DESC NULLS FIRST, pg_relation_size(i.indexrelid) DESC;'
+
+\set rst 'SELECT * FROM pg_stat_replication;'
+\set wst 'SELECT * FROM pg_stat_wal_receiver;'
+\set replica_status 'SELECT pg_is_in_recovery() AS is_slave, pg_last_wal_receive_lsn() AS receive, pg_last_wal_replay_lsn() AS replay, pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() AS synced, (EXTRACT(EPOCH FROM now()) - EXTRACT(EPOCH FROM pg_last_xact_replay_timestamp()))::int AS lag;'
+\set checksums 'SELECT datname, checksum_failures, checksum_last_failure FROM pg_stat_database WHERE datname IS NOT NULL;'

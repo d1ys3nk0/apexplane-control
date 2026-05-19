@@ -1,0 +1,102 @@
+---
+
+- name: Validate iptables variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Validate iptables port lists are defined
+  ansible.builtin.assert:
+    that:
+      - iptables_public_ports is defined
+      - iptables_private_ports is defined
+      - iptables_public_ports is iterable
+      - iptables_private_ports is iterable
+    fail_msg: Define iptables_public_ports and iptables_private_ports before running role iptables.
+
+- name: Validate iptables port rule format
+  ansible.builtin.assert:
+    that:
+      - item.port is defined
+      - item.proto | default('all') in ['tcp', 'udp', 'all']
+      - item.tcp is not defined
+      - item.udp is not defined
+    fail_msg: iptables port rules must use port with optional proto tcp, udp, or all; old tcp/udp keys are not supported.
+  loop: '{{ iptables_public_ports + iptables_private_ports }}'
+
+- name: Gather service facts
+  become: true
+  ansible.builtin.service_facts:
+
+- name: Create directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/iptables
+
+- name: Create iptables service file
+  become: true
+  ansible.builtin.template:
+    src: iptables-config.service.j2
+    dest: /lib/systemd/system/iptables-config.service
+    mode: '0644'
+  register: iptables_service
+
+- name: Reload systemd daemon
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: iptables_service.changed
+
+- name: Update script
+  become: true
+  ansible.builtin.copy:
+    src: iptables-config.sh
+    mode: '0755'
+    dest: /opt/iptables/iptables-config
+  register: iptables_script
+
+- name: Update rules
+  become: true
+  ansible.builtin.template:
+    src: iptables-rules.j2
+    dest: /opt/iptables/rules-next
+    mode: '0644'
+  register: iptables_rules
+
+- name: Stop service before replacing rules
+  become: true
+  ansible.builtin.service:
+    name: iptables-config
+    state: stopped
+  when: iptables_service.changed or iptables_script.changed or iptables_rules.changed
+  failed_when: false
+
+- name: Activate new rules
+  become: true
+  ansible.builtin.copy:
+    remote_src: true
+    src: /opt/iptables/rules-next
+    dest: /opt/iptables/rules
+    mode: '0644'
+  when: iptables_rules.changed
+
+- name: Service is started and enabled
+  become: true
+  ansible.builtin.service:
+    name: iptables-config
+    state: started
+    enabled: true
+  when: iptables_service.changed or iptables_script.changed or iptables_rules.changed
+
+- name: Verify iptables-config service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - iptables-config
+  register: iptables_config_service_health
+  changed_when: false
+  when: iptables_service.changed or iptables_script.changed or iptables_rules.changed

@@ -1,0 +1,17 @@
+---
+
+cadvisor_version: ~
+cadvisor_download_base_url: https://github.com/google/cadvisor/releases/download
+cadvisor_arch_map:
+  aarch64: arm64
+  x86_64: amd64
+cadvisor_arch: '{{ cadvisor_arch_map.get(ansible_architecture, ansible_architecture) }}'
+cadvisor_binary_name: cadvisor-v{{ cadvisor_version }}-linux-{{ cadvisor_arch }}
+cadvisor_binary_path: /var/cache/{{ cadvisor_binary_name }}
+cadvisor_binary_checksum: ''
+cadvisor_binary_install_dir: /usr/local/bin
+cadvisor_listen_ip: 0.0.0.0
+cadvisor_port: 3997
+cadvisor_prometheus_endpoint: /metrics
+cadvisor_system_group: root
+cadvisor_system_user: '{{ cadvisor_system_group }}'

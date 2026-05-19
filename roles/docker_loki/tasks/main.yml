@@ -1,0 +1,57 @@
+---
+
+- name: Create mount directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/loki
+
+- name: Upload configs
+  become: true
+  ansible.builtin.template:
+    src: '{{ docker_loki_config_template }}'
+    dest: /opt/loki/loki-config.yaml
+    mode: '0644'
+  register: docker_loki_update_configs
+
+- name: Create docker volumes
+  community.docker.docker_volume:
+    name: loki-data
+
+- name: Start loki container
+  community.docker.docker_container:
+    hostname: loki.{{ inventory_hostname }}
+    name: loki
+    image: '{{ docker_loki_image_full }}'
+    command: -config.file=/mnt/config/loki-config.yaml
+    restart: '{{ docker_loki_update_configs.changed }}'
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_loki_mem_res }}'
+    memory: '{{ docker_loki_mem_lim }}'
+    memory_swap: '{{ docker_loki_mem_swp }}'
+    network_mode: host
+    volumes:
+      - /opt/loki/loki-config.yaml:/mnt/config/loki-config.yaml:ro
+      - loki-data:/loki
+
+- name: Verify loki container is running
+  community.docker.docker_container_info:
+    name: loki
+  register: docker_loki_container_info
+  until:
+    - docker_loki_container_info.exists
+    - docker_loki_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for loki to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_loki_http_listen_port }}'
+    delay: 1
+    timeout: 10
+  when: not ansible_check_mode

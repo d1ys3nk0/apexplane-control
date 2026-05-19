@@ -1,0 +1,24 @@
+# Managed by Ansible.
+
+port=53
+domain-needed
+bogus-priv
+no-resolv
+no-hosts
+bind-dynamic
+
+{% for address in dnsmasq_bind_addresses | sort %}
+listen-address={{ address }}
+{% endfor %}
+
+{% for upstream_server in dnsmasq_upstream_servers %}
+server={{ upstream_server }}
+{% endfor %}
+
+{% for record in dnsmasq_exact_records | sort(attribute='domain') %}
+host-record={{ record.domain }},{{ record.ip }}
+{% endfor %}
+
+{% for record in dnsmasq_wildcard_records | sort(attribute='domain') %}
+address=/.{{ record.domain }}/{{ record.ip }}
+{% endfor %}

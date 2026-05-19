@@ -1,0 +1,9 @@
+---
+
+- name: Reconfigure GitLab
+  become: true
+  ansible.builtin.command: gitlab-ctl reconfigure
+
+- name: Restart GitLab
+  become: true
+  ansible.builtin.command: gitlab-ctl restart gitlab-workhorse

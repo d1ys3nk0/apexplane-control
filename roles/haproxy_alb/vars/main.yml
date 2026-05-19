@@ -1,0 +1,37 @@
+---
+
+haproxy_alb_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+haproxy_alb_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+haproxy_alb_nolog: '{{ (haproxy_alb_ci_mode | bool) and not (haproxy_alb_debug_mode | bool) }}'
+haproxy_alb_interactive_mode: "{{ lookup('env', 'INTERACTIVE') | default('1', true) | lower not in ['0', 'false'] }}"
+haproxy_alb_letsencrypt_enabled: '{{ haproxy_alb_certs | default({}) | length > 0 }}'
+haproxy_alb_manage_certs: '{{ haproxy_alb_certs is defined and haproxy_alb_certs | length > 0 }}'
+haproxy_alb_not_check_mode: '{{ not ansible_check_mode }}'
+haproxy_alb_manage_certs_now: '{{ haproxy_alb_manage_certs | bool and haproxy_alb_not_check_mode | bool }}'
+haproxy_alb_crowdsec_disabled: '{{ not (haproxy_alb_crowdsec_enabled | bool) }}'
+haproxy_alb_noninteractive_mode: '{{ not (haproxy_alb_interactive_mode | bool) }}'
+haproxy_alb_config_changed: >-
+  {{
+    haproxy_alb_config_main_update.changed
+    or haproxy_alb_fe_web_update.changed
+    or haproxy_alb_be_group_update.changed
+    or haproxy_alb_be_local_update.changed
+    or haproxy_alb_be_system_update.changed
+    or haproxy_alb_backend_fragment_cleanup.changed
+    or (haproxy_alb_be_throttle_update is defined and haproxy_alb_be_throttle_update.changed)
+    or (haproxy_alb_config_crowdsec_update is defined and haproxy_alb_config_crowdsec_update.changed)
+    or (haproxy_alb_config_crowdsec_remove is defined and haproxy_alb_config_crowdsec_remove.changed)
+  }}
+haproxy_alb_current_lineage_exists: '{{ haproxy_alb_letsencrypt_cert_stats.results[ansible_loop.index0].stat.exists | default(false) }}'
+haproxy_alb_current_cert_missing_or_mismatched: "{{ not (haproxy_alb_current_lineage_exists | bool) or (haproxy_alb_letsencrypt_cert_domain_checks.results[ansible_loop.index0].stdout | default('MISMATCH') | trim) != 'MATCH' }}"
+haproxy_alb_current_renewal_conf_exists: '{{ haproxy_alb_letsencrypt_renewal_conf_stats.results[ansible_loop.index0].stat.exists | default(false) }}'
+haproxy_alb_certbot_renewal_dir_exists: '{{ haproxy_alb_certbot_renewal_dir.stat.exists | default(false) }}'
+haproxy_alb_has_unmanaged_certbot_names: '{{ haproxy_alb_certbot_unmanaged_names | default([]) | length > 0 }}'
+haproxy_alb_should_refuse_unmanaged_certbot_cleanup: '{{ haproxy_alb_manage_certs_now | bool and haproxy_alb_noninteractive_mode | bool and haproxy_alb_has_unmanaged_certbot_names | bool }}'
+haproxy_alb_should_confirm_unmanaged_certbot_cleanup: '{{ haproxy_alb_manage_certs_now | bool and haproxy_alb_interactive_mode | bool and haproxy_alb_has_unmanaged_certbot_names | bool }}'
+haproxy_alb_http_cert_needs_issue: '{{ haproxy_alb_manage_certs_now | bool and not (haproxy_alb_http_cert_item.has_wildcard | bool) and haproxy_alb_current_cert_missing_or_mismatched | bool }}'
+haproxy_alb_unmanaged_ssl_cert_cleanup_item: "{{ haproxy_alb_manage_certs | bool and (item.path | basename | regex_search('^_')) is none and (item.path | basename) not in (haproxy_alb_ssl_cert_items | map(attribute='basename') | list) }}"
+haproxy_alb_ssl_cert_changed: '{{ (haproxy_alb_ssl_cert_install is defined and haproxy_alb_ssl_cert_install is changed) or (haproxy_alb_unmanaged_ssl_cert_cleanup is defined and haproxy_alb_unmanaged_ssl_cert_cleanup is changed) }}'
+haproxy_alb_ssl_cert_changed_now: '{{ haproxy_alb_ssl_cert_changed | bool and haproxy_alb_not_check_mode | bool }}'
+haproxy_alb_manual_ssl_cert_reload_needed: '{{ haproxy_alb_manage_certs_now | bool and (haproxy_alb_manual_ssl_cert_items | default([]) | length > 0) }}'
+haproxy_alb_ssl_cert_reload_needed: '{{ haproxy_alb_ssl_cert_changed_now | bool or haproxy_alb_manual_ssl_cert_reload_needed | bool }}'

@@ -1,0 +1,159 @@
+---
+
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: trailing-whitespace
+
+      - id: end-of-file-fixer
+        name: end-of-file-fixer
+
+      - id: check-merge-conflict
+        name: check-merge-conflict
+
+      - id: detect-private-key
+        name: detect-private-key
+
+      - id: check-json
+        name: check-json
+
+      - id: check-toml
+        name: check-toml
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        args: [-P, SCRIPTDIR, -x]
+        files: \.sh$
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.13.0-1
+    hooks:
+      - id: shfmt
+        name: shfmt
+        args: [-i, '4', -d]
+        files: \.sh$
+
+      - id: shfmt
+        name: shfmt:fix
+        args: [-i, '4', -w]
+        files: \.sh$
+        stages: [manual]
+
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.19.0
+    hooks:
+      - id: yamlfmt
+        name: yamlfmt
+        args:
+          - -formatter
+          - type=basic,include_document_start=true,eof_newline=true,line_ending=lf,drop_merge_tag=true,retain_line_breaks_single=true,scan_folded_as_literal=true
+          - -lint
+        exclude: _vault\.yml$
+
+      - id: yamlfmt
+        name: yamlfmt:fix
+        args:
+          - -formatter
+          - type=basic,include_document_start=true,eof_newline=true,line_ending=lf,drop_merge_tag=true,retain_line_breaks_single=true,scan_folded_as_literal=true
+        exclude: _vault\.yml$
+        stages: [manual]
+
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker
+    rev: v3.6.1
+    hooks:
+      - id: editorconfig-checker
+        name: editorconfig-checker
+        args: [-disable-indentation]
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.11.2
+    hooks:
+      - id: uv-lock
+        name: uv-lock
+        args: [--check]
+        files: ^(pyproject\.toml|uv\.lock)$
+
+      - id: uv-lock
+        name: uv-lock:fix
+        files: ^(pyproject\.toml|uv\.lock)$
+        stages: [manual]
+
+  - repo: local
+    hooks:
+      - id: yaml-docstart
+        name: yaml-docstart:fix
+        entry: >-
+          bash -c '
+            git ls-files -z "*.yml" "*.yaml" | while IFS= read -r -d "" file; do
+              test -f "$file" && perl -i -0pe "s/^(---)\n(?!\n)/\$1\n\n/" "$file";
+            done
+          '
+        language: system
+        pass_filenames: false
+        exclude: _vault\.yml$
+        stages: [manual]
+
+      - id: j2lint
+        name: j2lint
+        entry: uv run j2lint --ignore single-space-decorator jinja-variable-lower-case jinja-statements-indentation jinja-statements-delimiter single-statement-per-line --
+        language: system
+        files: \.j2$
+
+      - id: ansible-lint
+        name: ansible-lint
+        entry: uv run ansible-lint --fix=none
+        language: system
+        files: ^roles/.*\.(yml|yaml)$
+
+      - id: ansible-lint
+        name: ansible-lint:fix
+        entry: uv run ansible-lint --fix
+        language: system
+        files: ^roles/.*\.(yml|yaml)$
+        stages: [manual]
+
+      - id: ty-types
+        name: ty-types
+        entry: uv run ty check .
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
+
+      - id: ruff-syntax
+        name: ruff-syntax
+        entry: uv run ruff check
+        language: system
+        types_or: [python, pyi]
+
+      - id: ruff-syntax
+        name: ruff-syntax:fix
+        entry: uv run ruff check --fix
+        language: system
+        types_or: [python, pyi]
+        stages: [manual]
+
+      - id: ruff-format
+        name: ruff-format
+        entry: uv run ruff format --check
+        language: system
+        types_or: [python, pyi]
+
+      - id: ruff-format
+        name: ruff-format:fix
+        entry: uv run ruff format
+        language: system
+        types_or: [python, pyi]
+        stages: [manual]
+
+      - id: pytest-static
+        name: pytest-static
+        entry: uv run pytest tests/static
+        language: system
+        pass_filenames: false

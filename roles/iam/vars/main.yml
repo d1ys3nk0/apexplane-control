@@ -1,0 +1,8 @@
+---
+
+iam_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+iam_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+iam_nolog: '{{ (iam_ci_mode | bool) and not (iam_debug_mode | bool) }}'
+iam_admin_user_names: "{{ iam_admin_users | map(attribute='name') | list }}"
+iam_service_user_names: "{{ iam_service_users | map(attribute='name') | list }}"
+iam_managed_user_names: "{{ (iam_admin_user_names + iam_service_user_names) | unique | list }}"

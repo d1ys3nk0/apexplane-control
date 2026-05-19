@@ -1,0 +1,51 @@
+---
+
+- name: Create extra elastic docker volume
+  community.docker.docker_volume:
+    name: "{{ docker_elastic_extra_instance.volume | default('elastic-data-' ~ docker_elastic_extra_instance.name, true) }}"
+
+- name: Start extra elastic container
+  community.docker.docker_container:
+    hostname: "elastic-{{ docker_elastic_extra_instance.name }}.{{ inventory_hostname }}"
+    name: "elastic-{{ docker_elastic_extra_instance.name }}"
+    image: '{{ docker_elastic_extra_instance.image | default(docker_elastic_image_full, true) }}'
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_elastic_extra_instance.mem_res | default(docker_elastic_mem_res, true) }}'
+    memory: '{{ docker_elastic_extra_instance.mem_lim | default(docker_elastic_mem_lim, true) }}'
+    memory_swap: '{{ docker_elastic_extra_instance.mem_swp | default(docker_elastic_mem_swp, true) }}'
+    env: >-
+      {{
+        docker_elastic_env_common | combine({
+          'discovery.type': 'single-node',
+          'http.port': docker_elastic_extra_instance.http_port | string,
+          'transport.tcp.port': docker_elastic_extra_instance.transport_port | string,
+        })
+      }}
+    network_mode: host
+    volumes:
+      - "{{ docker_elastic_extra_instance.volume | default('elastic-data-' ~ docker_elastic_extra_instance.name, true) }}:/usr/share/elasticsearch/data"
+    healthcheck:
+      test: ['CMD-SHELL', "curl -fsS 'http://127.0.0.1:{{ docker_elastic_extra_instance.http_port }}/_cluster/health?wait_for_status=yellow&timeout=1s' | grep -E '(green|yellow)'"]
+      timeout: 2s
+      interval: 10s
+      start_period: 30s
+  no_log: '{{ docker_elastic_nolog }}'
+
+- name: Verify extra elastic container is running
+  community.docker.docker_container_info:
+    name: "elastic-{{ docker_elastic_extra_instance.name }}"
+  register: docker_elastic_extra_container_info
+  until:
+    - docker_elastic_extra_container_info.exists
+    - docker_elastic_extra_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for extra elastic HTTP port to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_elastic_extra_instance.http_port }}'
+    delay: 1
+    timeout: 30
+  when: not ansible_check_mode

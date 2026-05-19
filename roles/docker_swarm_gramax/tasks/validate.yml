@@ -1,0 +1,22 @@
+---
+
+- name: Assert Gramax enabled flag is valid
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_gramax_enabled is boolean
+    fail_msg: docker_swarm_gramax_enabled must be boolean.
+
+- name: Assert Gramax required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_gramax_gramax_admin_login is not none
+      - docker_swarm_gramax_gramax_admin_login | string | length > 0
+      - docker_swarm_gramax_gramax_admin_pass is not none
+      - docker_swarm_gramax_gramax_admin_pass | string | length > 0
+      - docker_swarm_gramax_gramax_pull_token is not none
+      - docker_swarm_gramax_gramax_pull_token | string | length > 0
+      - docker_swarm_gramax_gramax_secret is not none
+      - docker_swarm_gramax_gramax_secret | string | length > 0
+    fail_msg: Define Gramax credentials and secrets before running role docker_swarm_gramax.
+  no_log: '{{ docker_swarm_gramax_nolog }}'
+  when: docker_swarm_gramax_enabled | bool

@@ -1,0 +1,26 @@
+---
+
+- name: Validate Docker Swarm PostgreSQL exporter enabled flag
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_postgres_exporter_enabled is boolean
+    fail_msg: docker_swarm_postgres_exporter_enabled must be boolean.
+
+- name: Validate required Docker Swarm PostgreSQL exporter variables
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_postgres_exporter_service_name | string | length > 0
+      - docker_swarm_postgres_exporter_pg_base is not none
+      - docker_swarm_postgres_exporter_pg_base | string | length > 0
+      - docker_swarm_postgres_exporter_pg_user is not none
+      - docker_swarm_postgres_exporter_pg_user | string | length > 0
+      - docker_swarm_postgres_exporter_pg_pass is not none
+      - docker_swarm_postgres_exporter_pg_pass | string | length > 0
+      - docker_swarm_postgres_exporter_pg_host is not none
+      - docker_swarm_postgres_exporter_pg_host | string | length > 0
+      - docker_swarm_postgres_exporter_pg_port | int > 0
+      - docker_swarm_postgres_exporter_pg_sslmode | string | length > 0
+      - docker_swarm_postgres_exporter_public_port | int > 0
+    fail_msg: Define Docker Swarm PostgreSQL exporter connection settings before running role docker_swarm_postgres_exporter.
+  no_log: '{{ docker_swarm_postgres_exporter_nolog }}'
+  when: docker_swarm_postgres_exporter_enabled | bool

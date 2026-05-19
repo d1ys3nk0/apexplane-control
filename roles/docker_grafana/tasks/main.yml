@@ -1,0 +1,101 @@
+---
+
+- name: Create mount directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/grafana
+    - /opt/grafana/provisioning
+    - /opt/grafana/provisioning/datasources
+    - /opt/grafana/provisioning/dashboards
+    - /opt/grafana/dashboards
+
+- name: Update static configs
+  become: true
+  ansible.builtin.copy:
+    src: '{{ item.src }}'
+    dest: /opt/grafana/{{ item.dest }}
+    mode: '0755'
+  loop:
+    - src: '{{ docker_grafana_config_file }}'
+      dest: grafana.ini
+
+    - src: provisioning/dashboards/default.yaml
+      dest: provisioning/dashboards/default.yaml
+  register: docker_grafana_update_static_configs
+
+- name: Update templated configs
+  become: true
+  ansible.builtin.template:
+    src: '{{ item.src }}'
+    dest: /opt/grafana/{{ item.dest }}
+    mode: '0755'
+  loop:
+    - src: provisioning/datasources/default.yaml.j2
+      dest: provisioning/datasources/default.yaml
+  register: docker_grafana_update_templated_configs
+
+- name: Update preinstalled dashboards
+  become: true
+  ansible.builtin.copy:
+    src: dashboards/{{ item }}
+    dest: /opt/grafana/dashboards/{{ item }}
+    mode: '0644'
+  loop:
+    - host_metrics.json
+    - host_logs.json
+    - container_metrics.json
+    - container_logs.json
+    - service_metrics.json
+    - service_logs.json
+
+- name: Create docker volumes
+  community.docker.docker_volume:
+    name: grafana-data
+
+- name: Start grafana container
+  community.docker.docker_container:
+    hostname: grafana.{{ inventory_hostname }}
+    name: grafana
+    image: '{{ docker_grafana_image_full }}'
+    env:
+      GF_SERVER_HTTP_PORT: '{{ docker_grafana_http_listen_port | string }}'
+      GF_AUTH_ANONYMOUS_ENABLED: '{{ docker_grafana_anonymous_enabled | string }}'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    restart: '{{ docker_grafana_update_static_configs.changed or docker_grafana_update_templated_configs.changed }}'
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_grafana_mem_res }}'
+    memory: '{{ docker_grafana_mem_lim }}'
+    memory_swap: '{{ docker_grafana_mem_swp }}'
+    network_mode: host
+    volumes:
+      - /opt/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - /opt/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /opt/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+
+- name: Verify grafana container is running
+  community.docker.docker_container_info:
+    name: grafana
+  register: docker_grafana_container_info
+  until:
+    - docker_grafana_container_info.exists
+    - docker_grafana_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for the HTTP port to be ready
+  ansible.builtin.uri:
+    url: http://127.0.0.1:{{ docker_grafana_http_listen_port }}
+    method: GET
+    status_code: 200
+  register: docker_grafana_http_check
+  until: docker_grafana_http_check.status == 200
+  retries: 20
+  delay: 3
+  when: not ansible_check_mode

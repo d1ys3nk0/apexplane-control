@@ -1,0 +1,29 @@
+---
+
+- name: Assert PgHero enabled flag is valid
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_pghero_enabled is boolean
+    fail_msg: docker_swarm_pghero_enabled must be boolean.
+
+- name: Assert PgHero required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_pghero_pg_host is not none
+      - docker_swarm_pghero_pg_host | string | length > 0
+      - docker_swarm_pghero_pg_port | int > 0
+      - docker_swarm_pghero_pg_admin_database | string | length > 0
+      - docker_swarm_pghero_pg_sslmode | string | length > 0
+      - docker_swarm_pghero_pg_user is not none
+      - docker_swarm_pghero_pg_user | string | length > 0
+      - docker_swarm_pghero_pg_pass is not none
+      - docker_swarm_pghero_pg_pass | string | length > 0
+      - docker_swarm_pghero_pg_bases is sequence
+      - docker_swarm_pghero_pg_bases is not string
+      - docker_swarm_pghero_pg_bases | length > 0
+      - docker_swarm_pghero_pg_bases | reject('string') | list | length == 0
+      - docker_swarm_pghero_pg_bases | reject('truthy') | list | length == 0
+      - docker_swarm_pghero_public_port | int > 0
+    fail_msg: Define PgHero PostgreSQL credentials and database names before running role docker_swarm_pghero.
+  no_log: '{{ docker_swarm_pghero_nolog }}'
+  when: docker_swarm_pghero_enabled | bool

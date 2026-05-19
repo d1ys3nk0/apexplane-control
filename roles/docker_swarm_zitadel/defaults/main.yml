@@ -1,0 +1,21 @@
+---
+
+docker_swarm_zitadel_enabled: true
+docker_swarm_zitadel_service_name: zitadel
+docker_swarm_zitadel_domain: ~
+docker_swarm_zitadel_http_listen_port: 8080
+docker_swarm_zitadel_http_public_port: 18080
+docker_swarm_zitadel_image_name: ghcr.io/zitadel/zitadel
+docker_swarm_zitadel_image_tag: v4.15.0
+docker_swarm_zitadel_image_full: '{{ docker_swarm_zitadel_image_name }}:{{ docker_swarm_zitadel_image_tag }}'
+docker_swarm_zitadel_masterkey: ~
+docker_swarm_zitadel_mem_res: 500M
+docker_swarm_zitadel_mem_lim: 750M
+docker_swarm_zitadel_pg_admin_pass: ''
+docker_swarm_zitadel_pg_admin_user: ''
+docker_swarm_zitadel_pg_base: ~
+docker_swarm_zitadel_pg_user: ~
+docker_swarm_zitadel_pg_pass: ~
+docker_swarm_zitadel_pg_host: ~
+docker_swarm_zitadel_pg_port: 5432
+docker_swarm_zitadel_pg_ssl: disable

@@ -1,0 +1,17 @@
+---
+
+docker_minio_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+docker_minio_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+docker_minio_nolog: '{{ (docker_minio_ci_mode | bool) and not (docker_minio_debug_mode | bool) }}'
+docker_minio_image_name: minio/minio
+docker_minio_image_tag: RELEASE.2025-09-07T16-13-09Z
+docker_minio_image_full: '{{ docker_minio_image_name }}:{{ docker_minio_image_tag }}'
+
+docker_minio_mem_res: 1000M
+docker_minio_mem_lim: 1500M
+docker_minio_mem_swp: 2000M
+docker_minio_root_pass: ~
+docker_minio_root_user: ~
+docker_minio_site_region: ~
+docker_minio_mc_alias: local
+docker_minio_bucket_names: []

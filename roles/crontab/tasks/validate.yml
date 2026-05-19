@@ -1,0 +1,41 @@
+---
+
+- name: Assert crontab variable contract
+  ansible.builtin.assert:
+    that:
+      - crontab_interactive_mode | type_debug == 'bool'
+      - crontab_jobs is mapping
+      - crontab_spool_dir is string
+      - crontab_spool_dir | length > 0
+      - crontab_spool_dir is match('^/')
+    fail_msg: Define crontab_jobs as a user-keyed mapping, crontab_interactive_mode as a boolean, and crontab_spool_dir as an absolute path before running role crontab.
+
+- name: Assert managed crontab users are valid
+  ansible.builtin.assert:
+    that:
+      - item.key | string | length > 0
+      - item.key is match('^[A-Za-z_][A-Za-z0-9_-]*[$]?$')
+      - item.value is iterable
+      - item.value is not string
+    fail_msg: Each managed crontab user key must be valid and map to a jobs list.
+  loop: '{{ crontab_jobs | dict2items }}'
+  loop_control:
+    label: '{{ item.key }}'
+
+- name: Assert managed crontab jobs are valid
+  ansible.builtin.assert:
+    that:
+      - item.1.name is defined
+      - item.1.name | string | length > 0
+      - item.1.job is defined
+      - item.1.job | string | length > 0
+      - item.1.special_time is not defined or item.1.special_time | string | length > 0
+      - item.1.special_time is not defined or item.1.minute is not defined
+      - item.1.special_time is not defined or item.1.hour is not defined
+      - item.1.special_time is not defined or item.1.day is not defined
+      - item.1.special_time is not defined or item.1.month is not defined
+      - item.1.special_time is not defined or item.1.weekday is not defined
+    fail_msg: Each crontab job must define name and job, and special_time cannot be combined with explicit schedule fields.
+  loop: "{{ crontab_jobs | dict2items | subelements('value') }}"
+  loop_control:
+    label: '{{ item.0.key }}:{{ item.1.name | default("missing-name") }}'

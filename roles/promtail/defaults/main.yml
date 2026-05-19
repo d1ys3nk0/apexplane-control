@@ -1,0 +1,21 @@
+---
+
+promtail_version: ~
+promtail_download_base_url: https://github.com/grafana/loki/releases/download
+promtail_arch_map:
+  aarch64: arm64
+  x86_64: amd64
+promtail_arch: '{{ promtail_arch_map.get(ansible_architecture, ansible_architecture) }}'
+promtail_deb_package_name: promtail_{{ promtail_version }}_{{ promtail_arch }}.deb
+promtail_deb_package_path: /var/cache/{{ promtail_deb_package_name }}
+promtail_deb_package_checksum: sha256:{{ promtail_download_base_url }}/v{{ promtail_version }}/SHA256SUMS
+promtail_config_path: /etc/promtail/config.yml
+promtail_service_path: /etc/systemd/system/promtail.service
+promtail_http_listen_address: 0.0.0.0
+promtail_http_listen_port: 3998
+promtail_grpc_listen_address: 0.0.0.0
+promtail_grpc_listen_port: 3999
+promtail_positions_path: /var/log/positions.yaml
+promtail_loki_host: ~
+promtail_loki_port: ~
+promtail_scrape_certbot_enabled: true

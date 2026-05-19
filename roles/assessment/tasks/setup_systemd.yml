@@ -1,0 +1,12 @@
+---
+
+- name: Verify systemd units are active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - '{{ item }}'
+  register: assessment_systemd_unit_health
+  changed_when: false
+  loop: '{{ assessment_systemd_units }}'

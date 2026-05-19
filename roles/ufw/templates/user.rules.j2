@@ -1,0 +1,89 @@
+*filter
+:ufw-user-input - [0:0]
+:ufw-user-output - [0:0]
+:ufw-user-forward - [0:0]
+:ufw-before-logging-input - [0:0]
+:ufw-before-logging-output - [0:0]
+:ufw-before-logging-forward - [0:0]
+:ufw-user-logging-input - [0:0]
+:ufw-user-logging-output - [0:0]
+:ufw-user-logging-forward - [0:0]
+:ufw-after-logging-input - [0:0]
+:ufw-after-logging-output - [0:0]
+:ufw-after-logging-forward - [0:0]
+:ufw-logging-deny - [0:0]
+:ufw-logging-allow - [0:0]
+:ufw-user-limit - [0:0]
+:ufw-user-limit-accept - [0:0]
+{% macro ufw_source(src) -%}
+{%- if src | string != '0.0.0.0/0' %} -s {{ src }}{% endif -%}
+{%- endmacro %}
+### RULES ###
+
+### tuple ### allow tcp {{ ansible_port }} 0.0.0.0/0 any {{ ufw_ssh_cidr | default(ufw_vpc_cidr) }} in
+-A ufw-user-input -p tcp --dport {{ ansible_port }}{{ ufw_source(ufw_ssh_cidr | default(ufw_vpc_cidr)) }} -j ACCEPT
+{% for item in ufw_private_ports | default([]) %}
+{% set proto = item.proto | default('all') %}
+{% set sources = ([item.src] if item.src is string else item.src) if item.src is defined else [ufw_vpc_cidr] %}
+{% for src in sources %}
+{% if proto in ['tcp', 'all'] %}
+
+### tuple ### allow tcp {{ item.port }} 0.0.0.0/0 any {{ src }} in
+-A ufw-user-input -p tcp {% if ':' in item.port | string %}-m multiport --dports{% else %}--dport{% endif %} {{ item.port }}{{ ufw_source(src) }} -j ACCEPT
+{% endif %}
+{% if proto in ['udp', 'all'] %}
+
+### tuple ### allow udp {{ item.port }} 0.0.0.0/0 any {{ src }} in
+-A ufw-user-input -p udp {% if ':' in item.port | string %}-m multiport --dports{% else %}--dport{% endif %} {{ item.port }}{{ ufw_source(src) }} -j ACCEPT
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% for item in ufw_public_ports | default([]) %}
+{% set proto = item.proto | default('all') %}
+{% set sources = ([item.src] if item.src is string else item.src) if item.src is defined else ['0.0.0.0/0'] %}
+{% for src in sources %}
+{% if proto in ['tcp', 'all'] %}
+
+### tuple ### allow tcp {{ item.port }} 0.0.0.0/0 any {{ src }} in
+-A ufw-user-input -p tcp {% if ':' in item.port | string %}-m multiport --dports{% else %}--dport{% endif %} {{ item.port }}{{ ufw_source(src) }} -j ACCEPT
+
+### tuple ### route:allow tcp {{ item.port }} 0.0.0.0/0 any {{ src }} in
+-A ufw-user-forward -p tcp {% if ':' in item.port | string %}-m multiport --dports{% else %}--dport{% endif %} {{ item.port }}{{ ufw_source(src) }} -j ACCEPT
+{% endif %}
+{% if proto in ['udp', 'all'] %}
+
+### tuple ### allow udp {{ item.port }} 0.0.0.0/0 any {{ src }} in
+-A ufw-user-input -p udp {% if ':' in item.port | string %}-m multiport --dports{% else %}--dport{% endif %} {{ item.port }}{{ ufw_source(src) }} -j ACCEPT
+
+### tuple ### route:allow udp {{ item.port }} 0.0.0.0/0 any {{ src }} in
+-A ufw-user-forward -p udp {% if ':' in item.port | string %}-m multiport --dports{% else %}--dport{% endif %} {{ item.port }}{{ ufw_source(src) }} -j ACCEPT
+{% endif %}
+{% endfor %}
+{% endfor %}
+
+{%- if ufw_docker_enabled | bool and ufw_docker_ports | default([]) %}
+{% set ufw_docker_subnets = ufw_docker_subnets | default(['172.17.0.0/16']) %}
+{% for port in ufw_docker_ports %}
+{% for subnet in ufw_docker_subnets %}
+### tuple ### route:allow tcp {{ port }} {{ subnet }} any 0.0.0.0/0 in
+-A ufw-user-forward -p tcp {% if ':' in port | string %}-m multiport --dports{% else %}--dport{% endif %} {{ port }} -d {{ subnet }} -j ACCEPT
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+### END RULES ###
+
+### LOGGING ###
+-A ufw-after-logging-input -j LOG --log-prefix "[UFW BLOCK] " -m limit --limit 3/min --limit-burst 10
+-A ufw-after-logging-forward -j LOG --log-prefix "[UFW BLOCK] " -m limit --limit 3/min --limit-burst 10
+-I ufw-logging-deny -m conntrack --ctstate INVALID -j RETURN -m limit --limit 3/min --limit-burst 10
+-A ufw-logging-deny -j LOG --log-prefix "[UFW BLOCK] " -m limit --limit 3/min --limit-burst 10
+-A ufw-logging-allow -j LOG --log-prefix "[UFW ALLOW] " -m limit --limit 3/min --limit-burst 10
+### END LOGGING ###
+
+### RATE LIMITING ###
+-A ufw-user-limit -m limit --limit 3/minute -j LOG --log-prefix "[UFW LIMIT BLOCK] "
+-A ufw-user-limit -j REJECT
+-A ufw-user-limit-accept -j ACCEPT
+### END RATE LIMITING ###
+COMMIT

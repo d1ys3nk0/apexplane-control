@@ -1,0 +1,98 @@
+---
+
+- name: Create directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - '{{ toolbox_install_dir }}'
+    - '{{ toolbox_bin_dir }}'
+
+- name: Install psqlrc
+  become: true
+  ansible.builtin.copy:
+    src: psqlrc
+    dest: '{{ toolbox_install_dir }}/psqlrc'
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Install bash toolbox
+  become: true
+  ansible.builtin.template:
+    src: bash_toolbox.sh.j2
+    dest: /etc/skel/.bash_toolbox
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Install always-enabled executables from files
+  become: true
+  ansible.builtin.copy:
+    src: scripts/{{ item.src }}
+    dest: '{{ toolbox_bin_dir }}/{{ item.name }}'
+    mode: '0755'
+    owner: root
+    group: root
+  loop: '{{ toolbox_always_scripts }}'
+
+- name: Install Docker executables from files
+  become: true
+  ansible.builtin.copy:
+    src: scripts/{{ item.src }}
+    dest: '{{ toolbox_bin_dir }}/{{ item.name }}'
+    mode: '0755'
+    owner: root
+    group: root
+  loop: '{{ toolbox_docker_scripts }}'
+  when: toolbox_docker_enabled | bool
+
+- name: Remove disabled Docker executables
+  become: true
+  ansible.builtin.file:
+    path: '{{ toolbox_bin_dir }}/{{ item.name }}'
+    state: absent
+  loop: '{{ toolbox_docker_scripts }}'
+  when: not toolbox_docker_enabled | bool
+
+- name: Install HAProxy executables from files
+  become: true
+  ansible.builtin.copy:
+    src: scripts/{{ item.src }}
+    dest: '{{ toolbox_bin_dir }}/{{ item.name }}'
+    mode: '0755'
+    owner: root
+    group: root
+  loop: '{{ toolbox_haproxy_scripts }}'
+  when: toolbox_haproxy_enabled | bool
+
+- name: Remove disabled HAProxy executables
+  become: true
+  ansible.builtin.file:
+    path: '{{ toolbox_bin_dir }}/{{ item.name }}'
+    state: absent
+  loop: '{{ toolbox_haproxy_scripts }}'
+  when: not toolbox_haproxy_enabled | bool
+
+- name: Install PostgreSQL executables from files
+  become: true
+  ansible.builtin.copy:
+    src: scripts/{{ item.src }}
+    dest: '{{ toolbox_bin_dir }}/{{ item.name }}'
+    mode: '0755'
+    owner: root
+    group: root
+  loop: '{{ toolbox_postgres_scripts }}'
+  when: toolbox_postgres_enabled | bool
+
+- name: Remove disabled PostgreSQL executables
+  become: true
+  ansible.builtin.file:
+    path: '{{ toolbox_bin_dir }}/{{ item.name }}'
+    state: absent
+  loop: '{{ toolbox_postgres_scripts }}'
+  when: not toolbox_postgres_enabled | bool

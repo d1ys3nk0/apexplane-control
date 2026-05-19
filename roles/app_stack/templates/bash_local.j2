@@ -1,0 +1,65 @@
+pg-toolbox() {
+    if [ "$#" -ne 3 ]; then
+        echo "usage: pg-toolbox <env-name> <dump|restore> <script>" >&2
+        return 64
+    fi
+
+    local pg_env_name="$1"
+    local pg_action="$2"
+    local pg_script="$3"
+    local pg_status
+
+    sudo /usr/local/bin/dotenv "$HOME/postgres/${pg_env_name}.env" "$pg_script" 2>&1 | tee "$HOME/postgres/${pg_env_name}.${pg_action}.log"
+    pg_status="${PIPESTATUS[0]}"
+    return "$pg_status"
+}
+
+pg-backup() {
+    if [ "$#" -ne 0 ]; then
+        echo "usage: pg-backup" >&2
+        return 64
+    fi
+
+{% if app_stack_backups_s3_enabled | bool %}
+{% for extra in app_stack_extra_pg_envs if extra.enabled | default(true, true) %}
+    pg-toolbox "{{ extra.pg_base }}" dump /opt/toolbox/pg_dump.sh || return
+{% endfor %}
+{% for app in app_stack_selected_apps %}
+{% for env in app.envs | default([], true) %}
+{% for service in app.services | default([], true) if service.postgres is defined %}
+{% if service.postgres.backup | default((service.postgres.base_suffix | default(service.name, true)) == service.name) %}
+{% set _pg_env = (service.postgres.envs | default({}, true)).get(env.slug, {}) %}
+{% set _pg_base_suffix = _pg_env.base_suffix | default(service.postgres.base_suffix | default(service.name, true), true) %}
+{% set _pg_env_stem = _pg_env.base_name | default(service.postgres.base_name | default(app.name ~ '_' ~ app_stack_cluster_realm ~ '_' ~ env.slug ~ '_' ~ _pg_base_suffix, true), true) %}
+    pg-toolbox "{{ _pg_env_stem }}" dump /opt/toolbox/pg_dump.sh || return
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{% endif %}
+}
+
+pg-recover() {
+    if [ "$#" -ne 0 ]; then
+        echo "usage: pg-recover" >&2
+        return 64
+    fi
+
+{% if app_stack_backups_s3_enabled | bool %}
+{% for extra in app_stack_extra_pg_envs if extra.enabled | default(true, true) %}
+    pg-toolbox "{{ extra.pg_base }}" restore /opt/toolbox/pg_restore.sh || return
+{% endfor %}
+{% for app in app_stack_selected_apps %}
+{% for env in app.envs | default([], true) %}
+{% for service in app.services | default([], true) if service.postgres is defined %}
+{% if service.postgres.backup | default((service.postgres.base_suffix | default(service.name, true)) == service.name) %}
+{% set _pg_env = (service.postgres.envs | default({}, true)).get(env.slug, {}) %}
+{% set _pg_base_suffix = _pg_env.base_suffix | default(service.postgres.base_suffix | default(service.name, true), true) %}
+{% set _pg_env_stem = _pg_env.base_name | default(service.postgres.base_name | default(app.name ~ '_' ~ app_stack_cluster_realm ~ '_' ~ env.slug ~ '_' ~ _pg_base_suffix, true), true) %}
+    pg-toolbox "{{ _pg_env_stem }}" restore /opt/toolbox/pg_restore.sh || return
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{% endif %}
+}

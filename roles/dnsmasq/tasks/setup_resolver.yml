@@ -1,0 +1,28 @@
+---
+
+- name: Read eth0 DNS resolver from netplan
+  become: true
+  ansible.builtin.command: netplan get ethernets.eth0.nameservers.addresses
+  register: dnsmasq_netplan_dns_current
+  changed_when: false
+  failed_when: false
+
+- name: Check local DNS resolver is reachable
+  ansible.builtin.wait_for:
+    host: '{{ dnsmasq_local_resolver }}'
+    port: 53
+    timeout: 5
+    connect_timeout: 5
+
+- name: Set local DNS resolver for eth0 interface
+  become: true
+  ansible.builtin.command: netplan set ethernets.eth0.nameservers.addresses=[{{ dnsmasq_local_resolver }}]
+  register: dnsmasq_netplan_dns_config
+  changed_when: true
+  when: (dnsmasq_local_resolver | string | trim) not in (dnsmasq_netplan_dns_current.stdout | default(''))
+
+- name: Apply netplan after local DNS resolver changes
+  become: true
+  ansible.builtin.command: netplan apply
+  changed_when: true
+  when: dnsmasq_netplan_dns_config.changed | default(false)

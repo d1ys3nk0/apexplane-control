@@ -1,0 +1,10 @@
+---
+
+- name: Validate node_exporter variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Install node_exporter components
+  ansible.builtin.include_tasks: setup_install.yml
+
+- name: Configure node_exporter components
+  ansible.builtin.include_tasks: setup_config.yml

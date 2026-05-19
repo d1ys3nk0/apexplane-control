@@ -1,0 +1,32 @@
+---
+
+- name: Create Zitadel user
+  community.postgresql.postgresql_user:
+    name: '{{ docker_swarm_zitadel_pg_user }}'
+    password: '{{ docker_swarm_zitadel_pg_pass }}'
+    role_attr_flags: SUPERUSER
+    login_host: '{{ docker_swarm_zitadel_pg_host }}'
+    login_port: '{{ docker_swarm_zitadel_pg_port }}'
+    ssl_mode: '{{ docker_swarm_zitadel_pg_ssl }}'
+    login_user: '{{ docker_swarm_zitadel_pg_admin_user }}'
+    login_password: '{{ docker_swarm_zitadel_pg_admin_pass }}'
+  no_log: '{{ docker_swarm_zitadel_nolog }}'
+  when:
+    - docker_swarm_zitadel_pg_admin_user | string | length > 0
+    - docker_swarm_zitadel_pg_admin_pass | string | length > 0
+
+- name: Create Zitadel database
+  community.postgresql.postgresql_db:
+    name: '{{ docker_swarm_zitadel_pg_base }}'
+    owner: '{{ docker_swarm_zitadel_pg_user }}'
+    encoding: UTF-8
+    template: template0
+    login_host: '{{ docker_swarm_zitadel_pg_host }}'
+    login_port: '{{ docker_swarm_zitadel_pg_port }}'
+    ssl_mode: '{{ docker_swarm_zitadel_pg_ssl }}'
+    login_user: '{{ docker_swarm_zitadel_pg_admin_user }}'
+    login_password: '{{ docker_swarm_zitadel_pg_admin_pass }}'
+  no_log: '{{ docker_swarm_zitadel_nolog }}'
+  when:
+    - docker_swarm_zitadel_pg_admin_user | string | length > 0
+    - docker_swarm_zitadel_pg_admin_pass | string | length > 0

@@ -1,0 +1,69 @@
+---
+
+- name: Validate Docker variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Add Docker GPG
+  become: true
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+    tmp_dest: /var/tmp
+
+- name: Add Docker Repository
+  become: true
+  ansible.builtin.apt_repository:
+    repo: deb [arch={{ docker_dpkg_arch }} signed-by=/etc/apt/keyrings/docker.asc] {{ docker_deb_repo }} {{ ansible_distribution_release | lower }} stable
+    state: present
+
+- name: Install apt packages
+  become: true
+  ansible.builtin.apt:
+    name:
+      - containerd.io
+      - docker-ce
+      - docker-ce-cli
+    state: present
+    update_cache: true
+    autoclean: true
+
+- name: Update config
+  become: true
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  register: docker_update_config
+
+- name: Restart Docker when force mode is enabled
+  become: true
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+  when: not ansible_check_mode and docker_update_config.changed and docker_force_mode
+
+- name: Verify Docker service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - docker
+  register: docker_service_health
+  changed_when: false
+  when: not ansible_check_mode and docker_update_config.changed and docker_force_mode
+
+- name: Allow configured users to manage Docker without sudo
+  become: true
+  ansible.builtin.user:
+    name: '{{ item }}'
+    append: true
+    groups:
+      - docker
+  loop: '{{ docker_users }}'
+  loop_control:
+    label: '{{ item }}'
+
+- name: Take the newly added docker group into account
+  ansible.builtin.meta: reset_connection

@@ -1,0 +1,40 @@
+---
+
+- name: Validate assessment inputs
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Check systemd units
+  ansible.builtin.include_tasks: setup_systemd.yml
+  when: assessment_systemd_units | length > 0
+
+- name: Check Docker containers
+  ansible.builtin.include_tasks: setup_docker_containers.yml
+  when: assessment_docker_containers | length > 0
+
+- name: Check Docker Swarm services
+  ansible.builtin.include_tasks: setup_swarm_services.yml
+  when: assessment_swarm_services | length > 0
+
+- name: Check TCP ports
+  ansible.builtin.include_tasks: setup_tcp_ports.yml
+  when: assessment_tcp_ports | length > 0
+
+- name: Check HTTP endpoints
+  ansible.builtin.include_tasks: setup_http_endpoints.yml
+  when: assessment_http_endpoints | length > 0
+
+- name: Run custom commands
+  ansible.builtin.include_tasks: setup_commands.yml
+  when: assessment_commands | length > 0
+
+- name: Scan systemd journal logs
+  ansible.builtin.include_tasks: setup_journal_logs.yml
+  when: assessment_journal_units | length > 0
+
+- name: Scan Docker container logs
+  ansible.builtin.include_tasks: setup_docker_logs.yml
+  when: assessment_docker_log_containers | length > 0
+
+- name: Scan Docker Swarm service logs
+  ansible.builtin.include_tasks: setup_swarm_logs.yml
+  when: assessment_swarm_log_services | length > 0

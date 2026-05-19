@@ -1,0 +1,74 @@
+---
+
+- name: Assert dnsmasq required variables are set
+  ansible.builtin.assert:
+    that:
+      - dnsmasq_config_dir | string | length > 0
+      - dnsmasq_config_path | string | length > 0
+      - dnsmasq_bind_addresses is not string
+      - dnsmasq_bind_addresses is iterable
+      - dnsmasq_bind_addresses | length > 0
+      - dnsmasq_upstream_servers is not string
+      - dnsmasq_upstream_servers is iterable
+      - dnsmasq_upstream_servers | length > 0
+    fail_msg: Define dnsmasq bind addresses, upstream servers, and config paths before running role dnsmasq.
+
+- name: Assert dnsmasq optional list variables are valid
+  ansible.builtin.assert:
+    that:
+      - dnsmasq_exact_records is not string
+      - dnsmasq_exact_records is iterable
+      - dnsmasq_wildcard_records is not string
+      - dnsmasq_wildcard_records is iterable
+      - dnsmasq_health_checks is not string
+      - dnsmasq_health_checks is iterable
+    fail_msg: Define dnsmasq record and health check variables as lists.
+
+- name: Assert dnsmasq resolver addresses are valid
+  ansible.builtin.assert:
+    that:
+      - item | ansible.utils.ipaddr
+    fail_msg: Define dnsmasq bind, upstream, local resolver, and health check server values as IP addresses.
+  loop: >-
+    {{
+      dnsmasq_bind_addresses
+      + dnsmasq_upstream_servers
+      + ([dnsmasq_local_resolver] if dnsmasq_local_resolver | string | trim | length > 0 else [])
+      + ([dnsmasq_health_check_server] if dnsmasq_health_check_server | string | trim | length > 0 else [])
+    }}
+
+- name: Assert dnsmasq exact records are valid
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.domain is defined
+      - item.domain | string | length > 0
+      - "'*' not in item.domain"
+      - item.ip is defined
+      - item.ip | ansible.utils.ipaddr
+    fail_msg: Define every dnsmasq exact record with non-empty domain and valid ip values.
+  loop: '{{ dnsmasq_exact_records }}'
+
+- name: Assert dnsmasq wildcard records are valid
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.domain is defined
+      - item.domain | string | length > 0
+      - "'*' not in item.domain"
+      - not (item.domain | string).startswith('.')
+      - item.ip is defined
+      - item.ip | ansible.utils.ipaddr
+    fail_msg: Define every dnsmasq wildcard record with non-empty domain suffix and valid ip values.
+  loop: '{{ dnsmasq_wildcard_records }}'
+
+- name: Assert dnsmasq health checks are valid
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.domain is defined
+      - item.domain | string | length > 0
+      - item.ip is defined
+      - item.ip | ansible.utils.ipaddr
+    fail_msg: Define every dnsmasq health check with non-empty domain and valid ip values.
+  loop: '{{ dnsmasq_health_checks }}'

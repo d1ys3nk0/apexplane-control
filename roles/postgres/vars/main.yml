@@ -1,0 +1,7 @@
+---
+
+postgres_pg_provision_enabled: >-
+  {{
+    postgres_pg_admin_user | string | length > 0
+    and postgres_pg_admin_pass | string | length > 0
+  }}

@@ -1,0 +1,62 @@
+---
+
+- name: Download Mattermost GPG key
+  become: true
+  ansible.builtin.get_url:
+    url: '{{ mattermost_apt_key_url }}'
+    dest: '{{ mattermost_apt_key_asc_path }}'
+    mode: '0644'
+    tmp_dest: /var/tmp
+  register: mattermost_apt_gpg_key
+
+- name: Validate Mattermost GPG key
+  become: true
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --show-keys
+      - --with-colons
+      - '{{ mattermost_apt_key_asc_path }}'
+  register: mattermost_apt_gpg_key_info
+  changed_when: false
+  failed_when: mattermost_apt_key_fingerprint not in mattermost_apt_gpg_key_info.stdout
+  when: not ansible_check_mode
+
+- name: Check Mattermost GPG keyring
+  become: true
+  ansible.builtin.stat:
+    path: '{{ mattermost_apt_keyring_path }}'
+  register: mattermost_apt_keyring
+
+- name: Convert Mattermost GPG key
+  become: true
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --dearmor
+      - --yes
+      - --output
+      - '{{ mattermost_apt_keyring_path }}'
+      - '{{ mattermost_apt_key_asc_path }}'
+  when: not ansible_check_mode and (mattermost_apt_gpg_key.changed or not mattermost_apt_keyring.stat.exists)
+
+- name: Add Mattermost repository
+  become: true
+  ansible.builtin.apt_repository:
+    repo: deb [signed-by={{ mattermost_apt_keyring_path }}] https://deb.packages.mattermost.com {{ ansible_distribution_release | lower }} main
+    state: present
+  register: mattermost_apt_repository
+  when: not ansible_check_mode or mattermost_apt_keyring.stat.exists
+
+- name: Install Mattermost package
+  become: true
+  ansible.builtin.apt:
+    name:
+      - '{{ mattermost_package_name }}'
+    state: present
+    update_cache: true
+    autoclean: true
+  register: mattermost_package
+  when:
+    - not ansible_check_mode or mattermost_apt_keyring.stat.exists
+    - not ansible_check_mode or not (mattermost_apt_repository.changed | default(true))

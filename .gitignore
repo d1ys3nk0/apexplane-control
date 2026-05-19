@@ -1,0 +1,37 @@
+/.cache/
+/log/
+/tmp/
+*.log
+*.sock
+*.socket
+*.tar.gz
+
+# Dotenv
+.env.*
+!*.sample
+!*.example
+
+# Python
+__pycache__/
+.uv-cache/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.venv/
+*.pyc
+*.egg-info/
+*.egg
+
+# Agents
+.agents/
+.codex/
+.claude/
+.opencode/
+.cursor/
+.cursorrules
+.cursorignore
+
+# Project
+.vagrant/
+.ansible/
+.vpass

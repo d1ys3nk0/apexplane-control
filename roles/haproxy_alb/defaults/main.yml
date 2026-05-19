@@ -1,0 +1,34 @@
+---
+
+haproxy_alb_crowdsec_enabled: false
+haproxy_alb_crowdsec_body_limit: 51200
+haproxy_alb_crowdsec_spoa_port: 9000
+haproxy_alb_certbot_http_port: 40404
+haproxy_alb_certbot_http_dns_wait_retries: 12
+haproxy_alb_certbot_http_dns_wait_delay: 5
+haproxy_alb_stats_port: 8404
+haproxy_alb_prometheus_exporter_port: 8405
+haproxy_alb_bypass_http_port: 80
+haproxy_alb_redirect_all_http: false
+haproxy_alb_whitelist: []
+haproxy_alb_whitelist_enforced: false
+haproxy_alb_throttles: []
+haproxy_alb_throttle_table_size: 100k
+haproxy_alb_throttle_deny_status: 429
+haproxy_alb_trusted_proxy_cidrs:
+  - 10.0.0.0/8
+  - 100.64.0.0/10
+  - 127.0.0.0/8
+  - 169.254.0.0/16
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+haproxy_alb_self_signed_cert_domain: ~
+haproxy_alb_certbot_email: ~
+haproxy_alb_certs: {}
+haproxy_alb_target_groups: {}
+haproxy_alb_routes: []
+haproxy_alb_auth: []
+haproxy_alb_userlists: {}
+haproxy_alb_default_target_group: ''
+haproxy_alb_default_target_host: ''
+haproxy_alb_default_target_port: 80

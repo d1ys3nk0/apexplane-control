@@ -1,0 +1,176 @@
+---
+
+- name: Validate Alloy variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Ensure apt keyring directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: not ansible_check_mode
+
+- name: Add Grafana GPG key
+  become: true
+  ansible.builtin.copy:
+    src: gpg-full.key
+    dest: /etc/apt/keyrings/grafana.asc
+    owner: root
+    group: root
+    mode: '0644'
+  when: not ansible_check_mode
+
+- name: Add Grafana apt repository
+  become: true
+  ansible.builtin.apt_repository:
+    repo: deb [signed-by=/etc/apt/keyrings/grafana.asc] {{ alloy_apt_repo_url }} stable main
+    state: present
+    filename: grafana
+  when: not ansible_check_mode
+
+- name: Install Alloy
+  become: true
+  ansible.builtin.apt:
+    name:
+      - alloy
+    state: present
+    update_cache: true
+    autoclean: true
+  when: not ansible_check_mode
+
+- name: Ensure Alloy config directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/alloy
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Check optional Alloy supplemental groups
+  ansible.builtin.command:
+    argv:
+      - getent
+      - group
+      - '{{ item }}'
+  loop:
+    - adm
+    - docker
+    - systemd-journal
+  register: alloy_group_checks
+  failed_when: false
+  changed_when: false
+
+- name: Store detected Alloy supplemental groups
+  ansible.builtin.set_fact:
+    alloy_supplemental_groups: "{{ alloy_group_checks.results | selectattr('rc', 'equalto', 0) | map(attribute='item') | list }}"
+    alloy_docker_enabled: "{{ 'docker' in (alloy_group_checks.results | selectattr('rc', 'equalto', 0) | map(attribute='item') | list) }}"
+
+- name: Add Alloy user to supplemental groups
+  become: true
+  ansible.builtin.user:
+    name: alloy
+    groups: '{{ alloy_supplemental_groups }}'
+    append: true
+  register: alloy_user_groups
+  when: alloy_supplemental_groups | length > 0
+
+- name: Ensure Alloy systemd override directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/system/alloy.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy Alloy systemd override
+  become: true
+  ansible.builtin.template:
+    src: alloy.service.d/override.conf.j2
+    dest: /etc/systemd/system/alloy.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'
+  register: alloy_systemd_override_update
+
+- name: Check Alloy binary
+  become: true
+  ansible.builtin.stat:
+    path: /usr/bin/alloy
+  register: alloy_binary
+
+- name: Upload Alloy config
+  become: true
+  ansible.builtin.template:
+    src: config.alloy.j2
+    dest: /etc/alloy/config.alloy
+    owner: root
+    group: alloy
+    mode: '0640'
+    validate: "{{ alloy_binary.stat.exists | ternary('/usr/bin/alloy validate %s', omit) }}"
+  register: alloy_config_update
+  no_log: '{{ alloy_nolog }}'
+  when: not ansible_check_mode or alloy_binary.stat.exists
+
+- name: Upload Alloy service defaults
+  become: true
+  ansible.builtin.template:
+    src: default.alloy.j2
+    dest: /etc/default/alloy
+    owner: root
+    group: root
+    mode: '0644'
+  register: alloy_defaults_update
+
+- name: Restart Alloy after environment or permissions change
+  become: true
+  ansible.builtin.systemd:
+    name: alloy
+    daemon_reload: true
+    enabled: true
+    state: restarted
+  when:
+    - not ansible_check_mode
+    - alloy_defaults_update.changed or alloy_systemd_override_update.changed or (alloy_user_groups is defined and alloy_user_groups.changed)
+
+- name: Enable and start Alloy service
+  become: true
+  ansible.builtin.systemd:
+    name: alloy
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: Reload Alloy after config change
+  become: true
+  ansible.builtin.systemd:
+    name: alloy
+    state: reloaded
+  when:
+    - not ansible_check_mode
+    - alloy_config_update is defined
+    - alloy_config_update.changed
+    - not (alloy_defaults_update.changed or alloy_systemd_override_update.changed or (alloy_user_groups is defined and alloy_user_groups.changed))
+
+- name: Wait for Alloy to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ alloy_web_port }}'
+    delay: 1
+    timeout: 10
+  when: not ansible_check_mode
+
+- name: Verify Alloy service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - alloy
+  register: alloy_service_health
+  changed_when: false
+  when: not ansible_check_mode

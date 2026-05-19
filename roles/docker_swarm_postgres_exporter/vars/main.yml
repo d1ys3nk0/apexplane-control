@@ -1,0 +1,7 @@
+---
+
+docker_swarm_postgres_exporter_pg_provision_enabled: >-
+  {{
+    docker_swarm_postgres_exporter_pg_admin_user | string | length > 0
+    and docker_swarm_postgres_exporter_pg_admin_pass | string | length > 0
+  }}

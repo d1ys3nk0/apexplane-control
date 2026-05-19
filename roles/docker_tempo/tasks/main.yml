@@ -1,0 +1,83 @@
+---
+
+- name: Validate Tempo variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Create directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/tempo
+
+- name: Upload configs
+  become: true
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /opt/tempo/config.yaml
+    mode: '0644'
+  register: docker_tempo_update_configs
+
+- name: Create docker volumes
+  become: true
+  community.docker.docker_volume:
+    name: '{{ item }}'
+    driver: local
+  loop:
+    - tempo-data
+  register: docker_tempo_create_volumes
+
+- name: Ensure Tempo volume permissions
+  become: true
+  community.docker.docker_container:
+    name: tempo-init
+    hostname: tempo-init.{{ inventory_hostname }}
+    image: '{{ docker_tempo_init_image_full }}'
+    user: root
+    command:
+      - chown
+      - -R
+      - 10001:10001
+      - /var/tempo
+    volumes:
+      - tempo-data:/var/tempo
+    detach: false
+    cleanup: true
+  when: docker_tempo_create_volumes.changed
+
+- name: Start tempo container
+  community.docker.docker_container:
+    hostname: tempo.{{ inventory_hostname }}
+    name: tempo
+    image: '{{ docker_tempo_image_full }}'
+    command: -target=all -config.file=/etc/tempo.yaml
+    restart: '{{ docker_tempo_update_configs.changed }}'
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_tempo_mem_res }}'
+    memory: '{{ docker_tempo_mem_lim }}'
+    memory_swap: '{{ docker_tempo_mem_swp }}'
+    network_mode: host
+    volumes:
+      - /opt/tempo/config.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+
+- name: Verify tempo container is running
+  community.docker.docker_container_info:
+    name: tempo
+  register: docker_tempo_container_info
+  until:
+    - docker_tempo_container_info.exists
+    - docker_tempo_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Check that tempo container is started successfully
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_tempo_http_port }}'
+    delay: 1
+    timeout: 10
+  when: not ansible_check_mode

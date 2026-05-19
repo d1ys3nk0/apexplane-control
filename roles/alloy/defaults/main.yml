@@ -1,0 +1,32 @@
+---
+
+alloy_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+alloy_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+alloy_nolog: '{{ (alloy_ci_mode | bool) and not (alloy_debug_mode | bool) }}'
+alloy_logs_ep: ''
+alloy_logs_basic_auth_user: ''
+alloy_logs_basic_auth_password: ''
+alloy_logs_url: "{{ alloy_logs_ep | default('', true) }}"
+alloy_logs_user: "{{ alloy_logs_basic_auth_user | default('', true) }}"
+alloy_logs_pass: "{{ alloy_logs_basic_auth_password | default('', true) }}"
+alloy_metrics_ep: ''
+alloy_metrics_basic_auth_user: ''
+alloy_metrics_basic_auth_password: ''
+alloy_metrics_url: "{{ alloy_metrics_ep | default('', true) }}"
+alloy_metrics_user: "{{ alloy_metrics_basic_auth_user | default('', true) }}"
+alloy_metrics_pass: "{{ alloy_metrics_basic_auth_password | default('', true) }}"
+alloy_traces_ep: ''
+alloy_traces_basic_auth_user: ''
+alloy_traces_basic_auth_password: ''
+alloy_traces_url: "{{ alloy_traces_ep | default('', true) }}"
+alloy_traces_user: "{{ alloy_traces_basic_auth_user | default('', true) }}"
+alloy_traces_pass: "{{ alloy_traces_basic_auth_password | default('', true) }}"
+alloy_traces_tls_insecure: true
+alloy_cluster_name: ~
+alloy_cluster_realm: ~
+alloy_cluster_platform: ~
+alloy_metrics_extra_targets: []
+alloy_apt_repo_url: https://apt.grafana.com
+alloy_web_port: 12345
+alloy_otlp_grpc_port: 4317
+alloy_otlp_http_port: 4318

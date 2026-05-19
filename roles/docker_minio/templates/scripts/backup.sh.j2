@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{% for bucket_name in docker_minio_bucket_names %}
+docker exec minio mc mb "{{ docker_minio_mc_alias }}/{{ bucket_name }}"
+{% endfor %}

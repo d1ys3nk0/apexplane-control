@@ -1,0 +1,5 @@
+---
+
+haproxy_bypass_endpoints: []
+haproxy_bypass_default_client_timeout: 1h
+haproxy_bypass_default_server_timeout: 1h

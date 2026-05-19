@@ -1,0 +1,46 @@
+---
+
+log:
+  level: INFO
+
+accessLog: {}
+
+api:
+  dashboard: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: :80
+    forwardedHeaders:
+      trustedIPs:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+  websecure:
+    address: :443
+    forwardedHeaders:
+      trustedIPs:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+
+{% if docker_swarm_traefik_letsencrypt_enabled | bool %}
+certificatesResolvers:
+  {{ docker_swarm_traefik_letsencrypt_resolver }}:
+    acme:
+      email: '{{ docker_swarm_traefik_letsencrypt_email }}'
+      storage: {{ docker_swarm_traefik_letsencrypt_storage }}
+      httpChallenge:
+        entryPoint: web
+
+{% endif %}
+providers:
+  swarm:
+    endpoint: unix:///var/run/docker.sock
+    exposedByDefault: false
+    watch: true
+    network: '{{ docker_swarm_traefik_network }}'
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true

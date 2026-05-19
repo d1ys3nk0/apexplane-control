@@ -1,0 +1,2 @@
+backend throttle_{{ haproxy_alb_throttle.name }}
+  stick-table type ip size {{ haproxy_alb_throttle.table_size | default(haproxy_alb_throttle_table_size, true) }} expire {{ haproxy_alb_throttle.period }} store http_req_rate({{ haproxy_alb_throttle.period }})

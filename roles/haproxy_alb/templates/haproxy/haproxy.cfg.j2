@@ -1,0 +1,69 @@
+global
+  log 127.0.0.1:514  local0 info
+  log 127.0.0.1:514  local1 notice
+  chroot /var/lib/haproxy
+  tune.bufsize 65536
+  stats socket /run/haproxy/admin.sock mode 660 level admin
+  stats timeout 30s
+  user haproxy
+  group haproxy
+  daemon
+
+  ca-base /etc/ssl/certs
+  crt-base /etc/ssl/private
+
+  # https://ssl-config.mozilla.org/#server=haproxy&version=2.8&config=intermediate&openssl=3.4.0&guideline=5.7
+  ssl-default-bind-curves X25519:prime256v1:secp384r1
+  ssl-default-bind-ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305
+  ssl-default-bind-ciphersuites TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
+  ssl-default-bind-options prefer-client-ciphers ssl-min-ver TLSv1.2 no-tls-tickets
+  ssl-default-server-ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305
+  ssl-default-server-ciphersuites TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
+  ssl-default-server-options ssl-min-ver TLSv1.2 no-tls-tickets
+  ssl-dh-param-file /etc/haproxy/dhparam
+
+{% if haproxy_alb_crowdsec_enabled | bool %}
+  # CrowdSec HAProxy SPOA bouncer
+  lua-prepend-path /usr/lib/crowdsec-haproxy-spoa-bouncer/lua/?.lua
+  lua-load /usr/lib/crowdsec-haproxy-spoa-bouncer/lua/crowdsec.lua
+  setenv CROWDSEC_BAN_TEMPLATE_PATH /var/lib/crowdsec-haproxy-spoa-bouncer/html/ban.html
+  setenv CROWDSEC_CAPTCHA_TEMPLATE_PATH /var/lib/crowdsec-haproxy-spoa-bouncer/html/captcha.html
+{% endif %}
+
+defaults
+  mode tcp
+  log global
+  timeout connect 5000
+  timeout client 60000
+  timeout server 60000
+  errorfile 400 /etc/haproxy/errors/400.http
+  errorfile 403 /etc/haproxy/errors/403.http
+  errorfile 408 /etc/haproxy/errors/408.http
+  errorfile 500 /etc/haproxy/errors/500.http
+  errorfile 502 /etc/haproxy/errors/502.http
+  errorfile 503 /etc/haproxy/errors/503.http
+  errorfile 504 /etc/haproxy/errors/504.http
+
+listen stats
+  mode http
+  option httplog
+  bind 127.0.0.1:{{ haproxy_alb_stats_port }}
+  stats enable
+  stats uri /_stats
+  stats refresh 10s
+  stats show-legends
+  stats show-node
+
+listen prometheus_exporter
+  mode http
+  option httplog
+  bind 127.0.0.1:{{ haproxy_alb_prometheus_exporter_port }}
+  http-request use-service prometheus-exporter if { path /metrics }
+
+{% for userlist_name, userlist_users in haproxy_alb_userlists | dictsort %}
+userlist {{ userlist_name }}
+{% for userlist_user in userlist_users %}
+  user {{ userlist_user.user }} insecure-password {{ userlist_user.password }}
+{% endfor %}
+
+{% endfor %}

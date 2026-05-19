@@ -1,0 +1,50 @@
+---
+
+- name: Install fail2ban
+  become: true
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+
+- name: Enable and start fail2ban
+  become: true
+  ansible.builtin.service:
+    name: fail2ban
+    enabled: true
+    state: started
+
+- name: Verify fail2ban service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - fail2ban
+  register: fail2ban_service_health
+  changed_when: false
+
+- name: Deploy fail2ban config
+  become: true
+  ansible.builtin.template:
+    src: fail2ban/defaults.conf.j2
+    dest: /etc/fail2ban/jail.d/defaults-debian.conf
+    mode: '0644'
+  register: fail2ban_jail_defaults_update
+
+- name: Restart fail2ban
+  become: true
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+  when: fail2ban_jail_defaults_update.changed
+
+- name: Verify fail2ban service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - fail2ban
+  register: fail2ban_restart_service_health
+  changed_when: false
+  when: fail2ban_jail_defaults_update.changed

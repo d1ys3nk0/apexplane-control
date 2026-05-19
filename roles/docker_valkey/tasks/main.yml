@@ -1,0 +1,43 @@
+---
+
+- name: Show Valkey memory limit
+  ansible.builtin.debug:
+    var: docker_valkey_mem_lim
+
+- name: Create docker volumes
+  community.docker.docker_volume:
+    name: '{{ docker_valkey_data_volume }}'
+
+- name: Start valkey container
+  community.docker.docker_container:
+    hostname: '{{ docker_valkey_hostname }}.{{ inventory_hostname }}'
+    name: '{{ docker_valkey_container_name }}'
+    image: '{{ docker_valkey_image_full }}'
+    command: "{{ docker_valkey_command if docker_valkey_command | string | length > 0 else omit }}"
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_valkey_mem_res }}'
+    memory: '{{ docker_valkey_mem_lim }}'
+    memory_swap: '{{ docker_valkey_mem_swp }}'
+    network_mode: host
+    volumes:
+      - '{{ docker_valkey_data_volume }}:/data'
+    healthcheck: "{{ {'test': ['CMD-SHELL', 'valkey-cli ping | grep PONG'], 'timeout': '2s', 'interval': '10s', 'start_period': '5s'} if docker_valkey_healthcheck_enabled | bool else omit }}"
+
+- name: Verify valkey container is running
+  community.docker.docker_container_info:
+    name: '{{ docker_valkey_container_name }}'
+  register: docker_valkey_container_info
+  until:
+    - docker_valkey_container_info.exists
+    - docker_valkey_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for valkey to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_valkey_port }}'
+    delay: 1
+    timeout: 10
+  when: not ansible_check_mode

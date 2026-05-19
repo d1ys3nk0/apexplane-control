@@ -1,0 +1,11 @@
+---
+
+- name: Download ctop binary
+  become: true
+  ansible.builtin.get_url:
+    url: '{{ docker_ctop_download_base_url }}/v{{ docker_ctop_version }}/{{ docker_ctop_binary_name }}'
+    dest: '{{ docker_ctop_binary_path }}'
+    checksum: "{{ docker_ctop_binary_checksum if docker_ctop_binary_checksum | string | length > 0 else omit }}"
+    owner: root
+    group: root
+    mode: '0755'

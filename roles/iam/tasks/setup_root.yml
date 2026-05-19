@@ -1,0 +1,25 @@
+---
+
+- name: Ensure root user has correct settings and password
+  become: true
+  ansible.builtin.user:
+    name: root
+    password: "{{ (iam_master_pass | string | length > 0 and iam_master_salt | string | length > 0) | ternary(iam_master_pass | password_hash(hashtype='sha512', salt=iam_master_salt), omit) }}"
+    shell: /bin/bash
+  no_log: '{{ iam_nolog }}'
+
+- name: Update /etc/skel/.bashrc
+  become: true
+  ansible.builtin.copy:
+    src: skel/bashrc.sh
+    dest: /etc/skel/.bashrc
+    mode: '0644'
+
+- name: Update /root/.bashrc
+  become: true
+  ansible.builtin.copy:
+    src: skel/bashrc.sh
+    dest: /root/.bashrc
+    owner: root
+    group: root
+    mode: '0644'

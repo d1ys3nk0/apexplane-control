@@ -1,0 +1,13 @@
+---
+
+- name: Assert base swap variables are valid
+  ansible.builtin.assert:
+    that:
+      - base_swap_path is not none
+      - base_swap_path | string | length > 0
+      - base_swap_path | string is match('^/')
+      - base_swap_max_size_mb | int > 0
+      - base_swap_size_ratio | float > 0
+      - ansible_memtotal_mb is defined
+      - ansible_memtotal_mb | int > 0
+    fail_msg: Define valid base_swap_* values and gather memory facts before running role base_swap.

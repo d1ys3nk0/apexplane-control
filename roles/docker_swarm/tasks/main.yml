@@ -1,0 +1,22 @@
+---
+
+- name: Validate Docker Swarm variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Configure Docker Swarm leader
+  ansible.builtin.include_tasks: setup_managers.yml
+  when: docker_swarm_mode | default('', true) == 'leader'
+
+- name: Configure Docker Swarm manager
+  ansible.builtin.include_tasks: setup_workers.yml
+  vars:
+    docker_swarm_join_role: manager
+    docker_swarm_join_token: Manager
+  when: docker_swarm_mode | default('', true) == 'manager'
+
+- name: Configure Docker Swarm worker
+  ansible.builtin.include_tasks: setup_workers.yml
+  vars:
+    docker_swarm_join_role: worker
+    docker_swarm_join_token: Worker
+  when: docker_swarm_mode | default('', true) == 'worker'

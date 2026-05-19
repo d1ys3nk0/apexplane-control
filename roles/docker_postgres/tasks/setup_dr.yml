@@ -1,0 +1,100 @@
+---
+
+- name: Check if PostgreSQL is in recovery mode
+  ansible.builtin.command: docker exec {{ docker_postgres_container_name }} psql -U {{ docker_postgres_pg_admin_user }} -tAc "SELECT pg_is_in_recovery()"
+  register: docker_postgres_recovery_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: docker_postgres_dr_action in ['wait_synced', 'promote']
+
+- name: Wait until PostgreSQL replica is fully synced
+  ansible.builtin.command: docker exec {{ docker_postgres_container_name }} psql -U {{ docker_postgres_pg_admin_user }} -tAc "SELECT pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() AS synced"
+  register: docker_postgres_sync_status
+  retries: 10
+  delay: 1
+  until: docker_postgres_sync_status.stdout | trim == "t"
+  changed_when: false
+  check_mode: false
+  when:
+    - docker_postgres_dr_action == 'wait_synced'
+    - docker_postgres_recovery_status.stdout | default('') | trim == 't'
+
+- name: Stop PostgreSQL container during DR
+  community.docker.docker_container:
+    name: '{{ docker_postgres_container_name }}'
+    state: stopped
+  when: docker_postgres_dr_action == 'stop'
+
+- name: Promote PostgreSQL to leader
+  ansible.builtin.command: docker run --rm -v {{ docker_postgres_data_volume }}:/var/lib/postgresql/data -u postgres {{ docker_postgres_runtime_image_full }} pg_ctl promote -t 300 -D /var/lib/postgresql/data
+  changed_when: true
+  when:
+    - docker_postgres_dr_action == 'promote'
+    - docker_postgres_recovery_status.stdout | default('') | trim == 't'
+    - not ansible_check_mode
+
+- name: Create PostgreSQL replicator user
+  community.postgresql.postgresql_user:
+    name: '{{ docker_postgres_pg_replicator_user }}'
+    password: '{{ docker_postgres_pg_replicator_pass }}'
+    role_attr_flags: REPLICATION
+    login_host: 127.0.0.1
+    login_user: '{{ docker_postgres_pg_admin_user }}'
+    login_password: '{{ docker_postgres_pg_admin_pass }}'
+  no_log: '{{ docker_postgres_nolog }}'
+  when:
+    - docker_postgres_dr_action == 'promote'
+    - not ansible_check_mode
+
+- name: Stop PostgreSQL container before replica restore
+  community.docker.docker_container:
+    name: '{{ docker_postgres_container_name }}'
+    state: stopped
+  when: docker_postgres_replica_restore | bool
+
+- name: Snapshot PostgreSQL data before replica restore
+  community.docker.docker_container:
+    name: pg-basebackup-snapshot
+    hostname: pg-basebackup-snapshot.{{ inventory_hostname }}
+    image: '{{ docker_postgres_utility_image_full }}'
+    command: tar czf /mnt/snapshots/snapshot_{{ ansible_date_time.iso8601_basic_short }}.tar.gz /var/lib/postgresql/data
+    volumes:
+      - '{{ docker_postgres_data_volume }}:/var/lib/postgresql/data'
+      - /opt/postgres/snapshots:/mnt/snapshots
+    detach: false
+    cleanup: true
+  when:
+    - docker_postgres_replica_restore | bool
+    - not ansible_check_mode
+
+- name: Clear PostgreSQL data before replica restore
+  community.docker.docker_container:
+    name: pg-basebackup-clear
+    hostname: pg-basebackup-clear.{{ inventory_hostname }}
+    image: '{{ docker_postgres_utility_image_full }}'
+    command: find /var/lib/postgresql/data -mindepth 1 -delete
+    volumes:
+      - '{{ docker_postgres_data_volume }}:/var/lib/postgresql/data'
+    detach: false
+    cleanup: true
+  when:
+    - docker_postgres_replica_restore | bool
+    - not ansible_check_mode
+
+- name: Restore PostgreSQL replica from active leader
+  community.docker.docker_container:
+    name: pg-basebackup
+    hostname: pg-basebackup.{{ inventory_hostname }}
+    image: '{{ docker_postgres_runtime_image_full }}'
+    command: pg_basebackup -vPR -X stream -c fast -h {{ docker_postgres_pg_fallback_host }} -p {{ docker_postgres_pg_fallback_port }} -U {{ docker_postgres_pg_replicator_user }} -D /var/lib/postgresql/data
+    env:
+      PGPASSWORD: '{{ docker_postgres_pg_replicator_pass }}'
+    volumes:
+      - '{{ docker_postgres_data_volume }}:/var/lib/postgresql/data'
+    detach: false
+    cleanup: true
+  no_log: '{{ docker_postgres_nolog }}'
+  when:
+    - docker_postgres_replica_restore | bool
+    - not ansible_check_mode

@@ -1,0 +1,21 @@
+---
+
+- name: Validate Traefik enabled flag
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_traefik_enabled is boolean
+    fail_msg: docker_swarm_traefik_enabled must be boolean.
+
+- name: Validate Traefik role variables
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_traefik_domain is not none
+      - docker_swarm_traefik_network | string | length > 0
+      - docker_swarm_traefik_domain | string | length > 0
+      - docker_swarm_traefik_http_expose_port | int > 0
+      - docker_swarm_traefik_https_expose_port | int > 0
+      - docker_swarm_traefik_letsencrypt_email is none or docker_swarm_traefik_letsencrypt_email | string | length > 0
+      - docker_swarm_traefik_letsencrypt_email is none or docker_swarm_traefik_letsencrypt_resolver | string | length > 0
+      - docker_swarm_traefik_letsencrypt_email is none or docker_swarm_traefik_letsencrypt_storage | string | length > 0
+    fail_msg: Required docker_swarm_traefik variables are missing or invalid.
+  when: docker_swarm_traefik_enabled | bool

@@ -1,0 +1,111 @@
+---
+
+- name: Validate base swap variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Calculate desired swap size
+  ansible.builtin.set_fact:
+    base_swap_desired_size_mb: >-
+      {{ [
+        ((ansible_memtotal_mb | int) * (base_swap_size_ratio | float)) | round(0, 'floor') | int,
+        base_swap_max_size_mb | int,
+      ] | min }}
+
+- name: Calculate desired swap size in bytes
+  ansible.builtin.set_fact:
+    base_swap_desired_size_bytes: '{{ base_swap_desired_size_mb | int * 1024 * 1024 }}'
+
+- name: Inspect swap file
+  become: true
+  ansible.builtin.stat:
+    path: '{{ base_swap_path }}'
+  register: base_swap_file
+
+- name: Inspect active swap devices
+  become: true
+  ansible.builtin.command: swapon --show --noheadings --raw --output NAME
+  changed_when: false
+  register: base_swap_active_devices
+
+- name: Calculate current swap state
+  ansible.builtin.set_fact:
+    base_swap_file_size_mismatch: >-
+      {{ base_swap_file.stat.exists and
+        (base_swap_file.stat.size | int != base_swap_desired_size_bytes | int) }}
+    base_swap_is_active: '{{ base_swap_path in base_swap_active_devices.stdout_lines }}'
+
+- name: Disable swap file before resizing
+  become: true
+  ansible.builtin.command: swapoff {{ base_swap_path }}
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - base_swap_file_size_mismatch | bool
+    - base_swap_is_active | bool
+
+- name: Remove incorrectly sized swap file
+  become: true
+  ansible.builtin.file:
+    path: '{{ base_swap_path }}'
+    state: absent
+  when: base_swap_file_size_mismatch | bool
+
+- name: Create swap file
+  become: true
+  ansible.builtin.command: fallocate --length {{ base_swap_desired_size_mb }}M {{ base_swap_path }}
+  args:
+    creates: '{{ base_swap_path }}'
+  register: base_swap_file_create
+  when: not ansible_check_mode
+
+- name: Inspect swap file signature
+  become: true
+  ansible.builtin.command: blkid --output value --match-tag TYPE {{ base_swap_path }}
+  changed_when: false
+  failed_when: base_swap_swap_signature.rc not in [0, 2]
+  register: base_swap_swap_signature
+  when:
+    - not ansible_check_mode
+    - base_swap_file.stat.exists or base_swap_file_create.changed
+
+- name: Configure swap file permissions
+  become: true
+  ansible.builtin.file:
+    path: '{{ base_swap_path }}'
+    owner: root
+    group: root
+    mode: '0600'
+  when: base_swap_file.stat.exists or base_swap_file_create.changed
+
+- name: Initialize swap file
+  become: true
+  ansible.builtin.command: mkswap {{ base_swap_path }}
+  changed_when: base_swap_initialize.rc == 0
+  failed_when:
+    - base_swap_initialize.rc != 0
+    - "'is mounted; will not make swapspace' not in base_swap_initialize.stderr"
+  register: base_swap_initialize
+  when:
+    - not ansible_check_mode
+    - not base_swap_is_active | bool
+    - base_swap_file_create.changed or base_swap_swap_signature.stdout != 'swap'
+
+- name: Persist swap file in fstab
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    search_string: '{{ base_swap_path }} '
+    line: '{{ base_swap_path }} none swap {{ base_swap_fstab_options }} 0 0'
+    mode: '0644'
+
+- name: Enable swap file
+  become: true
+  ansible.builtin.command: swapon {{ base_swap_path }}
+  changed_when: base_swap_enable.rc == 0
+  failed_when:
+    - base_swap_enable.rc != 0
+    - "'Device or resource busy' not in base_swap_enable.stderr"
+  register: base_swap_enable
+  when:
+    - not ansible_check_mode
+    - base_swap_file_create.changed or not base_swap_is_active | bool

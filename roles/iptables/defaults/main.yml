@@ -1,0 +1,6 @@
+---
+
+iptables_private_ports: []
+iptables_public_ports: []
+iptables_ssh_cidr: ~
+iptables_vpc_cidr: ~

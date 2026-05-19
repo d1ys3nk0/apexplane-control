@@ -1,0 +1,19 @@
+---
+
+gitlab_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+gitlab_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+gitlab_nolog: '{{ (gitlab_ci_mode | bool) and not (gitlab_debug_mode | bool) }}'
+gitlab_email_from: ~
+gitlab_email_sender: ~
+gitlab_external_url: ~
+gitlab_minio_root_pass: ~
+gitlab_minio_root_user: ~
+gitlab_node_exporter_port: 9100
+gitlab_registry_external_url: ~
+gitlab_s3_endpoint: ~
+gitlab_smtp_domain: ~
+gitlab_smtp_host: ~
+gitlab_smtp_pass: ~
+gitlab_smtp_port: 587
+gitlab_smtp_user: ~
+gitlab_sre_email: ~

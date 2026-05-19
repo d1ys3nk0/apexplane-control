@@ -1,0 +1,61 @@
+---
+
+- name: Create directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/jaeger
+
+- name: Upload configs
+  become: true
+  ansible.builtin.template:
+    src: '{{ docker_jaeger_config_template }}'
+    dest: /opt/jaeger/config.yaml
+    mode: '0644'
+  register: docker_jaeger_update_configs
+
+- name: Create docker volumes
+  become: true
+  community.docker.docker_volume:
+    name: '{{ item }}'
+    driver: local
+  loop:
+    - jaeger-data
+
+- name: Start jaeger container
+  community.docker.docker_container:
+    hostname: jaeger.{{ inventory_hostname }}
+    name: jaeger
+    image: '{{ docker_jaeger_image_full }}'
+    command: --config /jaeger/config.yaml
+    restart: '{{ docker_jaeger_update_configs.changed }}'
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_jaeger_mem_res }}'
+    memory: '{{ docker_jaeger_mem_lim }}'
+    memory_swap: '{{ docker_jaeger_mem_swp }}'
+    network_mode: host
+    volumes:
+      - /opt/jaeger/config.yaml:/jaeger/config.yaml:ro
+      - jaeger-data:/var/jaeger
+
+- name: Verify jaeger container is running
+  community.docker.docker_container_info:
+    name: jaeger
+  register: docker_jaeger_container_info
+  until:
+    - docker_jaeger_container_info.exists
+    - docker_jaeger_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Check that jaeger container is started successfully
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_jaeger_http_port }}'
+    delay: 1
+    timeout: 10
+  when: not ansible_check_mode

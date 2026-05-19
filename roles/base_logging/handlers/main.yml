@@ -1,0 +1,20 @@
+---
+
+- name: Restart rsyslog
+  become: true
+  ansible.builtin.systemd:
+    name: rsyslog
+    state: restarted
+  when: base_logging_rsyslog_enabled | bool
+
+- name: Verify rsyslog service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - rsyslog
+  register: base_logging_rsyslog_restart_service_health
+  changed_when: false
+  when: base_logging_rsyslog_enabled | bool
+  listen: Restart rsyslog

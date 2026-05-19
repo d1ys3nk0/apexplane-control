@@ -1,0 +1,72 @@
+---
+
+- name: Validate Docker Swarm PostgreSQL exporter inputs
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Configure PostgreSQL exporter database resources
+  ansible.builtin.include_tasks: setup_postgresql.yml
+  when:
+    - docker_swarm_postgres_exporter_enabled | bool
+    - docker_swarm_postgres_exporter_pg_provision_enabled | bool
+
+- name: Deploy PostgreSQL exporter as Docker Swarm service
+  become: true
+  run_once: true
+  when: docker_swarm_postgres_exporter_enabled | bool
+  block:
+    - name: Ensure PostgreSQL exporter swarm service created
+      community.docker.docker_swarm_service:
+        name: '{{ docker_swarm_postgres_exporter_service_name }}'
+        image: '{{ docker_swarm_postgres_exporter_image_full }}'
+        env:
+          DATA_SOURCE_NAME: postgresql://{{ docker_swarm_postgres_exporter_pg_user }}:{{ docker_swarm_postgres_exporter_pg_pass }}@{{ docker_swarm_postgres_exporter_pg_host }}:{{ docker_swarm_postgres_exporter_pg_port }}/{{ docker_swarm_postgres_exporter_pg_base }}?sslmode={{ docker_swarm_postgres_exporter_pg_sslmode }}
+        healthcheck:
+          test: ['CMD-SHELL', 'wget -qO- http://localhost:9187 >/dev/null || exit 1']
+          timeout: 2s
+          interval: 10s
+          start_period: 5s
+        mode: replicated
+        replicas: 1
+        endpoint_mode: vip
+        publish:
+          - target_port: 9187
+            published_port: '{{ docker_swarm_postgres_exporter_public_port }}'
+            protocol: tcp
+            mode: ingress
+        restart_config:
+          condition: any
+          delay: 5s
+        reservations:
+          cpus: 0.05
+          memory: '{{ docker_swarm_postgres_exporter_mem_res }}'
+        limits:
+          cpus: 0.25
+          memory: '{{ docker_swarm_postgres_exporter_mem_lim }}'
+      no_log: '{{ docker_swarm_postgres_exporter_nolog }}'
+      when: not ansible_check_mode
+
+    - name: Verify PostgreSQL exporter swarm service has a running task
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ps
+          - --filter
+          - desired-state=running
+          - --format
+          - "{% raw %}{{.CurrentState}}{% endraw %}"
+          - '{{ docker_swarm_postgres_exporter_service_name }}'
+      register: docker_swarm_postgres_exporter_service_tasks
+      until: docker_swarm_postgres_exporter_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
+      retries: 30
+      delay: 2
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Wait for PostgreSQL exporter published port to be ready
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: '{{ docker_swarm_postgres_exporter_public_port }}'
+        delay: 1
+        timeout: 30
+      when: not ansible_check_mode

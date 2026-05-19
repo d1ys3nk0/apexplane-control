@@ -1,0 +1,7 @@
+{% include 'postgresql.base.conf.j2' %}
+
+# Standby Mode
+primary_conninfo = 'host={{ docker_postgres_pg_fallback_host }} port={{ docker_postgres_pg_fallback_port }} user={{ docker_postgres_pg_replicator_user }} password={{ docker_postgres_pg_replicator_pass }}'
+hot_standby = on
+hot_standby_feedback = on
+max_standby_streaming_delay = 1h

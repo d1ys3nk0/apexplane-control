@@ -1,0 +1,51 @@
+---
+
+- name: Create nats directory
+  become: true
+  ansible.builtin.file:
+    path: /opt/nats
+    state: directory
+    mode: '0755'
+
+- name: Create docker volumes
+  become: true
+  community.docker.docker_volume:
+    name: '{{ item }}'
+    driver: local
+  loop:
+    - nats-data
+
+- name: Start nats container
+  community.docker.docker_container:
+    hostname: nats.{{ inventory_hostname }}
+    name: nats
+    image: '{{ docker_nats_image_full }}'
+    env:
+      NATS_PORT: '{{ docker_nats_port | string }}'
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_nats_mem_res }}'
+    memory: '{{ docker_nats_mem_lim }}'
+    memory_swap: '{{ docker_nats_mem_swp }}'
+    network_mode: host
+    volumes:
+      - nats-data:/data
+    command: -js -sd /data -m {{ docker_nats_http_port }}
+
+- name: Verify nats container is running
+  community.docker.docker_container_info:
+    name: nats
+  register: docker_nats_container_info
+  until:
+    - docker_nats_container_info.exists
+    - docker_nats_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for nats to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_nats_port }}'
+    delay: 1
+    timeout: 10
+  when: not ansible_check_mode

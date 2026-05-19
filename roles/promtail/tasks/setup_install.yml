@@ -1,0 +1,15 @@
+---
+
+- name: Download promtail deb package
+  become: true
+  ansible.builtin.get_url:
+    url: '{{ promtail_download_base_url }}/v{{ promtail_version }}/{{ promtail_deb_package_name }}'
+    dest: '{{ promtail_deb_package_path }}'
+    checksum: "{{ promtail_deb_package_checksum if promtail_deb_package_checksum | string | length > 0 else omit }}"
+    mode: '0644'
+
+- name: Install promtail deb package
+  become: true
+  ansible.builtin.apt:
+    deb: '{{ promtail_deb_package_path }}'
+    state: present

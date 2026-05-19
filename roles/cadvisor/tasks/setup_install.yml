@@ -1,0 +1,21 @@
+---
+
+- name: Download cadvisor binary
+  become: true
+  ansible.builtin.get_url:
+    url: '{{ cadvisor_download_base_url }}/v{{ cadvisor_version }}/{{ cadvisor_binary_name }}'
+    dest: '{{ cadvisor_binary_path }}'
+    checksum: "{{ cadvisor_binary_checksum if cadvisor_binary_checksum | string | length > 0 else omit }}"
+    mode: '0755'
+  register: cadvisor_download_binary
+
+- name: Install cadvisor binary
+  become: true
+  ansible.builtin.copy:
+    src: '{{ cadvisor_binary_path }}'
+    dest: '{{ cadvisor_binary_install_dir }}/cadvisor'
+    owner: root
+    group: root
+    mode: '0755'
+    remote_src: true
+  register: cadvisor_install_binary

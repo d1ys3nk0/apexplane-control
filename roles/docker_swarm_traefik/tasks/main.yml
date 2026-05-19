@@ -1,0 +1,158 @@
+---
+
+- name: Validate inputs
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Create directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  loop: >-
+    {{
+      [
+        '/etc/traefik',
+        '/etc/traefik/dynamic',
+        '/var/log/traefik',
+      ]
+      + (['/etc/traefik/acme'] if docker_swarm_traefik_letsencrypt_enabled | bool else [])
+    }}
+  when: docker_swarm_traefik_enabled | bool
+
+- name: Create Traefik ACME storage
+  become: true
+  ansible.builtin.file:
+    path: '{{ docker_swarm_traefik_letsencrypt_storage }}'
+    state: touch
+    mode: '0600'
+    owner: root
+    group: root
+    access_time: preserve
+    modification_time: preserve
+  when:
+    - docker_swarm_traefik_enabled | bool
+    - docker_swarm_traefik_letsencrypt_enabled | bool
+
+- name: Create shared routing network for Traefik-managed services
+  become: true
+  community.docker.docker_network:
+    name: '{{ docker_swarm_traefik_network }}'
+    driver: overlay
+    attachable: true
+    state: present
+  when: docker_swarm_traefik_enabled | bool
+
+- name: Deploy Traefik static config
+  become: true
+  ansible.builtin.template:
+    src: traefik.yml.j2
+    dest: /etc/traefik/traefik.yml
+    mode: '0644'
+    backup: true
+  register: docker_swarm_traefik_static_config_update
+  when: docker_swarm_traefik_enabled | bool
+
+- name: Deploy Traefik as Docker Swarm service
+  become: true
+  community.docker.docker_swarm_service:
+    name: traefik
+    image: '{{ docker_swarm_traefik_image_full }}'
+    args:
+      - --configfile=/etc/traefik/traefik.yml
+    mounts:
+      - source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        type: bind
+        readonly: true
+
+      - source: /etc/traefik
+        target: /etc/traefik
+        type: bind
+
+      - source: /var/log/traefik
+        target: /var/log/traefik
+        type: bind
+    networks:
+      - '{{ docker_swarm_traefik_network }}'
+    mode: global
+    publish: '{{ docker_swarm_traefik_published_ports }}'
+    update_config:
+      order: stop-first
+    restart_config:
+      condition: any
+      delay: 5s
+    reservations:
+      cpus: 0.1
+      memory: '{{ docker_swarm_traefik_mem_res }}'
+    limits:
+      cpus: 1.0
+      memory: '{{ docker_swarm_traefik_mem_lim }}'
+    labels: >-
+      {{
+        {
+          'traefik.enable': 'true',
+          'traefik.http.routers.dashboard.service': 'api@internal',
+          'traefik.http.routers.dashboard.rule': 'Host(`' ~ docker_swarm_traefik_domain ~ '`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))',
+          'traefik.http.routers.dashboard.entrypoints': 'websecure' if docker_swarm_traefik_letsencrypt_enabled | bool else 'web',
+          'traefik.http.routers.dashboard.tls': 'true' if docker_swarm_traefik_letsencrypt_enabled | bool else 'false',
+          'traefik.http.services.dummy-svc.loadbalancer.server.port': '65535',
+        }
+        | combine(
+          {
+            'traefik.http.routers.dashboard.tls.certresolver': docker_swarm_traefik_letsencrypt_resolver,
+          }
+          if docker_swarm_traefik_letsencrypt_enabled | bool
+          else {}
+        )
+      }}
+  when:
+    - docker_swarm_traefik_enabled | bool
+    - not ansible_check_mode
+
+- name: Force Traefik service update on config change
+  become: true
+  ansible.builtin.command:
+    cmd: docker service update --force traefik
+  changed_when: true
+  when:
+    - docker_swarm_traefik_enabled | bool
+    - not ansible_check_mode
+    - docker_swarm_traefik_static_config_update is defined
+    - docker_swarm_traefik_static_config_update.changed
+
+- name: Verify Traefik swarm service has a running task
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - ps
+      - --filter
+      - desired-state=running
+      - --format
+      - "{% raw %}{{.CurrentState}}{% endraw %}"
+      - traefik
+  register: docker_swarm_traefik_service_tasks
+  until: docker_swarm_traefik_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
+  retries: 30
+  delay: 2
+  changed_when: false
+  when:
+    - docker_swarm_traefik_enabled | bool
+    - not ansible_check_mode
+
+- name: Wait for Traefik ports to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ item }}'
+    delay: 1
+    timeout: 30
+  loop:
+    - '{{ docker_swarm_traefik_http_expose_port }}'
+    - '{{ docker_swarm_traefik_https_expose_port }}'
+  when:
+    - docker_swarm_traefik_enabled | bool
+    - not ansible_check_mode

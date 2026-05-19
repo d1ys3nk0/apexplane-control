@@ -1,0 +1,9 @@
+---
+
+docker_swarm_advertise_ip: "{{ docker_swarm_vpc_addr | default((ansible_all_ipv4_addresses | map('ansible.utils.ipaddr', docker_swarm_cidr | default(docker_swarm_vpc_cidr)) | select | first) | default(ansible_all_ipv4_addresses | first), true) }}"
+
+docker_swarm_cidr: ~
+docker_swarm_cluster_nodes_group: ~
+docker_swarm_mode: ~
+docker_swarm_vpc_addr: ''
+docker_swarm_vpc_cidr: ~

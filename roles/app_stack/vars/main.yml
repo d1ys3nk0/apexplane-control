@@ -1,0 +1,12 @@
+---
+
+app_stack_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+app_stack_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+app_stack_fresh_mode: "{{ lookup('env', 'FRESH') | default('0', true) in ['1', 'true'] }}"
+app_stack_force_mode: "{{ lookup('env', 'FORCE') | default('0', true) in ['1', 'true'] }}"
+app_stack_nolog: '{{ (app_stack_ci_mode | bool) and not (app_stack_debug_mode | bool) }}'
+app_stack_pg_provision_enabled: "{{ app_stack_pg_admin_user | string | length > 0 and app_stack_pg_admin_pass | string | length > 0 }}"
+app_stack_backups_s3_enabled: "{{ app_stack_backups_s3_access_key | string | length > 0 and app_stack_backups_s3_secret_key | string | length > 0 }}"
+app_stack_selected_apps: "{{ app_stack_apps | default([], true) | selectattr('name', 'equalto', app_stack_app_name) | list }}"
+app_stack_secret_file_force_mode: "{{ (app_stack_fresh_mode | bool) or (app_stack_force_mode | bool) }}"
+app_stack_secret_file_backup_mode: "{{ (app_stack_fresh_mode | bool) and not (app_stack_force_mode | bool) }}"

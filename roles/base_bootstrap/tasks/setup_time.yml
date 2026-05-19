@@ -1,0 +1,13 @@
+---
+
+- name: Check current timezone
+  become: true
+  ansible.builtin.command: timedatectl show --property=Timezone --value
+  register: base_bootstrap_current_timezone
+  changed_when: false
+
+- name: Set timezone to UTC
+  become: true
+  ansible.builtin.command: timedatectl set-timezone Etc/UTC
+  when: base_bootstrap_current_timezone.stdout != 'Etc/UTC'
+  register: base_bootstrap_timezone

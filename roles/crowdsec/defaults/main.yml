@@ -1,0 +1,26 @@
+---
+
+crowdsec_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+crowdsec_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+crowdsec_nolog: '{{ (crowdsec_ci_mode | bool) and not (crowdsec_debug_mode | bool) }}'
+crowdsec_enabled: true
+crowdsec_apt_key_url: https://packagecloud.io/crowdsec/crowdsec/gpgkey
+crowdsec_apt_key_path: /etc/apt/keyrings/crowdsec.asc
+crowdsec_apt_repo_url: https://packagecloud.io/crowdsec/crowdsec/ubuntu/
+crowdsec_apt_repo_distribution: '{{ ansible_distribution_release | lower }}'
+crowdsec_apt_repo_component: main
+
+crowdsec_collections:
+  - crowdsecurity/haproxy
+  - crowdsecurity/http-cve
+  - crowdsecurity/appsec-virtual-patching
+
+crowdsec_spoa_system_group: crowdsec-spoa
+crowdsec_spoa_system_user: '{{ crowdsec_spoa_system_group }}'
+crowdsec_spoa_bouncer_name: haproxy-spoa-bouncer
+crowdsec_appsec_config: crowdsecurity/appsec-default
+crowdsec_appsec_config_filename: "{{ crowdsec_appsec_config | replace('/', '-') }}.yaml"
+
+crowdsec_bouncer_key: ~
+crowdsec_http_port: 8080
+crowdsec_spoa_port: 9000

@@ -1,0 +1,43 @@
+---
+
+auth_enabled: false
+
+server:
+  http_listen_port: {{ docker_tempo_http_port }}
+  grpc_listen_port: {{ docker_tempo_grpc_port }}
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:{{ docker_tempo_otlp_grpc_port }}
+        http:
+          endpoint: 0.0.0.0:{{ docker_tempo_otlp_http_port }}
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/blocks
+    wal:
+      path: /var/tempo/wal
+
+metrics_generator:
+  ring:
+    kvstore:
+      store: memberlist
+  storage:
+    path: /var/tempo/generator/wal
+  processor:
+    local_blocks: {}
+  registry:
+    external_labels:
+      cluster: {{ docker_tempo_cluster_name }}
+      realm: {{ docker_tempo_cluster_realm }}
+      platform: {{ docker_tempo_cluster_platform }}
+  traces_storage:
+    path: /var/tempo/generator/traces
+
+overrides:
+  metrics_generator_processors: [span-metrics, service-graphs, local-blocks]

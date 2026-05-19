@@ -1,0 +1,52 @@
+---
+
+global:
+  scrape_interval: 1m
+  scrape_timeout: 15s
+  evaluation_interval: 1m
+
+alerting:
+  alertmanagers:
+    - scheme: http
+      static_configs:
+        - targets:
+          - {{ docker_prometheus_alertmanager_host }}:{{ docker_prometheus_alertmanager_http_port }}
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - labels:
+          instance: {{ docker_prometheus_fqdn_ext }}
+          platform: {{ docker_prometheus_cluster_platform }}
+          realm: {{ docker_prometheus_cluster_realm }}
+          cluster: obs
+        targets:
+        - 127.0.0.1:{{ docker_prometheus_http_port }}
+
+  - job_name: alertmanager
+    scrape_interval: 15s
+    static_configs:
+      - labels:
+          instance: {{ docker_prometheus_fqdn_ext }}
+          platform: {{ docker_prometheus_cluster_platform }}
+          realm: {{ docker_prometheus_cluster_realm }}
+          cluster: obs
+        targets:
+          - {{ docker_prometheus_alertmanager_host }}:{{ docker_prometheus_alertmanager_http_port }}
+
+  - job_name: loki
+    static_configs:
+      - labels:
+          instance: {{ docker_prometheus_fqdn_ext }}
+          platform: {{ docker_prometheus_cluster_platform }}
+          realm: {{ docker_prometheus_cluster_realm }}
+          cluster: obs
+        targets:
+          - {{ docker_prometheus_loki_host }}:{{ docker_prometheus_loki_http_port }}
+{% if docker_prometheus_targets | length > 0 %}
+
+{{ docker_prometheus_targets | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(2, true) }}
+{% endif %}

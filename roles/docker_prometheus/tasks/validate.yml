@@ -1,0 +1,12 @@
+---
+
+- name: Assert Prometheus required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_prometheus_cluster_platform is not none
+      - docker_prometheus_cluster_platform | string | length > 0
+      - docker_prometheus_cluster_realm is not none
+      - docker_prometheus_cluster_realm | string | length > 0
+      - docker_prometheus_fqdn_ext is not none
+      - docker_prometheus_fqdn_ext | string | length > 0
+    fail_msg: Define docker_prometheus cluster platform, cluster realm, and external FQDN before running role docker_prometheus.

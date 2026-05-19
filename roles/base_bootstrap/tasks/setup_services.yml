@@ -1,0 +1,9 @@
+---
+
+- name: Stop and disable configured system services
+  become: true
+  ansible.builtin.service:
+    name: '{{ item }}'
+    state: stopped
+    enabled: false
+  loop: '{{ base_bootstrap_disabled_services }}'

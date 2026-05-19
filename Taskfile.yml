@@ -1,0 +1,82 @@
+---
+
+version: '3'
+
+vars:
+  PYTHON_VERSION: '3.13'
+
+tasks:
+  default:
+    aliases: [help]
+    desc: Show command list
+    cmds:
+      - task --list
+
+  reset:
+    desc: Clean and initialize the repository
+    cmds:
+      - task: clean
+      - task: setup
+
+  clean:
+    desc: Remove all caches and temporary files
+    cmds:
+      - git clean -fdX -e '!.vpass' -e '!.env' -e '!*.env.*'
+      - find . -path ./.git -o -type d -prune -empty -delete
+
+  setup:
+    desc: Initialize and setup everything
+    cmds:
+      - task: preflight
+      - task: install
+      - task: hooks
+
+  preflight:
+    desc: Run preflight checks
+    cmds:
+      - python --version | grep -q '{{.PYTHON_VERSION}}' || (echo "Python version is not correct"; exit 1)
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - uv sync
+      - uv run ansible-galaxy collection install -r requirements.yml
+
+  upgrade:
+    desc: Upgrade dependencies
+    cmds:
+      - uv sync --upgrade
+      - uv run ansible-galaxy collection install -r requirements.yml --upgrade
+
+  hooks:
+    desc: Configure pre-commit hooks
+    cmds:
+      - uv run pre-commit install -f --install-hooks --hook-type pre-commit
+
+  check:
+    desc: Run all checks
+    cmds:
+      - task: lint-fix
+      - task: lint-chk
+      - task: test
+
+  lint:
+    desc: Run linters after autofixes
+    cmds:
+      - task: lint-fix
+      - task: lint-chk
+
+  lint-fix:
+    desc: Run lint autofixes
+    cmds:
+      - uv run pre-commit run --hook-stage manual --all-files >/dev/null || true
+
+  lint-chk:
+    desc: Run lint checkers
+    cmds:
+      - uv run pre-commit run --hook-stage pre-commit --all-files
+
+  test:
+    desc: Run all tests
+    cmds:
+      - uv run pytest tests/static

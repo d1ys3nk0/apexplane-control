@@ -1,0 +1,33 @@
+---
+
+- name: Collect Docker Swarm manager hosts
+  ansible.builtin.set_fact:
+    docker_swarm_manager_hosts: '{{ docker_swarm_manager_hosts | default([]) + [item] }}'
+  loop: '{{ groups[docker_swarm_cluster_nodes_group] }}'
+  when: hostvars[item].docker_swarm_mode | default('', true) in ['leader', 'manager']
+
+- name: Store Docker Swarm leader host
+  ansible.builtin.set_fact:
+    docker_swarm_leader_host: >-
+      {{
+        groups[docker_swarm_cluster_nodes_group]
+        | map('extract', hostvars)
+        | selectattr('docker_swarm_mode', 'defined')
+        | selectattr('docker_swarm_mode', 'equalto', 'leader')
+        | first
+      }}
+
+- name: Determine Docker Swarm leader IP to join cluster
+  ansible.builtin.set_fact:
+    docker_swarm_leader_ip: "{{ docker_swarm_leader_host.docker_swarm_vpc_addr | default((docker_swarm_leader_host.ansible_all_ipv4_addresses | map('ansible.utils.ipaddr', docker_swarm_cidr | default(docker_swarm_vpc_cidr)) | select | first) | default(docker_swarm_leader_host.ansible_all_ipv4_addresses | first), true) }}"
+
+- name: Join as Docker Swarm {{ docker_swarm_join_role }}
+  community.docker.docker_swarm:
+    state: join
+    join_as: '{{ docker_swarm_join_role }}'
+    advertise_addr: '{{ docker_swarm_advertise_ip }}'
+    listen_addr: '{{ docker_swarm_advertise_ip }}:2377'
+    data_path_addr: '{{ docker_swarm_advertise_ip }}'
+    join_token: '{{ docker_swarm_leader_host.docker_swarm_init.swarm_facts.JoinTokens[docker_swarm_join_token] }}'
+    remote_addrs: '{{ docker_swarm_leader_ip }}:2377'
+  when: docker_swarm_leader_host.docker_swarm_init is defined

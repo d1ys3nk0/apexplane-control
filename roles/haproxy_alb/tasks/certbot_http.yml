@@ -1,0 +1,21 @@
+---
+
+- name: Wait for Let's Encrypt http challenge domains to resolve
+  ansible.builtin.command:
+    argv:
+      - nslookup
+      - '{{ item }}'
+  register: haproxy_alb_certbot_http_dns_lookup
+  changed_when: false
+  until: haproxy_alb_certbot_http_dns_lookup.rc == 0
+  retries: '{{ haproxy_alb_certbot_http_dns_wait_retries }}'
+  delay: '{{ haproxy_alb_certbot_http_dns_wait_delay }}'
+  loop: '{{ haproxy_alb_http_cert_item.domains }}'
+  loop_control:
+    label: '{{ item }}'
+
+- name: Obtain Let's Encrypt certificate using http challenge
+  become: true
+  ansible.builtin.command:
+    cmd: certbot certonly --non-interactive --keep-until-expiring --renew-with-new-domains --agree-tos --standalone --http-01-port={{ haproxy_alb_certbot_http_port }} --email "{{ haproxy_alb_certbot_email }}" --cert-name "{{ haproxy_alb_http_cert_item.name }}" --domains "{{ haproxy_alb_http_cert_item.domain_arg }}" --no-directory-hooks
+  changed_when: true

@@ -1,0 +1,89 @@
+---
+
+- name: Create mount directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/alertmanager
+
+- name: Upload config from template
+  become: true
+  ansible.builtin.template:
+    src: '{{ docker_alertmanager_config_template }}'
+    dest: /opt/alertmanager/alertmanager.yml
+    mode: '0644'
+  register: docker_alertmanager_update_config_template
+  no_log: '{{ docker_alertmanager_nolog }}'
+  when:
+    - docker_alertmanager_config_content | string | length == 0
+    - docker_alertmanager_config_template | string | length > 0
+
+- name: Upload config from static file
+  become: true
+  ansible.builtin.copy:
+    src: '{{ docker_alertmanager_config_file }}'
+    dest: /opt/alertmanager/alertmanager.yml
+    mode: '0644'
+  register: docker_alertmanager_update_configs
+  no_log: '{{ docker_alertmanager_nolog }}'
+  when:
+    - docker_alertmanager_config_content | string | length == 0
+    - docker_alertmanager_config_template | string | length == 0
+    - docker_alertmanager_config_file | string | length > 0
+
+- name: Upload config from content
+  become: true
+  ansible.builtin.copy:
+    content: '{{ docker_alertmanager_config_content }}'
+    dest: /opt/alertmanager/alertmanager.yml
+    mode: '0644'
+  register: docker_alertmanager_update_config_content
+  no_log: '{{ docker_alertmanager_nolog }}'
+  when: docker_alertmanager_config_content | string | length > 0
+
+- name: Create docker volumes
+  community.docker.docker_volume:
+    name: alertmanager-data
+
+- name: Start alertmanager container
+  community.docker.docker_container:
+    hostname: alertmanager.{{ inventory_hostname }}
+    name: alertmanager
+    image: '{{ docker_alertmanager_image_full }}'
+    command: --config.file=/config/alertmanager.yml --web.external-url={{ docker_alertmanager_url }} --log.level=warn
+    restart_policy: unless-stopped
+    restart: >-
+      {{
+        docker_alertmanager_update_config_template.changed | default(false)
+        or docker_alertmanager_update_configs.changed | default(false)
+        or docker_alertmanager_update_config_content.changed | default(false)
+      }}
+    memory_reservation: '{{ docker_alertmanager_mem_res }}'
+    memory: '{{ docker_alertmanager_mem_lim }}'
+    memory_swap: '{{ docker_alertmanager_mem_swp }}'
+    network_mode: host
+    volumes:
+      - /opt/alertmanager/alertmanager.yml:/config/alertmanager.yml:ro
+      - alertmanager-data:/data
+
+- name: Verify alertmanager container is running
+  community.docker.docker_container_info:
+    name: alertmanager
+  register: docker_alertmanager_container_info
+  until:
+    - docker_alertmanager_container_info.exists
+    - docker_alertmanager_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for alertmanager to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_alertmanager_http_port }}'
+    delay: 1
+    timeout: 10
+  when: not ansible_check_mode

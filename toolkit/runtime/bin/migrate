@@ -1,0 +1,605 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cmd() {
+    printf '> '
+    printf '%q ' "$@"
+    printf '\n'
+
+    "$@"
+}
+
+cmd_capture() {
+    printf '> ' >&2
+    printf '%q ' "$@" >&2
+    printf '\n' >&2
+
+    "$@"
+}
+
+usage() {
+    echo "Usage: task apc:migrate -- <apply|clean> [realm] [platform] [cluster]"
+}
+
+COMMAND="${1:-}"
+if [ -z "${COMMAND}" ]; then
+    usage
+    exit 1
+fi
+shift
+
+TARGET_REALM_FILTER="${1:-all}"
+TARGET_PLATFORM_FILTER="${2:-all}"
+TARGET_CLUSTER_FILTER="${3:-all}"
+if [ "$#" -gt 3 ]; then
+    usage
+    exit 1
+fi
+
+load_env_files() {
+    local env_file
+
+    for env_file in .env .env.local; do
+        if [ -f "${env_file}" ]; then
+            echo "Loading ${env_file}..."
+            set -a
+            # shellcheck disable=SC1090
+            . "${env_file}"
+            set +a
+        fi
+    done
+}
+
+load_env_files
+
+ANSIBLE_SSH_USER="${ANSIBLE_SSH_USER:-cicd}"
+LOG_DIR="log"
+CURRENT_MIGRATION_LOG_PATH=""
+CURRENT_MIGRATION_CHANGED_ARCHIVED=1
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLKIT_RUNTIME_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REMOTE_STATE_SCRIPT="${TOOLKIT_RUNTIME_DIR}/scripts/remote_ansible_state.py"
+REMOTE_STATE_NAMESPACE="${REMOTE_STATE_NAMESPACE:-$(basename "${PWD}")}"
+REMOTE_LOCK_ACQUIRED=0
+REMOTE_LOCK_TARGETS=""
+REMOTE_LOCKED_BY=""
+SSH_ARGS=()
+if [ -n "${ANSIBLE_SSH_KEY_PATH:-}" ]; then
+    SSH_ARGS+=(--private-key "${ANSIBLE_SSH_KEY_PATH}")
+fi
+
+archive_current_migration_changed_log() {
+    local changed_log_path
+
+    if [ -z "${CURRENT_MIGRATION_LOG_PATH}" ] || [ "${CURRENT_MIGRATION_CHANGED_ARCHIVED}" = "1" ]; then
+        return 0
+    fi
+
+    changed_log_path="${LOG_DIR}/${TARGET_REALM}-${TARGET_CLUSTER}-$(date +%y%m%d%H%M%S)-migrate.log"
+    if ! grep -F 'changed:' "${CURRENT_MIGRATION_LOG_PATH}" >"${changed_log_path}"; then
+        rm -f "${changed_log_path}"
+    fi
+    CURRENT_MIGRATION_CHANGED_ARCHIVED=1
+}
+
+archive_current_migration_changed_log_on_exit() {
+    local status=$?
+
+    release_remote_lock
+    archive_current_migration_changed_log
+    exit "${status}"
+}
+
+start_migration_log() {
+    mkdir -p "${LOG_DIR}"
+    CURRENT_MIGRATION_LOG_PATH="${LOG_DIR}/${TARGET_REALM}-${TARGET_CLUSTER}-migration.log"
+    CURRENT_MIGRATION_CHANGED_ARCHIVED=0
+    : >"${CURRENT_MIGRATION_LOG_PATH}"
+    export ANSIBLE_LOG_PATH="${CURRENT_MIGRATION_LOG_PATH}"
+}
+
+remote_state() {
+    local target_hosts="$1"
+    local action="$2"
+    shift 2
+
+    cmd_capture uv run ansible "${target_hosts}" -i "${INVENTORY_PATH}" "${EXTRA_VARS_ARRAY[@]}" -u "${ANSIBLE_SSH_USER}" ${SSH_ARGS+"${SSH_ARGS[@]}"} -b \
+        -m ansible.builtin.script -a "${REMOTE_STATE_SCRIPT} --namespace ${REMOTE_STATE_NAMESPACE} ${action} $*"
+}
+
+release_remote_lock() {
+    if [ "${REMOTE_LOCK_ACQUIRED}" != "1" ]; then
+        return 0
+    fi
+
+    remote_state "${REMOTE_LOCK_TARGETS}" release --locked-by "${REMOTE_LOCKED_BY}" >/dev/null || true
+    REMOTE_LOCK_ACQUIRED=0
+}
+
+trap archive_current_migration_changed_log_on_exit EXIT
+
+discover_scopes() {
+    python - "${TARGET_REALM_FILTER}" "${TARGET_PLATFORM_FILTER}" "${TARGET_CLUSTER_FILTER}" <<'PY'
+import sys
+from pathlib import Path
+
+import yaml
+
+realm_filter, platform_filter, cluster_filter = sys.argv[1:4]
+
+
+def walk_groups(group: object, names: set[str]) -> None:
+    if not isinstance(group, dict):
+        return
+    children = group.get("children", {})
+    if not isinstance(children, dict):
+        return
+    for name, child in children.items():
+        if isinstance(name, str):
+            names.add(name)
+        walk_groups(child, names)
+
+
+scopes: set[tuple[str, str, str]] = set()
+for inventory_path in sorted(Path("inventories").glob("*/*.yml")):
+    cluster = inventory_path.parent.name
+    realm = inventory_path.stem
+    if cluster_filter != "all" and cluster != cluster_filter:
+        continue
+    if realm_filter != "all" and realm != realm_filter:
+        continue
+
+    inventory = yaml.safe_load(inventory_path.read_text(encoding="utf-8"))
+    group_names: set[str] = set()
+    walk_groups(inventory.get("all", inventory) if isinstance(inventory, dict) else inventory, group_names)
+    for group_name in group_names:
+        prefix = f"{realm}_"
+        suffix = f"_{cluster}"
+        if not group_name.startswith(prefix) or not group_name.endswith(suffix):
+            continue
+        platform = group_name[len(prefix) : -len(suffix)]
+        if not platform:
+            continue
+        if platform_filter != "all" and platform != platform_filter:
+            continue
+        scopes.add((realm, platform, cluster))
+
+for scope in sorted(scopes):
+    print(*scope)
+PY
+}
+
+validate_extra_vars_file() {
+    local var_file="$1"
+
+    if head -n 1 "${var_file}" | grep -q '^[$]ANSIBLE_VAULT;'; then
+        return 0
+    fi
+
+    python - "${var_file}" <<'PY'
+import sys
+from pathlib import Path
+
+import yaml
+
+path = Path(sys.argv[1])
+try:
+    value = yaml.safe_load(path.read_text(encoding="utf-8"))
+except yaml.YAMLError as exc:
+    raise SystemExit(f"Extra vars file {path} is not valid YAML: {exc}") from exc
+
+if not isinstance(value, dict):
+    raise SystemExit(f"Extra vars file {path} must contain a YAML mapping")
+PY
+}
+
+load_scope() {
+    TARGET_REALM="$1"
+    TARGET_PLATFORM="$2"
+    TARGET_CLUSTER="$3"
+    INVENTORY_PATH="inventories/${TARGET_CLUSTER}/${TARGET_REALM}.yml"
+
+    if [ ! -f "${INVENTORY_PATH}" ]; then
+        echo "Inventory file ${INVENTORY_PATH} is not found for cluster ${TARGET_CLUSTER} in realm ${TARGET_REALM}"
+        exit 1
+    fi
+
+    if [ -n "${TGT:-}" ]; then
+        TARGET_HOSTS="${TGT}"
+    else
+        TARGET_HOSTS="${TARGET_REALM}_${TARGET_PLATFORM}_${TARGET_CLUSTER}"
+    fi
+
+    VAR_FILES=(
+        "variables/_global.yml"
+        "variables/_shared.yml"
+        "variables/${TARGET_CLUSTER}/_global.yml"
+        "variables/${TARGET_CLUSTER}.yml"
+        "variables/${TARGET_REALM}/_vault.yml"
+        "variables/${TARGET_REALM}/_global.yml"
+        "variables/${TARGET_REALM}/_shared.yml"
+        "variables/${TARGET_REALM}/${TARGET_CLUSTER}/_global.yml"
+        "variables/${TARGET_REALM}/${TARGET_CLUSTER}.yml"
+        "variables/${TARGET_REALM}_${TARGET_PLATFORM}/_vault.yml"
+        "variables/${TARGET_REALM}_${TARGET_PLATFORM}/_global.yml"
+        "variables/${TARGET_REALM}_${TARGET_PLATFORM}/_shared.yml"
+        "variables/${TARGET_REALM}_${TARGET_PLATFORM}/${TARGET_CLUSTER}/_global.yml"
+        "variables/${TARGET_REALM}_${TARGET_PLATFORM}/${TARGET_CLUSTER}.yml"
+    )
+
+    EXTRA_VARS_ARRAY=()
+    for VAR_FILE in "${VAR_FILES[@]}"; do
+        if [ -f "${VAR_FILE}" ]; then
+            validate_extra_vars_file "${VAR_FILE}"
+            echo "Using ${VAR_FILE}"
+            EXTRA_VARS_ARRAY+=("-e" "@${VAR_FILE}")
+        fi
+    done
+    EXTRA_VARS_ARRAY+=("-e" "cluster_realm=${TARGET_REALM}" "-e" "cluster_name=${TARGET_CLUSTER}" "-e" "target_hosts=${TARGET_HOSTS}")
+}
+
+list_target_hosts() {
+    local list_output
+
+    list_output="$(uv run ansible "${TARGET_HOSTS}" -i "${INVENTORY_PATH}" "${EXTRA_VARS_ARRAY[@]}" --list-hosts)"
+    printf '%s\n' "${list_output}" | sed '1d; s/^[[:space:]]*//; /^$/d'
+}
+
+parse_remote_state_output() {
+    python -c '
+import json
+import re
+import sys
+
+host = ""
+states: dict[str, object] = {}
+header_pattern = re.compile(r"^([^ |]+)\s+[|].*>>$")
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    match = header_pattern.match(line)
+    if match is not None:
+        host = match.group(1)
+        continue
+    if not line.startswith("{"):
+        continue
+    try:
+        state = json.loads(line)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Invalid remote Ansible state output: {exc}: {line}") from exc
+    if not isinstance(state, dict):
+        raise SystemExit("Invalid remote Ansible state output: expected object")
+    output_host = str(state.pop("host", host))
+    if not output_host:
+        raise SystemExit("Invalid remote Ansible state output: missing host")
+    states[output_host] = state
+
+print(json.dumps(states, sort_keys=True))
+'
+}
+
+remote_state_json() {
+    local target_hosts="$1"
+    local output
+
+    output="$(remote_state "${target_hosts}" get)"
+    printf '%s\n' "${output}" | parse_remote_state_output
+}
+
+migration_pending_hosts() {
+    local migration_tag="$1"
+    shift
+
+    python - "${migration_tag}" "$@" <<'PY'
+import json
+import sys
+
+migration_tag = sys.argv[1]
+hosts = sys.argv[2:]
+
+for host in hosts:
+    print(host)
+PY
+}
+
+remote_migration_pending_hosts() {
+    local migration_tag="$1"
+    shift
+
+    python -c '
+import json
+import sys
+
+migration_tag = sys.argv[1]
+hosts = sys.argv[2:]
+states = json.loads(sys.stdin.read())
+
+for host in hosts:
+    state = states.get(host, {})
+    if not isinstance(state, dict):
+        raise SystemExit(f"Invalid remote Ansible state for {host}: expected object")
+    applied = state.get("migrate_tag", "")
+    if not isinstance(applied, str):
+        raise SystemExit(f"Invalid remote Ansible migrate_tag for {host}: expected string")
+    if applied < migration_tag:
+        print(host)
+' "${migration_tag}" "$@"
+}
+
+migration_mark_applied() {
+    local migration_tag="$1"
+    shift
+
+    remote_state "$*" mark --migrate-tag "${migration_tag}" >/dev/null
+}
+
+apply_scope() {
+    local migration_files=()
+    local target_host_list=()
+    local migration_path
+    local migration_name
+    local migration_tag
+    local pending_hosts=()
+    local pending_limit
+    local remote_states_json="{}"
+    local target_host_output
+    local lock_output
+    local migration_cmd=()
+    local migration_run_cmd=()
+
+    load_scope "$1" "$2" "$3"
+
+    shopt -s nullglob
+    for migration_path in "playbooks/${TARGET_CLUSTER}"/_*.yml; do
+        migration_name="$(basename "${migration_path}")"
+        if [[ "${migration_name}" =~ ^_ ]]; then
+            migration_files+=("${migration_path}")
+        fi
+    done
+    shopt -u nullglob
+
+    if [ "${#migration_files[@]}" -eq 0 ]; then
+        return 0
+    fi
+
+    target_host_output="$(list_target_hosts)"
+    while IFS= read -r host; do
+        if [ -n "${host}" ]; then
+            target_host_list+=("${host}")
+        fi
+    done <<<"${target_host_output}"
+    if [ "${#target_host_list[@]}" -eq 0 ]; then
+        echo "No hosts matched ${TARGET_HOSTS}"
+        exit 1
+    fi
+
+    if [[ "${DRY:-1}" =~ ^(0|false)$ ]]; then
+        printf -v REMOTE_LOCK_TARGETS '%s,' "${target_host_list[@]}"
+        REMOTE_LOCKED_BY="$(id -un)@$(hostname -s):pid=$$:task apc:migrate:${TARGET_REALM}/${TARGET_PLATFORM}/${TARGET_CLUSTER}"
+        if [[ "${UNLOCK:-0}" =~ ^(1|true)$ ]]; then
+            remote_state "${REMOTE_LOCK_TARGETS}" unlock >/dev/null
+        fi
+        if ! lock_output="$(remote_state "${REMOTE_LOCK_TARGETS}" acquire --locked-by "${REMOTE_LOCKED_BY}" 2>&1)"; then
+            printf '%s\n' "${lock_output}"
+            echo "Failed to acquire remote Ansible lock"
+            return 1
+        fi
+        REMOTE_LOCK_ACQUIRED=1
+        remote_states_json="$(remote_state_json "${REMOTE_LOCK_TARGETS}")"
+    fi
+
+    for migration_path in "${migration_files[@]}"; do
+        migration_name="$(basename "${migration_path}")"
+        if [[ ! "${migration_name}" =~ ^_([0-9]{12})_[a-z0-9_]+\.yml$ ]]; then
+            echo "Invalid migration playbook name: ${migration_path}"
+            exit 1
+        fi
+        migration_tag="${BASH_REMATCH[1]}"
+
+        pending_hosts=()
+        if [[ ! "${DRY:-1}" =~ ^(0|false)$ ]]; then
+            while IFS= read -r host; do
+                pending_hosts+=("${host}")
+            done < <(migration_pending_hosts "${migration_tag}" "${target_host_list[@]}")
+        else
+            while IFS= read -r host; do
+                pending_hosts+=("${host}")
+            done < <(printf '%s\n' "${remote_states_json}" | remote_migration_pending_hosts "${migration_tag}" "${target_host_list[@]}")
+        fi
+        if [ "${#pending_hosts[@]}" -eq 0 ]; then
+            continue
+        fi
+
+        printf -v pending_limit '%s,' "${pending_hosts[@]}"
+        migration_cmd=(uv run ansible-playbook "${migration_path}" -i "${INVENTORY_PATH}" "${EXTRA_VARS_ARRAY[@]}" -u "${ANSIBLE_SSH_USER}" ${SSH_ARGS+"${SSH_ARGS[@]}"} --limit "${pending_limit}")
+
+        if [[ ! "${CI:-0}" =~ ^(1|true)$ ]] || [[ "${DEBUG:-}" =~ ^(1|true)$ ]]; then
+            migration_cmd+=(--diff -v)
+        fi
+
+        echo "> Running migration syntax check for ${migration_name} on ${TARGET_REALM}/${TARGET_PLATFORM}/${TARGET_CLUSTER}..."
+        cmd "${migration_cmd[@]}" --syntax-check
+
+        migration_run_cmd=("${migration_cmd[@]}")
+        if [[ ! "${DRY:-1}" =~ ^(0|false)$ ]]; then
+            migration_run_cmd+=(--check)
+        fi
+
+        echo "> Running migration ${migration_name} on ${TARGET_REALM}/${TARGET_PLATFORM}/${TARGET_CLUSTER}..."
+        if [[ "${DRY:-1}" =~ ^(0|false)$ ]] && [ "${CURRENT_MIGRATION_CHANGED_ARCHIVED}" = "1" ]; then
+            start_migration_log
+        fi
+        cmd "${migration_run_cmd[@]}"
+
+        if [[ "${DRY:-1}" =~ ^(0|false)$ ]]; then
+            migration_mark_applied "${migration_tag}" "${pending_limit}"
+            remote_states_json="$(remote_state_json "${REMOTE_LOCK_TARGETS}")"
+        fi
+    done
+    release_remote_lock
+    archive_current_migration_changed_log
+}
+
+clean_migrations() {
+    local migration_path
+    local remote_states_json="{}"
+    local scope
+    local scope_realm
+    local scope_platform
+    local scope_cluster
+    local target_host_list=()
+    local target_host_output
+    local target_hosts_limit
+    local scope_states_json
+
+    while IFS= read -r scope; do
+        if [ -z "${scope}" ]; then
+            continue
+        fi
+        read -r scope_realm scope_platform scope_cluster <<<"${scope}"
+        load_scope "${scope_realm}" "${scope_platform}" "${scope_cluster}"
+
+        target_host_list=()
+        target_host_output="$(list_target_hosts)"
+        while IFS= read -r host; do
+            if [ -n "${host}" ]; then
+                target_host_list+=("${host}")
+            fi
+        done <<<"${target_host_output}"
+        if [ "${#target_host_list[@]}" -eq 0 ]; then
+            continue
+        fi
+
+        printf -v target_hosts_limit '%s,' "${target_host_list[@]}"
+        scope_states_json="$(remote_state_json "${target_hosts_limit}")"
+        remote_states_json="$(
+            python - "${remote_states_json}" "${scope_states_json}" <<'PY'
+import json
+import sys
+
+merged = json.loads(sys.argv[1])
+current = json.loads(sys.argv[2])
+if not isinstance(merged, dict) or not isinstance(current, dict):
+    raise SystemExit("Invalid remote Ansible state merge input")
+merged.update(current)
+print(json.dumps(merged, sort_keys=True))
+PY
+        )"
+    done < <(discover_scopes)
+
+    while IFS= read -r migration_path; do
+        cmd rm -f "${migration_path}"
+    done < <(
+        python - "${remote_states_json}" "${TARGET_REALM_FILTER}" "${TARGET_PLATFORM_FILTER}" "${TARGET_CLUSTER_FILTER}" <<'PY'
+import json
+import re
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+import yaml
+
+remote_states = json.loads(sys.argv[1])
+realm_filter, platform_filter, cluster_filter = sys.argv[2:5]
+
+if not isinstance(remote_states, dict):
+    raise SystemExit("Invalid remote Ansible state JSON: root must be an object")
+
+for host, value in remote_states.items():
+    if not isinstance(host, str) or not isinstance(value, dict):
+        raise SystemExit("Invalid remote Ansible state JSON: expected host state objects")
+    migrate_tag = value.get("migrate_tag", "")
+    if not isinstance(migrate_tag, str):
+        raise SystemExit(f"Invalid remote Ansible migrate_tag for {host}: expected string")
+
+
+def walk_groups(group: object, groups: dict[str, object]) -> None:
+    if not isinstance(group, dict):
+        return
+    children = group.get("children", {})
+    if not isinstance(children, dict):
+        return
+    for name, child in children.items():
+        if isinstance(name, str):
+            groups[name] = child
+        walk_groups(child, groups)
+
+
+def collect_hosts(group: object, hosts: set[str]) -> None:
+    if not isinstance(group, dict):
+        return
+    group_hosts = group.get("hosts", {})
+    if isinstance(group_hosts, dict):
+        hosts.update(str(host) for host in group_hosts)
+    children = group.get("children", {})
+    if isinstance(children, dict):
+        for child in children.values():
+            collect_hosts(child, hosts)
+
+
+hosts_by_cluster: dict[str, set[str]] = defaultdict(set)
+for inventory_path in sorted(Path("inventories").glob("*/*.yml")):
+    cluster = inventory_path.parent.name
+    realm = inventory_path.stem
+    if cluster_filter != "all" and cluster != cluster_filter:
+        continue
+    if realm_filter != "all" and realm != realm_filter:
+        continue
+
+    inventory = yaml.safe_load(inventory_path.read_text(encoding="utf-8"))
+    groups: dict[str, object] = {}
+    walk_groups(inventory.get("all", inventory) if isinstance(inventory, dict) else inventory, groups)
+    for group_name, group in groups.items():
+        prefix = f"{realm}_"
+        suffix = f"_{cluster}"
+        if not group_name.startswith(prefix) or not group_name.endswith(suffix):
+            continue
+        platform = group_name[len(prefix) : -len(suffix)]
+        if not platform:
+            continue
+        if platform_filter != "all" and platform != platform_filter:
+            continue
+        collect_hosts(group, hosts_by_cluster[cluster])
+
+name_pattern = re.compile(r"^_([0-9]{12})_[a-z0-9_]+[.]yml$")
+for migration_path in sorted(Path("playbooks").glob("*/_*.yml")):
+    cluster = migration_path.parent.name
+    if cluster_filter != "all" and cluster != cluster_filter:
+        continue
+    migration_name = migration_path.name
+    match = name_pattern.match(migration_name)
+    if match is None:
+        raise SystemExit(f"Invalid migration playbook name: {migration_path}")
+    migration_tag = match.group(1)
+    hosts = hosts_by_cluster.get(cluster, set())
+    if hosts and all(remote_states.get(host, {}).get("migrate_tag", "") >= migration_tag for host in hosts):
+        print(migration_path)
+PY
+    )
+}
+
+case "${COMMAND}" in
+apply)
+    TARGET_SCOPES=()
+    while IFS= read -r scope; do
+        if [ -n "${scope}" ]; then
+            TARGET_SCOPES+=("${scope}")
+        fi
+    done < <(discover_scopes)
+    if [ "${#TARGET_SCOPES[@]}" -eq 0 ]; then
+        echo "No migration targets matched ${TARGET_REALM_FILTER}/${TARGET_PLATFORM_FILTER}/${TARGET_CLUSTER_FILTER}"
+        exit 1
+    fi
+    for scope in "${TARGET_SCOPES[@]}"; do
+        read -r scope_realm scope_platform scope_cluster <<<"${scope}"
+        apply_scope "${scope_realm}" "${scope_platform}" "${scope_cluster}"
+    done
+    ;;
+clean)
+    clean_migrations
+    ;;
+*)
+    usage
+    exit 1
+    ;;
+esac

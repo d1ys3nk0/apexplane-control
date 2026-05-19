@@ -1,0 +1,48 @@
+---
+
+docker_gitlab_runner_container_name: gitlab-runner
+docker_gitlab_runner_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+docker_gitlab_runner_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+docker_gitlab_runner_nolog: '{{ (docker_gitlab_runner_ci_mode | bool) and not (docker_gitlab_runner_debug_mode | bool) }}'
+docker_gitlab_runner_image_name: gitlab/gitlab-runner
+docker_gitlab_runner_image_tag: v18.11.3
+docker_gitlab_runner_image_full: '{{ docker_gitlab_runner_image_name }}:{{ docker_gitlab_runner_image_tag }}'
+docker_gitlab_runner_config_dir: /srv/gitlab-runner/config
+docker_gitlab_runner_config_path: '{{ docker_gitlab_runner_config_dir }}/config.toml'
+
+docker_gitlab_runner_url: ~
+docker_gitlab_runner_token: ~
+docker_gitlab_runner_name: '{{ ansible_hostname }}'
+docker_gitlab_runner_executor: docker
+docker_gitlab_runner_docker_image_name: docker
+docker_gitlab_runner_docker_image_tag: 29.5.0
+docker_gitlab_runner_docker_image_full: '{{ docker_gitlab_runner_docker_image_name }}:{{ docker_gitlab_runner_docker_image_tag }}'
+docker_gitlab_runner_concurrency: 1
+
+docker_gitlab_runner_session_timeout: 1800
+docker_gitlab_runner_check_interval: 0
+docker_gitlab_runner_shutdown_timeout: 0
+
+docker_gitlab_runner_docker_tls_verify: false
+docker_gitlab_runner_docker_privileged: false
+docker_gitlab_runner_docker_disable_entrypoint_overwrite: false
+docker_gitlab_runner_docker_oom_kill_disable: false
+docker_gitlab_runner_docker_disable_cache: false
+docker_gitlab_runner_docker_volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
+  - /cache
+docker_gitlab_runner_docker_shm_size: 0
+docker_gitlab_runner_docker_network_mtu: 0
+docker_gitlab_runner_docker_extra_hosts:
+  - host.docker.internal:host-gateway
+docker_gitlab_runner_docker_pull_policy: always
+docker_gitlab_runner_docker_allowed_pull_policies:
+  - always
+  - if-not-present
+
+docker_gitlab_runner_service_mem_res: 1000M
+docker_gitlab_runner_service_mem_lim: 1500M
+docker_gitlab_runner_service_mem_swp: 2000M
+docker_gitlab_runner_mem_res: 200M
+docker_gitlab_runner_mem_lim: 300M
+docker_gitlab_runner_mem_swp: 400M

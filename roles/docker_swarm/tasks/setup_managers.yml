@@ -1,0 +1,17 @@
+---
+
+- name: Init a new swarm with default parameters
+  community.docker.docker_swarm:
+    state: present
+    advertise_addr: '{{ docker_swarm_advertise_ip }}'
+    listen_addr: '{{ docker_swarm_advertise_ip }}:2377'
+    data_path_addr: '{{ docker_swarm_advertise_ip }}'
+  register: docker_swarm_init
+
+# - name: Add node labels
+#   community.docker.docker_node:
+#     hostname: '{{ item }}'
+#     labels:
+#       region: "{{ hostvars[item].docker_swarm_region | default('') }}"
+#       zone: "{{ hostvars[item].docker_swarm_zone | default('') }}"
+#   with_items: '{{ groups[docker_swarm_cluster_nodes_group] }}'

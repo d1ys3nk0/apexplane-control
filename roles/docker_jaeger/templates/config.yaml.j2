@@ -1,0 +1,30 @@
+---
+
+extensions:
+  jaeger_storage:
+    backends:
+      traces:
+        memory:
+          max_traces: 10000
+  jaeger_query:
+    storage:
+      traces: traces
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:{{ docker_jaeger_otlp_grpc_port }}
+      http:
+        endpoint: 0.0.0.0:{{ docker_jaeger_otlp_http_port }}
+
+exporters:
+  jaeger_storage_exporter:
+    trace_storage: traces
+
+service:
+  extensions: [jaeger_storage, jaeger_query]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [jaeger_storage_exporter]

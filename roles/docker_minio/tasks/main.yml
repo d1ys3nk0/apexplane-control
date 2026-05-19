@@ -1,0 +1,77 @@
+---
+
+- name: Validate MinIO variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Create MinIO directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/minio
+    - /opt/minio/scripts
+
+- name: Install scripts
+  become: true
+  ansible.builtin.template:
+    src: scripts/{{ item }}.sh.j2
+    dest: /opt/minio/scripts/{{ item }}
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - backup
+
+- name: Start MinIO container
+  community.docker.docker_container:
+    hostname: minio.{{ inventory_hostname }}
+    name: minio
+    image: '{{ docker_minio_image_full }}'
+    env:
+      MINIO_ROOT_USER: '{{ docker_minio_root_user }}'
+      MINIO_ROOT_PASSWORD: '{{ docker_minio_root_pass }}'
+      MINIO_SITE_REGION: '{{ docker_minio_site_region }}'
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: [CMD, curl, -fsS, 'http://localhost:9000/minio/health/live']
+      timeout: 5s
+      interval: 30s
+      start_period: 30s
+    restart_policy: always
+    cpus: 2.0
+    memory_reservation: '{{ docker_minio_mem_res }}'
+    memory: '{{ docker_minio_mem_lim }}'
+    memory_swap: '{{ docker_minio_mem_swp }}'
+    network_mode: host
+    volumes:
+      - /data/minio_data:/data
+  no_log: '{{ docker_minio_nolog }}'
+
+- name: Verify MinIO container is running
+  community.docker.docker_container_info:
+    name: minio
+  register: docker_minio_container_info
+  until:
+    - docker_minio_container_info.exists
+    - docker_minio_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for MinIO API port to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 9000
+    delay: 1
+    timeout: 30
+  when: not ansible_check_mode
+
+- name: Wait for MinIO console port to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 9001
+    delay: 1
+    timeout: 30
+  when: not ansible_check_mode

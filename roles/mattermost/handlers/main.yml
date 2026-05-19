@@ -1,0 +1,23 @@
+---
+
+- name: Reload systemd
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart Mattermost
+  become: true
+  ansible.builtin.service:
+    name: mattermost
+    state: restarted
+
+- name: Verify Mattermost service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - mattermost
+  register: mattermost_restart_service_health
+  changed_when: false
+  listen: Restart Mattermost

@@ -1,0 +1,55 @@
+---
+
+- name: Assert Alloy required variables are set
+  ansible.builtin.assert:
+    that:
+      - alloy_cluster_name is not none
+      - alloy_cluster_name | string | length > 0
+      - alloy_cluster_realm is not none
+      - alloy_cluster_realm | string | length > 0
+      - alloy_cluster_platform is not none
+      - alloy_cluster_platform | string | length > 0
+      - (alloy_logs_url | default('', true) | string | length > 0) or (alloy_metrics_url | default('', true) | string | length > 0) or (alloy_traces_url | default('', true) | string | length > 0)
+      - alloy_traces_tls_insecure | type_debug == 'bool'
+      - alloy_metrics_extra_targets is iterable
+      - alloy_metrics_extra_targets is not string
+    fail_msg: Define Alloy cluster labels and at least one logs, metrics, or traces endpoint before running role alloy.
+
+- name: Assert Alloy basic auth credentials are complete
+  ansible.builtin.assert:
+    that:
+      - (alloy_logs_user | default('', true) | string | length > 0) == (alloy_logs_pass | default('', true) | string | length > 0)
+      - (alloy_metrics_user | default('', true) | string | length > 0) == (alloy_metrics_pass | default('', true) | string | length > 0)
+      - (alloy_traces_user | default('', true) | string | length > 0) == (alloy_traces_pass | default('', true) | string | length > 0)
+    fail_msg: Alloy basic auth variables must define both user and password for each enabled endpoint.
+  no_log: '{{ alloy_nolog }}'
+
+- name: Assert Alloy extra metrics targets are valid
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.job_name is defined
+      - item.job_name | string | length > 0
+      - item.targets is defined
+      - item.targets is iterable
+      - item.targets is not string
+      - item.targets | length > 0
+      - item.targets | select('string') | list | length == item.targets | length
+      - item.metrics_path is not defined or item.metrics_path | string | length > 0
+      - item.scrape_interval is not defined or item.scrape_interval | string | length > 0
+      - item.labels is not defined or item.labels is mapping
+      - item.labels is not defined or (item.labels.keys() | select('match', '^[A-Za-z_][A-Za-z0-9_]*$') | list | length == item.labels | length)
+    fail_msg: Alloy extra metrics targets must define job_name, non-empty targets, and optional metrics_path, scrape_interval, and labels.
+  loop: '{{ alloy_metrics_extra_targets }}'
+  loop_control:
+    label: '{{ item.job_name | default("?") }}'
+
+- name: Assert Alloy trace exporter does not target local OTLP receiver
+  ansible.builtin.assert:
+    that:
+      - >-
+        (alloy_traces_url | default('', true) | string | regex_search(
+          '^(?:https?://)?(?:localhost|127[.]0[.]0[.]1|0[.]0[.]0[.]0):' ~ (alloy_otlp_grpc_port | string) ~ '(?:/|$)'
+        )) is none
+    fail_msg: Alloy trace exporter endpoint must not point to the local Alloy OTLP gRPC receiver.
+  when: alloy_traces_url | default('', true) | string | length > 0

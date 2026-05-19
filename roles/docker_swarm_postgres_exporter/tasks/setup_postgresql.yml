@@ -1,0 +1,40 @@
+---
+
+- name: Create PostgreSQL exporter user
+  community.postgresql.postgresql_user:
+    name: '{{ docker_swarm_postgres_exporter_pg_user }}'
+    password: '{{ docker_swarm_postgres_exporter_pg_pass }}'
+    role_attr_flags: LOGIN
+    login_host: '{{ docker_swarm_postgres_exporter_pg_host }}'
+    login_port: '{{ docker_swarm_postgres_exporter_pg_port }}'
+    login_user: '{{ docker_swarm_postgres_exporter_pg_admin_user }}'
+    login_password: '{{ docker_swarm_postgres_exporter_pg_admin_pass }}'
+    ssl_mode: '{{ docker_swarm_postgres_exporter_pg_sslmode }}'
+  no_log: '{{ docker_swarm_postgres_exporter_nolog }}'
+  run_once: true
+
+- name: Create PostgreSQL exporter database
+  community.postgresql.postgresql_db:
+    name: '{{ docker_swarm_postgres_exporter_pg_base }}'
+    owner: '{{ docker_swarm_postgres_exporter_pg_user }}'
+    login_host: '{{ docker_swarm_postgres_exporter_pg_host }}'
+    login_port: '{{ docker_swarm_postgres_exporter_pg_port }}'
+    login_user: '{{ docker_swarm_postgres_exporter_pg_admin_user }}'
+    login_password: '{{ docker_swarm_postgres_exporter_pg_admin_pass }}'
+    ssl_mode: '{{ docker_swarm_postgres_exporter_pg_sslmode }}'
+  no_log: '{{ docker_swarm_postgres_exporter_nolog }}'
+  run_once: true
+
+- name: Grant PostgreSQL exporter pg_monitor role
+  community.postgresql.postgresql_membership:
+    groups:
+      - pg_monitor
+    target_roles:
+      - '{{ docker_swarm_postgres_exporter_pg_user }}'
+    login_host: '{{ docker_swarm_postgres_exporter_pg_host }}'
+    login_port: '{{ docker_swarm_postgres_exporter_pg_port }}'
+    login_user: '{{ docker_swarm_postgres_exporter_pg_admin_user }}'
+    login_password: '{{ docker_swarm_postgres_exporter_pg_admin_pass }}'
+    ssl_mode: '{{ docker_swarm_postgres_exporter_pg_sslmode }}'
+  no_log: '{{ docker_swarm_postgres_exporter_nolog }}'
+  run_once: true

@@ -1,0 +1,9 @@
+---
+
+- name: Update apt packages
+  become: true
+  ansible.builtin.apt:
+    upgrade: '{{ base_updates_upgrade }}'
+    update_cache: '{{ base_updates_cache }}'
+    autoclean: '{{ base_updates_autoclean }}'
+    autoremove: '{{ base_updates_autoremove }}'

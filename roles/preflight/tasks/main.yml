@@ -1,0 +1,89 @@
+---
+
+- name: Validate preflight variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Assert preflight runtime variables are set
+  ansible.builtin.assert:
+    that:
+      - preflight_cluster_realm is defined
+      - preflight_cluster_realm | default('', true) | string | trim | length > 0
+      - preflight_cluster_name is defined
+      - preflight_cluster_name | default('', true) | string | trim | length > 0
+      - preflight_target_hosts is defined
+      - preflight_target_hosts | default('', true) | string | trim | length > 0
+    fail_msg: >-
+      Preflight failed for {{ inventory_hostname }}: required runtime variables
+      preflight_cluster_realm, preflight_cluster_name, and preflight_target_hosts must be defined and non-empty.
+
+- name: Assert preflight allowed values are configured
+  ansible.builtin.assert:
+    that:
+      - preflight_cluster_platform_map is defined
+      - preflight_cluster_platform_map | length > 0
+      - preflight_cluster_name_list is defined
+      - preflight_cluster_name_list | length > 0
+      - preflight_cluster_realm_list is defined
+      - preflight_cluster_realm_list | length > 0
+    fail_msg: 'Preflight failed for {{ inventory_hostname }}: preflight allowed values must be defined and non-empty.'
+
+- name: Assert runtime variables have allowed values
+  ansible.builtin.assert:
+    that:
+      - preflight_cluster_realm in preflight_cluster_realm_list
+      - preflight_cluster_name in preflight_cluster_name_list
+    fail_msg: >-
+      Preflight failed for {{ inventory_hostname }}: preflight_cluster_realm={{ preflight_cluster_realm }}
+      must be one of {{ preflight_cluster_realm_list | join(', ') }};
+      preflight_cluster_name={{ preflight_cluster_name }} must be one of {{ preflight_cluster_name_list | join(', ') }}.
+
+- name: Assert required inventory variables are set
+  ansible.builtin.assert:
+    that:
+      - preflight_cluster_platform is defined
+      - preflight_cluster_platform | default('', true) | string | trim | length > 0
+      - preflight_region is defined
+      - preflight_region | default('', true) | string | trim | length > 0
+      - preflight_zone is defined
+      - preflight_zone | default('', true) | string | trim | length > 0
+      - preflight_vpc_cidr is defined
+      - preflight_vpc_cidr | default('', true) | string | trim | length > 0
+    fail_msg: >-
+      Preflight failed for {{ inventory_hostname }}: required inventory variables
+      preflight_cluster_platform, preflight_region, preflight_zone, and preflight_vpc_cidr must be defined and non-empty.
+
+- name: Assert inventory platform has allowed value
+  ansible.builtin.assert:
+    that:
+      - preflight_cluster_platform in preflight_cluster_platform_map
+    fail_msg: >-
+      Preflight failed for {{ inventory_hostname }}: preflight_cluster_platform={{ preflight_cluster_platform }}
+      must be one of {{ preflight_cluster_platform_map.keys() | list | join(', ') }}.
+
+- name: Assert inventory region has allowed value
+  ansible.builtin.assert:
+    that:
+      - preflight_region in preflight_cluster_platform_map[preflight_cluster_platform]
+    fail_msg: >-
+      Preflight failed for {{ inventory_hostname }}: preflight_region={{ preflight_region }}
+      must be one of {{ preflight_cluster_platform_map[preflight_cluster_platform].keys() | list | join(', ') }}
+      for preflight_cluster_platform={{ preflight_cluster_platform }}.
+
+- name: Assert inventory zone has allowed value
+  ansible.builtin.assert:
+    that:
+      - preflight_zone in preflight_cluster_platform_map[preflight_cluster_platform][preflight_region]
+    fail_msg: >-
+      Preflight failed for {{ inventory_hostname }}: preflight_zone={{ preflight_zone }}
+      must be one of {{ preflight_cluster_platform_map[preflight_cluster_platform][preflight_region] | join(', ') }}
+      for preflight_cluster_platform={{ preflight_cluster_platform }} and preflight_region={{ preflight_region }}.
+
+- name: Assert private IP belongs to VPC CIDR when set
+  ansible.builtin.assert:
+    that:
+      - preflight_vpc_addr | default('', true) | string | trim | length > 0
+      - (preflight_vpc_addr | ansible.utils.ipaddr(preflight_vpc_cidr)) != false
+    fail_msg: >-
+      Preflight failed for {{ inventory_hostname }}: preflight_vpc_addr={{ preflight_vpc_addr | default('UNDEFINED') }}
+      must be non-empty and belong to preflight_vpc_cidr={{ preflight_vpc_cidr | default('UNDEFINED') }}.
+  when: preflight_vpc_addr | default('', true) | string | trim | length > 0

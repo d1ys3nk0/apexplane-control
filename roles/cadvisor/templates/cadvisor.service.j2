@@ -1,0 +1,23 @@
+[Unit]
+Description=cAdvisor cgroup/container metrics server
+After=network-online.target
+
+[Service]
+Type=simple
+User={{ cadvisor_system_user }}
+Group={{ cadvisor_system_group }}
+ExecStart={{ cadvisor_binary_install_dir }}/cadvisor \
+  --store_container_labels=true \
+  --listen_ip={{ cadvisor_listen_ip }} \
+  --port={{ cadvisor_port }} \
+  --prometheus_endpoint={{ cadvisor_prometheus_endpoint }}
+SyslogIdentifier=cadvisor
+Restart=always
+RestartSec=1
+StartLimitInterval=0
+ProtectHome=yes
+NoNewPrivileges=yes
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

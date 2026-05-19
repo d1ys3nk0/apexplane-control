@@ -1,0 +1,15 @@
+---
+
+docker_swarm_gramax_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+docker_swarm_gramax_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+docker_swarm_gramax_nolog: '{{ (docker_swarm_gramax_ci_mode | bool) and not (docker_swarm_gramax_debug_mode | bool) }}'
+docker_swarm_gramax_gramax_admin_login: ~
+docker_swarm_gramax_gramax_admin_pass: ~
+docker_swarm_gramax_gramax_pull_token: ~
+docker_swarm_gramax_gramax_secret: ~
+docker_swarm_gramax_image_name: docker.io/gramax/docportal
+docker_swarm_gramax_image_tag: 2026.5.18-92
+docker_swarm_gramax_image_full: '{{ docker_swarm_gramax_image_name }}:{{ docker_swarm_gramax_image_tag }}'
+docker_swarm_gramax_mem_res: 500M
+docker_swarm_gramax_mem_lim: 750M
+docker_swarm_gramax_enabled: true

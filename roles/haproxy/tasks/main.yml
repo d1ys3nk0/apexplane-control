@@ -1,0 +1,87 @@
+---
+
+- name: Install HAProxy
+  become: true
+  ansible.builtin.apt:
+    name: haproxy
+    state: present
+    update_cache: true
+  register: haproxy_package_install
+
+- name: Create HAProxy config fragment directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/haproxy/conf.d
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Create systemd override directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/system/haproxy.service.d
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Deploy HAProxy systemd override
+  become: true
+  ansible.builtin.copy:
+    src: haproxy/override.conf
+    dest: /etc/systemd/system/haproxy.service.d/override.conf
+    mode: '0644'
+    backup: true
+  register: haproxy_systemd_override_update
+
+- name: Reload systemd daemon
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: haproxy_systemd_override_update.changed
+
+- name: Configure HAProxy logging
+  ansible.builtin.include_tasks: setup_logging.yml
+
+- name: Enable HAProxy service
+  become: true
+  ansible.builtin.systemd:
+    name: haproxy
+    enabled: true
+    state: started
+  when: not (ansible_check_mode and haproxy_package_install.changed)
+
+- name: Verify HAProxy service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - haproxy
+  register: haproxy_service_health
+  changed_when: false
+  when: not (ansible_check_mode and haproxy_package_install.changed)
+
+- name: Restart HAProxy after systemd override changes
+  become: true
+  ansible.builtin.systemd:
+    name: haproxy
+    enabled: true
+    state: restarted
+  when:
+    - haproxy_systemd_override_update.changed
+    - not (ansible_check_mode and haproxy_package_install.changed)
+
+- name: Verify HAProxy service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - haproxy
+  register: haproxy_restart_service_health
+  changed_when: false
+  when:
+    - haproxy_systemd_override_update.changed
+    - not (ansible_check_mode and haproxy_package_install.changed)

@@ -1,0 +1,11 @@
+{% set jobs = crontab_jobs[item] | default([]) -%}
+{% if jobs | length > 0 -%}
+{% for job in jobs -%}
+# {{ job.name }}
+{% if job.special_time is defined -%}
+{{ job.special_time }} {{ job.job }}
+{% else -%}
+{{ job.minute | default('*') }} {{ job.hour | default('*') }} {{ job.day | default('*') }} {{ job.month | default('*') }} {{ job.weekday | default('*') }} {{ job.job }}
+{% endif -%}
+{% endfor -%}
+{% endif -%}

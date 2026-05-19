@@ -1,0 +1,9 @@
+---
+
+ufw_private_ports: []
+ufw_public_ports: []
+
+ufw_docker_ports: []
+ufw_docker_subnets: []
+ufw_ssh_cidr: ~
+ufw_vpc_cidr: ~

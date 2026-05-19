@@ -1,0 +1,119 @@
+---
+
+- name: Validate SonarQube variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Create SonarQube directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - /opt/sonarqube
+    - /opt/sonarqube/conf
+    - /opt/sonarqube/logs
+
+- name: Create Docker volumes for SonarQube
+  community.docker.docker_volume:
+    name: '{{ item }}'
+  loop:
+    - sonarqube-data
+    - sonarqube-logs
+    - sonarqube-extensions
+    - sonarqube-pg-data
+
+- name: Start PostgreSQL container
+  community.docker.docker_container:
+    hostname: sonarqube-postgres.{{ inventory_hostname }}
+    name: sonarqube-postgres
+    image: '{{ docker_sonarqube_postgres_image_full }}'
+    env:
+      POSTGRES_USER: '{{ docker_sonarqube_postgres_user }}'
+      POSTGRES_PASSWORD: '{{ docker_sonarqube_postgres_pass }}'
+      POSTGRES_DB: '{{ docker_sonarqube_postgres_database }}'
+    restart_policy: unless-stopped
+    shm_size: 256M
+    memory_reservation: '{{ docker_sonarqube_postgres_mem_res }}'
+    memory: '{{ docker_sonarqube_postgres_mem_lim }}'
+    memory_swap: '{{ docker_sonarqube_postgres_mem_swp }}'
+    network_mode: host
+    volumes:
+      - sonarqube-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD, pg_isready, -d, '{{ docker_sonarqube_postgres_database }}', -U, '{{ docker_sonarqube_postgres_user }}']
+      timeout: 2s
+      interval: 10s
+      start_period: 5s
+  no_log: '{{ docker_sonarqube_nolog }}'
+
+- name: Verify SonarQube PostgreSQL container is running
+  community.docker.docker_container_info:
+    name: sonarqube-postgres
+  register: docker_sonarqube_postgres_container_info
+  until:
+    - docker_sonarqube_postgres_container_info.exists
+    - docker_sonarqube_postgres_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for SonarQube PostgreSQL to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 5432
+    delay: 1
+    timeout: 30
+  when: not ansible_check_mode
+
+- name: Start SonarQube container
+  community.docker.docker_container:
+    hostname: sonarqube.{{ inventory_hostname }}
+    name: sonarqube
+    image: '{{ docker_sonarqube_image_full }}'
+    env:
+      SONAR_WEB_HOST: 127.0.0.1
+      SONAR_WEB_PORT: '{{ docker_sonarqube_port | quote }}'
+      SONAR_JDBC_URL: jdbc:postgresql://127.0.0.1:5432/{{ docker_sonarqube_postgres_database }}
+      SONAR_JDBC_USERNAME: '{{ docker_sonarqube_postgres_user }}'
+      SONAR_JDBC_PASSWORD: '{{ docker_sonarqube_postgres_pass }}'
+    restart_policy: unless-stopped
+    stop_timeout: 300
+    memory_reservation: '{{ docker_sonarqube_mem_res }}'
+    memory: '{{ docker_sonarqube_mem_lim }}'
+    memory_swap: '{{ docker_sonarqube_mem_swp }}'
+    network_mode: host
+    ulimits:
+      - nofile:65536:65536
+      - nproc:4096:4096
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-extensions:/opt/sonarqube/extensions
+      - sonarqube-logs:/opt/sonarqube/logs
+    healthcheck:
+      test: [CMD, 'curl', '-fsS', 'http://127.0.0.1:9000/api/system/status']
+      timeout: 2s
+      interval: 10s
+      start_period: 30s
+  no_log: '{{ docker_sonarqube_nolog }}'
+
+- name: Verify SonarQube container is running
+  community.docker.docker_container_info:
+    name: sonarqube
+  register: docker_sonarqube_container_info
+  until:
+    - docker_sonarqube_container_info.exists
+    - docker_sonarqube_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for SonarQube to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_sonarqube_port }}'
+    delay: 1
+    timeout: 60
+  when: not ansible_check_mode

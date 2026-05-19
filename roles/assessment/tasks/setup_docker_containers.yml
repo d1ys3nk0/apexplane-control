@@ -1,0 +1,17 @@
+---
+
+- name: Inspect Docker containers
+  become: true
+  community.docker.docker_container_info:
+    name: '{{ item }}'
+  register: assessment_docker_container_info
+  failed_when: >-
+    not assessment_docker_container_info.exists
+    or not (assessment_docker_container_info.container.State.Running | bool)
+    or (
+      assessment_docker_container_health_required | bool
+      and assessment_docker_container_info.container.State.Health is defined
+      and assessment_docker_container_info.container.State.Health.Status != 'healthy'
+    )
+  changed_when: false
+  loop: '{{ assessment_docker_containers }}'

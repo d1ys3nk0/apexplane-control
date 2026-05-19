@@ -1,0 +1,6 @@
+---
+
+base_updates_autoclean: true
+base_updates_autoremove: true
+base_updates_cache: true
+base_updates_upgrade: safe

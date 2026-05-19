@@ -1,0 +1,15 @@
+---
+
+- name: Create pghero user
+  community.postgresql.postgresql_user:
+    name: '{{ docker_swarm_pghero_pg_user }}'
+    password: '{{ docker_swarm_pghero_pg_pass }}'
+    role_attr_flags: SUPERUSER
+    login_host: '{{ docker_swarm_pghero_pg_host }}'
+    login_port: '{{ docker_swarm_pghero_pg_port }}'
+    login_user: '{{ docker_swarm_pghero_pg_admin_user }}'
+    login_password: '{{ docker_swarm_pghero_pg_admin_pass }}'
+    login_db: '{{ docker_swarm_pghero_pg_admin_database }}'
+    ssl_mode: '{{ docker_swarm_pghero_pg_sslmode }}'
+  no_log: '{{ docker_swarm_pghero_nolog }}'
+  run_once: true

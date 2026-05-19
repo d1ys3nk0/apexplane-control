@@ -1,0 +1,8 @@
+---
+
+- name: Assert base packages repository is set
+  ansible.builtin.assert:
+    that:
+      - base_packages_ubuntu_deb_repo is not none
+      - base_packages_ubuntu_deb_repo | string | length > 0
+    fail_msg: Define base_packages_ubuntu_deb_repo before running role base_packages.

@@ -1,0 +1,51 @@
+---
+
+- name: Assert IAM variable contract
+  ansible.builtin.assert:
+    that:
+      - iam_admin_group | string | length > 0
+      - iam_cleanup_mode | type_debug == 'bool'
+      - iam_interactive_mode | type_debug == 'bool'
+      - iam_master_pass is string
+      - iam_master_salt is string
+      - iam_admin_users is iterable
+      - iam_admin_users is not string
+      - iam_service_users is iterable
+      - iam_service_users is not string
+    fail_msg: Define IAM root, admin user, service user, cleanup, and interactive settings before running role iam.
+
+- name: Validate IAM admin users
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.name is defined
+      - item.name is not none
+      - item.name | string | length > 0
+      - item.groups | default([], true) is sequence
+      - item.groups | default([], true) is not string
+      - item.authorized_key_files | default([], true) is sequence
+      - item.authorized_key_files | default([], true) is not string
+    fail_msg: Each iam_admin_users item must define name, optional groups, and optional authorized_key_files.
+  loop: '{{ iam_admin_users }}'
+  loop_control:
+    label: "{{ item.name | default('<missing-name>', true) }}"
+
+- name: Validate IAM service users
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.name is defined
+      - item.name is not none
+      - item.name | string | length > 0
+      - item.groups | default([], true) is sequence
+      - item.groups | default([], true) is not string
+      - item.authorized_key_files | default([], true) is sequence
+      - item.authorized_key_files | default([], true) is not string
+      - item.sudo_commands | default([], true) is sequence
+      - item.sudo_commands | default([], true) is not string
+      - item.private_key_file is not defined or item.private_key_file is none or item.private_key_file | string | length > 0
+      - item.public_key_file is not defined or item.public_key_file is none or item.public_key_file | string | length > 0
+    fail_msg: Each iam_service_users item must define name, optional groups, optional key files, and optional sudo_commands.
+  loop: '{{ iam_service_users }}'
+  loop_control:
+    label: "{{ item.name | default('<missing-name>', true) }}"

@@ -1,0 +1,57 @@
+---
+
+- name: Validate base packages variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Configure custom Ubuntu repository
+  become: true
+  ansible.builtin.template:
+    src: ubuntu_sources.sources.j2
+    dest: /etc/apt/sources.list.d/ubuntu.sources
+    mode: '0644'
+    owner: root
+    group: root
+    backup: true
+  when: base_packages_ubuntu_deb_repo is defined
+
+- name: Install essential packages
+  become: true
+  ansible.builtin.apt:
+    name:
+      - acl
+      - apt-transport-https
+      - ca-certificates
+      - coreutils
+      - cron
+      - curl
+      - dnsutils
+      - git
+      - gnupg
+      - htop
+      - iotop
+      - iproute2
+      - jq
+      - locales
+      - lsb-release
+      - ncdu
+      - net-tools
+      - procps
+      - python3-docker
+      - python3-passlib
+      - python3-pip
+      - python3-psycopg2
+      - snapd
+      - tmux
+      - tzdata
+      - util-linux
+      - vim
+      - wget
+    state: present
+    update_cache: true
+    autoclean: true
+
+- name: Install snap packages
+  become: true
+  community.general.snap:
+    name: aws-cli
+    classic: true

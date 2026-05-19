@@ -1,0 +1,42 @@
+---
+
+- name: Validate HAProxy bypass endpoint contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Render HAProxy bypass proxy fragments
+  become: true
+  ansible.builtin.template:
+    src: haproxy/bypass.cfg.j2
+    dest: /etc/haproxy/conf.d/bypass_{{ item.name }}.cfg
+    mode: '0644'
+    backup: true
+  loop: '{{ haproxy_bypass_endpoints }}'
+  loop_control:
+    label: '{{ item.name }}'
+  register: haproxy_bypass_config_update
+
+- name: Validate HAProxy configs after bypass changes
+  become: true
+  ansible.builtin.command:
+    cmd: haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/conf.d
+  register: haproxy_bypass_conf_check
+  changed_when: false
+  failed_when: false
+
+- name: Assert HAProxy validation output is correct after bypass changes
+  ansible.builtin.assert:
+    that:
+      - haproxy_bypass_conf_check.stdout | trim == "Configuration file is valid"
+      - haproxy_bypass_conf_check.stderr | trim == ""
+    fail_msg: "HAProxy check returned extra output after bypass changes:\n\nstdout: '{{ haproxy_bypass_conf_check.stdout }}'\n\nstderr: '{{ haproxy_bypass_conf_check.stderr }}'"
+    success_msg: HAProxy check returned no extra output after bypass changes
+  when: not ansible_check_mode
+
+- name: Reload HAProxy after bypass changes
+  become: true
+  ansible.builtin.systemd:
+    name: haproxy
+    state: reloaded
+  when:
+    - haproxy_bypass_config_update.changed
+    - not ansible_check_mode

@@ -1,0 +1,13 @@
+---
+
+- name: Validate base hardening variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Run SSH tasks
+  ansible.builtin.include_tasks: setup_ssh.yml
+
+- name: Run sysctl tasks
+  ansible.builtin.include_tasks: setup_sysctl.yml
+
+- name: Run host audit tasks
+  ansible.builtin.include_tasks: setup_auditd.yml

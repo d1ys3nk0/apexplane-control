@@ -1,0 +1,10 @@
+[DEFAULT]
+banaction = nftables
+banaction_allports = nftables[type=allports]
+backend = systemd
+
+[sshd]
+enabled = true
+port = ssh,{{ ansible_port }}
+maxretry = 2
+bantime = 300

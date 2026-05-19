@@ -1,0 +1,42 @@
+---
+
+mattermost_pg_provision_enabled: >-
+  {{
+    mattermost_pg_admin_user | string | length > 0
+    and mattermost_pg_admin_pass | string | length > 0
+  }}
+
+mattermost_config_overrides:
+  ServiceSettings:
+    SiteURL: '{{ mattermost_site_url }}'
+    ListenAddress: '{{ mattermost_listen_address }}'
+  SqlSettings:
+    DriverName: postgres
+    DataSource: 'postgres://{{ mattermost_pg_user }}:{{ mattermost_pg_pass | urlencode }}@{{ mattermost_pg_host }}:{{ mattermost_pg_port }}/{{ mattermost_pg_base }}?sslmode=disable&connect_timeout=5'
+  FileSettings:
+    DriverName: amazons3
+    AmazonS3Bucket: '{{ mattermost_s3_bucket }}'
+    AmazonS3PathPrefix: '{{ mattermost_s3_path_prefix }}'
+    AmazonS3AccessKeyId: '{{ mattermost_s3_access_key }}'
+    AmazonS3SecretAccessKey: '{{ mattermost_s3_secret_key }}'
+    AmazonS3Endpoint: '{{ mattermost_s3_endpoint }}'
+    AmazonS3Region: '{{ mattermost_s3_region }}'
+    AmazonS3SSL: '{{ mattermost_s3_ssl | bool }}'
+  EmailSettings:
+    FeedbackName: '{{ mattermost_email_feedback_name }}'
+    FeedbackEmail: '{{ mattermost_email_feedback_address }}'
+    ReplyToAddress: '{{ mattermost_email_reply_to_address }}'
+    EnableSMTPAuth: '{{ mattermost_smtp_auth_enabled | bool }}'
+    SMTPUsername: '{{ mattermost_smtp_user }}'
+    SMTPPassword: '{{ mattermost_smtp_pass }}'
+    SMTPServer: '{{ mattermost_smtp_host }}'
+    SMTPPort: '{{ mattermost_smtp_port | string }}'
+    SMTPServerTimeout: '{{ mattermost_smtp_server_timeout | int }}'
+    ConnectionSecurity: '{{ mattermost_smtp_connection_security }}'
+    SkipServerCertificateVerification: '{{ mattermost_smtp_skip_server_certificate_verification | bool }}'
+  SupportSettings:
+    SupportEmail: '{{ mattermost_support_email }}'
+  LocalizationSettings:
+    DefaultServerLocale: ru
+    DefaultClientLocale: ru
+    AvailableLocales: 'ru,en'

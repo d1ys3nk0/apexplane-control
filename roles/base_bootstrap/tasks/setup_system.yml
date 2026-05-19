@@ -1,0 +1,26 @@
+---
+
+- name: Update hostname
+  become: true
+  ansible.builtin.hostname:
+    name: '{{ inventory_hostname }}'
+  register: base_bootstrap_update_hostname
+
+- name: Refresh host facts after hostname update
+  ansible.builtin.setup:
+  when: base_bootstrap_update_hostname.changed
+
+- name: Add fqdn to /etc/hosts
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: 127.0.1.1 {{ base_bootstrap_fqdn_ext }} {{ base_bootstrap_fqdn_int }} {{ inventory_hostname }}
+    regexp: ^127.0.1.1
+    state: present
+
+- name: Customize MOTD message
+  become: true
+  ansible.builtin.copy:
+    content: "Public FQDN: {{ base_bootstrap_fqdn_ext }}\nPrivate FQDN: {{ base_bootstrap_fqdn_int }}\nRealm: {{ base_bootstrap_cluster_realm }}\nGroups: {{ group_names }}\n\n"
+    dest: /etc/motd
+    mode: '0644'
