@@ -44,8 +44,8 @@
 - name: Validate Docker PostgreSQL WAL-G recovery rename settings
   ansible.builtin.assert:
     that:
-      - (docker_postgres_walg_recover_base_rename_before | string | length > 0) == (docker_postgres_walg_recover_base_rename_after | string | length > 0)
-      - (docker_postgres_walg_recover_user_rename_before | string | length > 0) == (docker_postgres_walg_recover_user_rename_after | string | length > 0)
-      - docker_postgres_walg_recover_reassign_users is sequence
-      - docker_postgres_walg_recover_reassign_users is not string
+      - (docker_postgres_walg_recover_origin_base | string | length > 0) == (docker_postgres_walg_recover_target_base | string | length > 0)
+      - (docker_postgres_walg_recover_origin_owner | string | length > 0) == (docker_postgres_walg_recover_target_user | string | length > 0)
+      - docker_postgres_walg_recover_origin_users is sequence
+      - docker_postgres_walg_recover_origin_users is not string
     fail_msg: Define WAL-G recovery rename pairs together and reassign users as a list.

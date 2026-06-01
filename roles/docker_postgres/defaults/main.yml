@@ -33,7 +33,7 @@ docker_postgres_utility_image_name: busybox
 docker_postgres_utility_image_tag: 1.37.0
 docker_postgres_utility_image_full: '{{ docker_postgres_utility_image_name }}:{{ docker_postgres_utility_image_tag }}'
 
-# WAL-G Backup Uploads
+# WAL-G Backup
 docker_postgres_walg_backup_s3_endpoint: ''
 docker_postgres_walg_backup_s3_region: ''
 docker_postgres_walg_backup_s3_bucket: ''
@@ -48,9 +48,9 @@ docker_postgres_walg_recover_s3_bucket: ''
 docker_postgres_walg_recover_s3_prefix: ''
 docker_postgres_walg_recover_s3_access_key: ''
 docker_postgres_walg_recover_s3_secret_key: ''
-docker_postgres_walg_recover_base_rename_before: ''
-docker_postgres_walg_recover_base_rename_after: ''
-docker_postgres_walg_recover_user_rename_before: ''
-docker_postgres_walg_recover_user_rename_after: ''
-docker_postgres_walg_recover_user_rename_password: ''
-docker_postgres_walg_recover_reassign_users: []
+docker_postgres_walg_recover_origin_base: ''
+docker_postgres_walg_recover_origin_owner: ''
+docker_postgres_walg_recover_origin_users: []
+docker_postgres_walg_recover_target_base: ''
+docker_postgres_walg_recover_target_user: ''
+docker_postgres_walg_recover_target_pass: ''

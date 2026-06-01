@@ -73,7 +73,6 @@ Required environment:
 
 Optional environment:
   WALG_CONTAINER=postgres
-  WALG_DATA_VOLUME=postgres_data
   WALG_DATA_DIR=/var/lib/postgresql/data
   WALG_CONFIG_DIR=/opt/postgres/config
   WALG_SNAPSHOT_DIR=/opt/postgres/snapshots
@@ -83,12 +82,12 @@ Optional environment:
   WALG_RECOVER_START=true|false
   WALG_RECOVER_WAIT=true|false
   WALG_RECOVER_WAIT_SECONDS=3600
-  WALG_RECOVER_BASE_RENAME_BEFORE=<old-database-name>
-  WALG_RECOVER_BASE_RENAME_AFTER=<new-database-name>
-  WALG_RECOVER_USER_RENAME_BEFORE=<old-role-name>
-  WALG_RECOVER_USER_RENAME_AFTER=<new-role-name>
-  WALG_RECOVER_USER_RENAME_PASSWORD=<new-role-password>
-  WALG_RECOVER_REASSIGN_USERS="<source-role-a> <source-role-b>"
+  WALG_RECOVER_ORIGIN_BASE=<old-database-name>
+  WALG_RECOVER_TARGET_BASE=<new-database-name>
+  WALG_RECOVER_ORIGIN_OWNER=<old-role-name>
+  WALG_RECOVER_TARGET_USER=<new-role-name>
+  WALG_RECOVER_TARGET_PASS=<new-role-password>
+  WALG_RECOVER_ORIGIN_USERS="<source-role-a> <source-role-b>"
 
 Examples:
   dotenv /opt/postgres/postgres.env /opt/postgres/bin/walg_recover
@@ -102,8 +101,11 @@ init_config() {
     fi
 
     WALG_CONTAINER="${WALG_CONTAINER:-postgres}"
-    WALG_DATA_VOLUME="${WALG_DATA_VOLUME:-postgres_data}"
     WALG_DATA_DIR="${WALG_DATA_DIR:-/var/lib/postgresql/data}"
+    WALG_DATA_VOLUME="$(docker inspect "${WALG_CONTAINER}" --format '{{range .Mounts}}{{if eq .Destination "'"${WALG_DATA_DIR}"'"}}{{.Name}}{{end}}{{end}}')"
+    if [ -z "${WALG_DATA_VOLUME}" ]; then
+        error "Cannot determine data volume from container ${WALG_CONTAINER}"
+    fi
     WALG_CONFIG_DIR="${WALG_CONFIG_DIR:-/opt/postgres/config}"
     WALG_SNAPSHOT_DIR="${WALG_SNAPSHOT_DIR:-/opt/postgres/snapshots}"
     WALG_RECOVER_BACKUP_NAME="${WALG_RECOVER_BACKUP_NAME:-LATEST}"
@@ -113,12 +115,12 @@ init_config() {
     WALG_RECOVER_WAIT="${WALG_RECOVER_WAIT:-true}"
     WALG_RECOVER_WAIT_SECONDS="${WALG_RECOVER_WAIT_SECONDS:-3600}"
     WALG_RECOVER_S3_BUCKET="${WALG_RECOVER_S3_BUCKET:-}"
-    WALG_RECOVER_BASE_RENAME_BEFORE="${WALG_RECOVER_BASE_RENAME_BEFORE:-}"
-    WALG_RECOVER_BASE_RENAME_AFTER="${WALG_RECOVER_BASE_RENAME_AFTER:-}"
-    WALG_RECOVER_USER_RENAME_BEFORE="${WALG_RECOVER_USER_RENAME_BEFORE:-}"
-    WALG_RECOVER_USER_RENAME_AFTER="${WALG_RECOVER_USER_RENAME_AFTER:-}"
-    WALG_RECOVER_USER_RENAME_PASSWORD="${WALG_RECOVER_USER_RENAME_PASSWORD:-}"
-    WALG_RECOVER_REASSIGN_USERS="${WALG_RECOVER_REASSIGN_USERS:-}"
+    WALG_RECOVER_ORIGIN_BASE="${WALG_RECOVER_ORIGIN_BASE:-}"
+    WALG_RECOVER_TARGET_BASE="${WALG_RECOVER_TARGET_BASE:-}"
+    WALG_RECOVER_ORIGIN_OWNER="${WALG_RECOVER_ORIGIN_OWNER:-}"
+    WALG_RECOVER_TARGET_USER="${WALG_RECOVER_TARGET_USER:-}"
+    WALG_RECOVER_TARGET_PASS="${WALG_RECOVER_TARGET_PASS:-}"
+    WALG_RECOVER_ORIGIN_USERS="${WALG_RECOVER_ORIGIN_USERS:-}"
 
     if [ "$#" -ge 1 ]; then
         if [[ "$1" == s3://* ]]; then
@@ -146,16 +148,16 @@ init_config() {
     if [[ "${WALG_RECOVER_S3_PREFIX}" != s3://* ]]; then
         WALG_RECOVER_S3_PREFIX="s3://${WALG_RECOVER_S3_BUCKET}/${WALG_RECOVER_S3_PREFIX#/}"
     fi
-    if [ -n "${WALG_RECOVER_BASE_RENAME_BEFORE}" ] || [ -n "${WALG_RECOVER_BASE_RENAME_AFTER}" ]; then
-        require_vars "WALG_RECOVER_BASE_RENAME_BEFORE" "WALG_RECOVER_BASE_RENAME_AFTER"
+    if [ -n "${WALG_RECOVER_ORIGIN_BASE}" ] || [ -n "${WALG_RECOVER_TARGET_BASE}" ]; then
+        require_vars "WALG_RECOVER_ORIGIN_BASE" "WALG_RECOVER_TARGET_BASE"
     fi
-    if [ -n "${WALG_RECOVER_USER_RENAME_BEFORE}" ] || [ -n "${WALG_RECOVER_USER_RENAME_AFTER}" ]; then
-        require_vars "WALG_RECOVER_USER_RENAME_BEFORE" "WALG_RECOVER_USER_RENAME_AFTER"
+    if [ -n "${WALG_RECOVER_ORIGIN_OWNER}" ] || [ -n "${WALG_RECOVER_TARGET_USER}" ]; then
+        require_vars "WALG_RECOVER_ORIGIN_OWNER" "WALG_RECOVER_TARGET_USER"
     fi
-    if [ -n "${WALG_RECOVER_REASSIGN_USERS}" ]; then
-        require_vars "WALG_RECOVER_USER_RENAME_AFTER" "WALG_RECOVER_BASE_RENAME_AFTER"
+    if [ -n "${WALG_RECOVER_ORIGIN_USERS}" ]; then
+        require_vars "WALG_RECOVER_TARGET_USER" "WALG_RECOVER_TARGET_BASE"
     fi
-    if [ -n "${WALG_RECOVER_BASE_RENAME_BEFORE}${WALG_RECOVER_USER_RENAME_BEFORE}${WALG_RECOVER_REASSIGN_USERS}" ]; then
+    if [ -n "${WALG_RECOVER_ORIGIN_BASE}${WALG_RECOVER_ORIGIN_OWNER}${WALG_RECOVER_ORIGIN_USERS}" ]; then
         if ! is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || ! is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT; then
             error "WAL-G recovery rename/reassign requires WALG_RECOVER_START=true and WALG_RECOVER_WAIT=true"
         fi
@@ -327,14 +329,14 @@ psql_database() {
 }
 
 reconcile_database_name() {
-    if [ -z "${WALG_RECOVER_BASE_RENAME_BEFORE}" ]; then
+    if [ -z "${WALG_RECOVER_ORIGIN_BASE}" ]; then
         return
     fi
 
-    info "Reconciling recovered database ${WALG_RECOVER_BASE_RENAME_BEFORE} to ${WALG_RECOVER_BASE_RENAME_AFTER}"
+    info "Reconciling recovered database ${WALG_RECOVER_ORIGIN_BASE} to ${WALG_RECOVER_TARGET_BASE}"
     psql_postgres \
-        -v "source_db=${WALG_RECOVER_BASE_RENAME_BEFORE}" \
-        -v "target_db=${WALG_RECOVER_BASE_RENAME_AFTER}" <<'SQL'
+        -v "source_db=${WALG_RECOVER_ORIGIN_BASE}" \
+        -v "target_db=${WALG_RECOVER_TARGET_BASE}" <<'SQL'
 SELECT format('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %L AND pid <> pg_backend_pid()', :'source_db')
 WHERE :'source_db' <> :'target_db'
   AND EXISTS (SELECT 1 FROM pg_database WHERE datname = :'source_db')
@@ -368,15 +370,15 @@ SQL
 reconcile_role_name() {
     local password_b64
 
-    if [ -z "${WALG_RECOVER_USER_RENAME_AFTER}" ]; then
+    if [ -z "${WALG_RECOVER_TARGET_USER}" ]; then
         return
     fi
 
-    password_b64="$(printf '%s' "${WALG_RECOVER_USER_RENAME_PASSWORD}" | base64 | tr -d '\n')"
-    info "Reconciling recovered role ${WALG_RECOVER_USER_RENAME_AFTER}"
+    password_b64="$(printf '%s' "${WALG_RECOVER_TARGET_PASS}" | base64 | tr -d '\n')"
+    info "Reconciling recovered role ${WALG_RECOVER_TARGET_USER}"
     psql_postgres \
-        -v "source_user=${WALG_RECOVER_USER_RENAME_BEFORE}" \
-        -v "target_user=${WALG_RECOVER_USER_RENAME_AFTER}" \
+        -v "source_user=${WALG_RECOVER_ORIGIN_OWNER}" \
+        -v "target_user=${WALG_RECOVER_TARGET_USER}" \
         -v "target_pass_b64=${password_b64}" <<'SQL'
 SELECT format('ALTER ROLE %I RENAME TO %I', :'source_user', :'target_user')
 WHERE :'source_user' <> ''
@@ -402,7 +404,7 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'target_user')
 
 SELECT format(
     'DO $do$ BEGIN RAISE EXCEPTION %L; END $do$',
-    format('Target role "%s" does not exist and WALG_RECOVER_USER_RENAME_PASSWORD is empty', :'target_user')
+    format('Target role "%s" does not exist and WALG_RECOVER_TARGET_PASS is empty', :'target_user')
 )
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'target_user')
   AND :'target_pass_b64' = ''
@@ -419,24 +421,24 @@ SQL
 }
 
 reassign_database_objects() {
-    local target_db="${WALG_RECOVER_BASE_RENAME_AFTER:-${WALG_RECOVER_BASE_RENAME_BEFORE}}"
+    local target_db="${WALG_RECOVER_TARGET_BASE:-${WALG_RECOVER_ORIGIN_BASE}}"
 
-    if [ -z "${target_db}" ] || [ -z "${WALG_RECOVER_USER_RENAME_AFTER}" ]; then
+    if [ -z "${target_db}" ] || [ -z "${WALG_RECOVER_TARGET_USER}" ]; then
         return
     fi
 
     info "Reconciling ownership and grants in database ${target_db}"
     psql_postgres \
         -v "target_db=${target_db}" \
-        -v "target_user=${WALG_RECOVER_USER_RENAME_AFTER}" <<'SQL'
+        -v "target_user=${WALG_RECOVER_TARGET_USER}" <<'SQL'
 SELECT format('ALTER DATABASE %I OWNER TO %I', :'target_db', :'target_user')
 WHERE EXISTS (SELECT 1 FROM pg_database WHERE datname = :'target_db')
 \gexec
 SQL
 
     psql_database "${target_db}" \
-        -v "target_user=${WALG_RECOVER_USER_RENAME_AFTER}" \
-        -v "reassign_users=${WALG_RECOVER_REASSIGN_USERS}" <<'SQL'
+        -v "target_user=${WALG_RECOVER_TARGET_USER}" \
+        -v "reassign_users=${WALG_RECOVER_ORIGIN_USERS}" <<'SQL'
 SELECT format('REASSIGN OWNED BY %I TO %I', source_user, :'target_user')
 FROM unnest(string_to_array(:'reassign_users', ' ')) AS source_user
 WHERE source_user <> ''
