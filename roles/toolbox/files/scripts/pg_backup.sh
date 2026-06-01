@@ -26,7 +26,7 @@ error() {
 
 usage() {
     cat >&2 <<'USAGE'
-Usage: pg_dump [backup-root]
+Usage: pg_backup [backup-root]
 
 Creates a compressed PostgreSQL dump for PG_BASE.
 Defaults backup-root to ~/backups/postgres.
@@ -36,21 +36,21 @@ Required environment:
 
 Optional environment:
   PG_SSL=require|disable (defaults to disable)
-  PG_DUMP_FORMAT=sql|dir|cst (defaults to dir)
-  PG_DUMP_CONCURRENCY=<jobs> (defaults to 4; dir format only)
-  PG_DUMP_PREFIX=<relative-path>
-  PG_DUMP_SECRET=<passphrase>
-  PG_DUMP_S3=0|false
-  PG_DUMP_S3_ENDPOINT=<endpoint>
-  PG_DUMP_S3_REGION=<region>
-  PG_DUMP_S3_BUCKET=<bucket>
-  PG_DUMP_S3_PREFIX=<key-prefix>
-  PG_DUMP_S3_ACCESS_KEY=<access-key>
-  PG_DUMP_S3_SECRET_KEY=<secret-key>
+  PG_BACKUP_FORMAT=sql|dir|cst (defaults to dir)
+  PG_BACKUP_CONCURRENCY=<jobs> (defaults to 4; dir format only)
+  PG_BACKUP_PREFIX=<relative-path>
+  PG_BACKUP_SECRET=<passphrase>
+  PG_BACKUP_S3=0|false
+  PG_BACKUP_S3_ENDPOINT=<endpoint>
+  PG_BACKUP_S3_REGION=<region>
+  PG_BACKUP_S3_BUCKET=<bucket>
+  PG_BACKUP_S3_PREFIX=<key-prefix>
+  PG_BACKUP_S3_ACCESS_KEY=<access-key>
+  PG_BACKUP_S3_SECRET_KEY=<secret-key>
 
 Example:
-  dotenv /path/to/app.env pg_dump
-  dotenv /path/to/app.env pg_dump /var/backups/postgres
+  dotenv /path/to/app.env pg_backup
+  dotenv /path/to/app.env pg_backup /var/backups/postgres
 USAGE
 }
 
@@ -70,7 +70,7 @@ check_vars() {
 }
 
 is_s3_enabled() {
-    case "${PG_DUMP_S3}" in
+    case "${PG_BACKUP_S3}" in
     0 | false | False | FALSE) return 1 ;;
     *) return 0 ;;
     esac
@@ -88,31 +88,31 @@ init_config() {
     fi
 
     PG_IMAGE="${PG_IMAGE:-}"
-    PG_DUMP_ROOT_INPUT="${1:-}"
-    PG_DUMP_ROOT="${PG_DUMP_ROOT_INPUT:-${HOME}/backups/postgres}"
-    PG_DUMP_FORMAT="${PG_DUMP_FORMAT:-dir}"
-    PG_DUMP_CONCURRENCY="${PG_DUMP_CONCURRENCY:-4}"
-    case "${PG_DUMP_FORMAT}" in
+    PG_BACKUP_ROOT_INPUT="${1:-}"
+    PG_BACKUP_ROOT="${PG_BACKUP_ROOT_INPUT:-${HOME}/backups/postgres}"
+    PG_BACKUP_FORMAT="${PG_BACKUP_FORMAT:-dir}"
+    PG_BACKUP_CONCURRENCY="${PG_BACKUP_CONCURRENCY:-4}"
+    case "${PG_BACKUP_FORMAT}" in
     sql) BACKUP_EXT="sql.gz" ;;
     dir) BACKUP_EXT="tar.gz" ;;
     cst) BACKUP_EXT="dump" ;;
-    *) usage_error "PG_DUMP_FORMAT must be sql, dir, or cst" ;;
+    *) usage_error "PG_BACKUP_FORMAT must be sql, dir, or cst" ;;
     esac
-    PG_DUMP_PREFIX="${PG_DUMP_PREFIX:-}"
-    PG_DUMP_SECRET="${PG_DUMP_SECRET:-}"
-    PG_DUMP_S3="${PG_DUMP_S3:-}"
-    PG_DUMP_S3_ENDPOINT="${PG_DUMP_S3_ENDPOINT:-}"
-    PG_DUMP_S3_PREFIX="${PG_DUMP_S3_PREFIX:-}"
-    PG_DUMP_S3_REGION="${PG_DUMP_S3_REGION:-}"
-    PG_DUMP_S3_BUCKET="${PG_DUMP_S3_BUCKET:-}"
-    PG_DUMP_S3_ACCESS_KEY="${PG_DUMP_S3_ACCESS_KEY:-}"
-    PG_DUMP_S3_SECRET_KEY="${PG_DUMP_S3_SECRET_KEY:-}"
+    PG_BACKUP_PREFIX="${PG_BACKUP_PREFIX:-}"
+    PG_BACKUP_SECRET="${PG_BACKUP_SECRET:-}"
+    PG_BACKUP_S3="${PG_BACKUP_S3:-}"
+    PG_BACKUP_S3_ENDPOINT="${PG_BACKUP_S3_ENDPOINT:-}"
+    PG_BACKUP_S3_PREFIX="${PG_BACKUP_S3_PREFIX:-}"
+    PG_BACKUP_S3_REGION="${PG_BACKUP_S3_REGION:-}"
+    PG_BACKUP_S3_BUCKET="${PG_BACKUP_S3_BUCKET:-}"
+    PG_BACKUP_S3_ACCESS_KEY="${PG_BACKUP_S3_ACCESS_KEY:-}"
+    PG_BACKUP_S3_SECRET_KEY="${PG_BACKUP_S3_SECRET_KEY:-}"
 
-    check_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE" "PG_DUMP_ROOT"
-    if [ "${PG_DUMP_FORMAT}" = "dir" ]; then
-        require_positive_integer "${PG_DUMP_CONCURRENCY}" PG_DUMP_CONCURRENCY
+    check_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE" "PG_BACKUP_ROOT"
+    if [ "${PG_BACKUP_FORMAT}" = "dir" ]; then
+        require_positive_integer "${PG_BACKUP_CONCURRENCY}" PG_BACKUP_CONCURRENCY
     fi
-    PG_DUMP_S3_PREFIX="${PG_DUMP_S3_PREFIX:-${PG_BASE}}"
+    PG_BACKUP_S3_PREFIX="${PG_BACKUP_S3_PREFIX:-${PG_BASE}}"
 }
 
 init_timestamps() {
@@ -126,21 +126,21 @@ init_timestamps() {
 init_backup_paths() {
     BACKUP_NAME="${PG_BASE}-${TIME_TAG}"
     BACKUP_BASE="${PG_BASE}"
-    BACKUP_LATEST_DIR=$(realpath -m "${PG_DUMP_ROOT}/${BACKUP_BASE}")
+    BACKUP_LATEST_DIR=$(realpath -m "${PG_BACKUP_ROOT}/${BACKUP_BASE}")
 
-    if [ -n "${PG_DUMP_ROOT_INPUT}" ]; then
+    if [ -n "${PG_BACKUP_ROOT_INPUT}" ]; then
         BACKUP_BASE=""
-        BACKUP_LATEST_DIR=$(realpath -m "${PG_DUMP_ROOT}")
+        BACKUP_LATEST_DIR=$(realpath -m "${PG_BACKUP_ROOT}")
     fi
 
-    if [ -n "${PG_DUMP_ROOT_INPUT}" ] && [ -n "${PG_DUMP_PREFIX}" ]; then
-        BACKUP_BASE="${PG_DUMP_PREFIX}"
+    if [ -n "${PG_BACKUP_ROOT_INPUT}" ] && [ -n "${PG_BACKUP_PREFIX}" ]; then
+        BACKUP_BASE="${PG_BACKUP_PREFIX}"
     fi
 
     if [ -n "${BACKUP_BASE}" ]; then
-        BACKUP_DIR=$(realpath -m "${PG_DUMP_ROOT}/${BACKUP_BASE}")
+        BACKUP_DIR=$(realpath -m "${PG_BACKUP_ROOT}/${BACKUP_BASE}")
     else
-        BACKUP_DIR=$(realpath -m "${PG_DUMP_ROOT}")
+        BACKUP_DIR=$(realpath -m "${PG_BACKUP_ROOT}")
     fi
 
     BACKUP_FILE="${BACKUP_DIR}/${BACKUP_NAME}.${BACKUP_EXT}"
@@ -156,17 +156,17 @@ create_backup() {
     echo "Creating ${BACKUP_DIR}"
     mkdir -p "${BACKUP_DIR}"
 
-    if [ "${PG_DUMP_FORMAT}" = "sql" ]; then
+    if [ "${PG_BACKUP_FORMAT}" = "sql" ]; then
         # shellcheck disable=SC2016
         run "Creating SQL backup ${BACKUP_FILE}..." \
             docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
             sh -c 'pg_dump -h "$1" -p "$2" -U "$3" -d "$4" --no-owner --no-privileges --no-comments -Fp | gzip -c > "$5"' sh "${PG_HOST}" "${PG_PORT}" "${PG_USER}" "${PG_BASE}" "/backup/${BACKUP_NAME}.sql.gz"
-    elif [ "${PG_DUMP_FORMAT}" = "dir" ]; then
+    elif [ "${PG_BACKUP_FORMAT}" = "dir" ]; then
         backup_dump_path="${BACKUP_DIR}/${BACKUP_NAME}.dir"
         rm -rf "${backup_dump_path}"
         run "Creating dir-format backup ${backup_dump_path}..." \
             docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
-            pg_dump -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" --no-owner --no-privileges --no-comments -j "${PG_DUMP_CONCURRENCY}" -f "/backup/${BACKUP_NAME}.dir" -Fd
+            pg_dump -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" --no-owner --no-privileges --no-comments -j "${PG_BACKUP_CONCURRENCY}" -f "/backup/${BACKUP_NAME}.dir" -Fd
         run "Archiving dir-format backup ${BACKUP_FILE}..." \
             tar -czf "${BACKUP_FILE}" -C "${BACKUP_DIR}" "${BACKUP_NAME}.dir"
         rm -rf "${backup_dump_path}"
@@ -178,12 +178,12 @@ create_backup() {
 }
 
 encrypt_backup() {
-    if [ -z "${PG_DUMP_SECRET}" ]; then
+    if [ -z "${PG_BACKUP_SECRET}" ]; then
         return
     fi
 
     run "Encrypting backup ${BACKUP_FILE}.enc..." \
-        openssl enc -aes-256-cbc -base64 -pbkdf2 -pass "pass:${PG_DUMP_SECRET}" -e -in "${BACKUP_FILE}" -out "${BACKUP_FILE}.enc"
+        openssl enc -aes-256-cbc -base64 -pbkdf2 -pass "pass:${PG_BACKUP_SECRET}" -e -in "${BACKUP_FILE}" -out "${BACKUP_FILE}.enc"
     rm -f "${BACKUP_FILE}"
     BACKUP_EXT="${BACKUP_EXT}.enc"
     BACKUP_FILE="${BACKUP_DIR}/${BACKUP_NAME}.${BACKUP_EXT}"
@@ -205,33 +205,33 @@ link_latest_backup() {
 upload_backup() {
     local var
 
-    if [ -z "${PG_DUMP_S3_BUCKET}" ]; then
+    if [ -z "${PG_BACKUP_S3_BUCKET}" ]; then
         info "Backup uploading is not configured, skipping..."
         return
     fi
 
     if ! is_s3_enabled; then
-        info "S3 backup uploading is disabled by PG_DUMP_S3=${PG_DUMP_S3}, skipping..."
+        info "S3 backup uploading is disabled by PG_BACKUP_S3=${PG_BACKUP_S3}, skipping..."
         return
     fi
 
-    for var in PG_DUMP_S3_ENDPOINT PG_DUMP_S3_REGION PG_DUMP_S3_ACCESS_KEY PG_DUMP_S3_SECRET_KEY; do
+    for var in PG_BACKUP_S3_ENDPOINT PG_BACKUP_S3_REGION PG_BACKUP_S3_ACCESS_KEY PG_BACKUP_S3_SECRET_KEY; do
         if [ -z "${!var}" ]; then
             echo "Error: ${var} is not set"
             exit 1
         fi
     done
 
-    BACKUP_KEY="${PG_DUMP_S3_PREFIX%/}"
-    if [ -n "${PG_DUMP_PREFIX}" ]; then
-        BACKUP_KEY="${BACKUP_KEY}/${PG_DUMP_PREFIX}"
+    BACKUP_KEY="${PG_BACKUP_S3_PREFIX%/}"
+    if [ -n "${PG_BACKUP_PREFIX}" ]; then
+        BACKUP_KEY="${BACKUP_KEY}/${PG_BACKUP_PREFIX}"
     fi
     BACKUP_KEY="${BACKUP_KEY%/}/${BACKUP_NAME}.${BACKUP_EXT}"
-    info "Uploading ${BACKUP_FILE} to s3://${PG_DUMP_S3_BUCKET}/${BACKUP_KEY} via ${PG_DUMP_S3_ENDPOINT} with PG_DUMP_S3_REGION=${PG_DUMP_S3_REGION}"
+    info "Uploading ${BACKUP_FILE} to s3://${PG_BACKUP_S3_BUCKET}/${BACKUP_KEY} via ${PG_BACKUP_S3_ENDPOINT} with PG_BACKUP_S3_REGION=${PG_BACKUP_S3_REGION}"
     BACKUP_MD5_BASE64=$(openssl md5 -binary "${BACKUP_FILE}" | base64)
     run "Uploading backup to S3..." \
-        env AWS_REGION="${PG_DUMP_S3_REGION}" AWS_ACCESS_KEY_ID="${PG_DUMP_S3_ACCESS_KEY}" AWS_SECRET_ACCESS_KEY="${PG_DUMP_S3_SECRET_KEY}" \
-        aws --endpoint-url="${PG_DUMP_S3_ENDPOINT}" s3api put-object --bucket "${PG_DUMP_S3_BUCKET}" --key "${BACKUP_KEY}" --body "${BACKUP_FILE}" --content-md5 "${BACKUP_MD5_BASE64}"
+        env AWS_REGION="${PG_BACKUP_S3_REGION}" AWS_ACCESS_KEY_ID="${PG_BACKUP_S3_ACCESS_KEY}" AWS_SECRET_ACCESS_KEY="${PG_BACKUP_S3_SECRET_KEY}" \
+        aws --endpoint-url="${PG_BACKUP_S3_ENDPOINT}" s3api put-object --bucket "${PG_BACKUP_S3_BUCKET}" --key "${BACKUP_KEY}" --body "${BACKUP_FILE}" --content-md5 "${BACKUP_MD5_BASE64}"
 }
 
 prune_old_backups() {

@@ -42,12 +42,12 @@ error() {
 
 usage() {
     cat >&2 <<'USAGE'
-Usage: pg_restore [backup-file|s3:key|s3:prefix|s3://bucket/key|s3://bucket/prefix]
+Usage: pg_recover [backup-file|s3:key|s3:prefix|s3://bucket/key|s3://bucket/prefix]
 
 Restores a cst-format dump, PostgreSQL dir-format directory or tar archive,
 plain .sql, gzip .sql.gz, gzip .tar.gz, or encrypted .enc backup into PG_BASE.
 With no source argument and S3 enabled, restores the latest backup under
-PG_RESTORE_S3_PREFIX. Without PG_RESTORE_S3_PREFIX, pass a local backup file or S3
+PG_RECOVER_S3_PREFIX. Without PG_RECOVER_S3_PREFIX, pass a local backup file or S3
 source argument.
 
 Required environment:
@@ -55,26 +55,26 @@ Required environment:
 
 Optional environment:
   PG_SSL=require|disable (defaults to disable)
-  PG_RESTORE_NO_RECREATE=true|false
-  PG_RESTORE_NO_PREPARE=true|false
-  PG_RESTORE_NO_VACUUM=true|false
-  PG_RESTORE_FORMAT=sql|dir|cst (optional override; defaults to extension detection)
-  PG_RESTORE_CONCURRENCY=<jobs> (defaults to 4)
-  PG_RESTORE_CREATE_EXTENSIONS="extension_a extension_b"
-  PG_RESTORE_EXCLUDE_EXTENSIONS="extension_a extension_b"
-  PG_RESTORE_SECRET=<passphrase>
-  PG_RESTORE_S3=0|false
-  PG_RESTORE_S3_ENDPOINT=<endpoint>
-  PG_RESTORE_S3_REGION=<region>
-  PG_RESTORE_S3_BUCKET=<bucket>
-  PG_RESTORE_S3_PREFIX=<key-prefix>
-  PG_RESTORE_S3_ACCESS_KEY=<access-key>
-  PG_RESTORE_S3_SECRET_KEY=<secret-key>
+  PG_RECOVER_NO_RECREATE=true|false
+  PG_RECOVER_NO_PREPARE=true|false
+  PG_RECOVER_NO_VACUUM=true|false
+  PG_RECOVER_FORMAT=sql|dir|cst (optional override; defaults to extension detection)
+  PG_RECOVER_CONCURRENCY=<jobs> (defaults to 4)
+  PG_RECOVER_CREATE_EXTENSIONS="extension_a extension_b"
+  PG_RECOVER_EXCLUDE_EXTENSIONS="extension_a extension_b"
+  PG_RECOVER_SECRET=<passphrase>
+  PG_RECOVER_S3=0|false
+  PG_RECOVER_S3_ENDPOINT=<endpoint>
+  PG_RECOVER_S3_REGION=<region>
+  PG_RECOVER_S3_BUCKET=<bucket>
+  PG_RECOVER_S3_PREFIX=<key-prefix>
+  PG_RECOVER_S3_ACCESS_KEY=<access-key>
+  PG_RECOVER_S3_SECRET_KEY=<secret-key>
 Examples:
-  dotenv /path/to/app.env pg_restore /var/backups/postgres/latest.dump.enc
-  dotenv /path/to/app.env pg_restore
-  dotenv /path/to/app.env pg_restore s3:source_database/
-  dotenv /path/to/app.env pg_restore s3://bucket/source_database/backup.tar.gz
+  dotenv /path/to/app.env pg_recover /var/backups/postgres/latest.dump.enc
+  dotenv /path/to/app.env pg_recover
+  dotenv /path/to/app.env pg_recover s3:source_database/
+  dotenv /path/to/app.env pg_recover s3://bucket/source_database/backup.tar.gz
 USAGE
 }
 
@@ -94,7 +94,7 @@ check_vars() {
 }
 
 is_s3_enabled() {
-    case "${PG_RESTORE_S3}" in
+    case "${PG_RECOVER_S3}" in
     0 | false | False | FALSE) return 1 ;;
     *) return 0 ;;
     esac
@@ -153,15 +153,15 @@ is_gzip_file() {
 }
 
 restore_format_flag() {
-    case "${PG_RESTORE_FORMAT}" in
+    case "${PG_RECOVER_FORMAT}" in
     dir) printf 'd' ;;
     cst) printf 'c' ;;
-    *) usage_error "PG_RESTORE_FORMAT must be sql, dir, or cst" ;;
+    *) usage_error "PG_RECOVER_FORMAT must be sql, dir, or cst" ;;
     esac
 }
 
 aws_env() {
-    env AWS_REGION="${PG_RESTORE_S3_REGION}" AWS_ACCESS_KEY_ID="${PG_RESTORE_S3_ACCESS_KEY}" AWS_SECRET_ACCESS_KEY="${PG_RESTORE_S3_SECRET_KEY}" "$@"
+    env AWS_REGION="${PG_RECOVER_S3_REGION}" AWS_ACCESS_KEY_ID="${PG_RECOVER_S3_ACCESS_KEY}" AWS_SECRET_ACCESS_KEY="${PG_RECOVER_S3_SECRET_KEY}" "$@"
 }
 
 latest_s3_key() {
@@ -171,7 +171,7 @@ latest_s3_key() {
 
     # shellcheck disable=SC2016
     key=$(
-        aws_env aws --endpoint-url="${PG_RESTORE_S3_ENDPOINT}" s3api list-objects-v2 \
+        aws_env aws --endpoint-url="${PG_RECOVER_S3_ENDPOINT}" s3api list-objects-v2 \
             --bucket "${bucket}" \
             --prefix "${prefix}" \
             --query 'sort_by(not_null(Contents, `[]`)[?ends_with(Key, `.dump`) || ends_with(Key, `.dump.enc`) || ends_with(Key, `.sql`) || ends_with(Key, `.sql.enc`) || ends_with(Key, `.sql.gz`) || ends_with(Key, `.sql.gz.enc`) || ends_with(Key, `.tar`) || ends_with(Key, `.tar.enc`) || ends_with(Key, `.tar.gz`) || ends_with(Key, `.tar.gz.enc`)], &LastModified)[-1].Key' \
@@ -192,26 +192,26 @@ init_config() {
 
     BACKUP_INPUT="${1:-}"
     PG_IMAGE="${PG_IMAGE:-}"
-    PG_RESTORE_SECRET="${PG_RESTORE_SECRET:-}"
-    PG_RESTORE_S3_ENDPOINT="${PG_RESTORE_S3_ENDPOINT:-}"
-    PG_RESTORE_S3_PREFIX="${PG_RESTORE_S3_PREFIX:-}"
-    PG_RESTORE_S3_REGION="${PG_RESTORE_S3_REGION:-}"
-    PG_RESTORE_S3_BUCKET="${PG_RESTORE_S3_BUCKET:-}"
-    PG_RESTORE_S3_ACCESS_KEY="${PG_RESTORE_S3_ACCESS_KEY:-}"
-    PG_RESTORE_S3_SECRET_KEY="${PG_RESTORE_S3_SECRET_KEY:-}"
-    PG_RESTORE_S3="${PG_RESTORE_S3:-}"
-    PG_RESTORE_NO_RECREATE="${PG_RESTORE_NO_RECREATE:-}"
-    PG_RESTORE_NO_PREPARE="${PG_RESTORE_NO_PREPARE:-}"
-    PG_RESTORE_NO_VACUUM="${PG_RESTORE_NO_VACUUM:-}"
-    PG_RESTORE_FORMAT="${PG_RESTORE_FORMAT:-}"
-    PG_RESTORE_CONCURRENCY="${PG_RESTORE_CONCURRENCY:-4}"
-    PG_RESTORE_EXCLUDE_EXTENSIONS="${PG_RESTORE_EXCLUDE_EXTENSIONS:-}"
+    PG_RECOVER_SECRET="${PG_RECOVER_SECRET:-}"
+    PG_RECOVER_S3_ENDPOINT="${PG_RECOVER_S3_ENDPOINT:-}"
+    PG_RECOVER_S3_PREFIX="${PG_RECOVER_S3_PREFIX:-}"
+    PG_RECOVER_S3_REGION="${PG_RECOVER_S3_REGION:-}"
+    PG_RECOVER_S3_BUCKET="${PG_RECOVER_S3_BUCKET:-}"
+    PG_RECOVER_S3_ACCESS_KEY="${PG_RECOVER_S3_ACCESS_KEY:-}"
+    PG_RECOVER_S3_SECRET_KEY="${PG_RECOVER_S3_SECRET_KEY:-}"
+    PG_RECOVER_S3="${PG_RECOVER_S3:-}"
+    PG_RECOVER_NO_RECREATE="${PG_RECOVER_NO_RECREATE:-}"
+    PG_RECOVER_NO_PREPARE="${PG_RECOVER_NO_PREPARE:-}"
+    PG_RECOVER_NO_VACUUM="${PG_RECOVER_NO_VACUUM:-}"
+    PG_RECOVER_FORMAT="${PG_RECOVER_FORMAT:-}"
+    PG_RECOVER_CONCURRENCY="${PG_RECOVER_CONCURRENCY:-4}"
+    PG_RECOVER_EXCLUDE_EXTENSIONS="${PG_RECOVER_EXCLUDE_EXTENSIONS:-}"
 
     check_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE"
-    require_positive_integer "${PG_RESTORE_CONCURRENCY}" PG_RESTORE_CONCURRENCY
-    case "${PG_RESTORE_FORMAT}" in
+    require_positive_integer "${PG_RECOVER_CONCURRENCY}" PG_RECOVER_CONCURRENCY
+    case "${PG_RECOVER_FORMAT}" in
     "" | sql | dir | cst) ;;
-    *) usage_error "PG_RESTORE_FORMAT must be sql, dir, or cst" ;;
+    *) usage_error "PG_RECOVER_FORMAT must be sql, dir, or cst" ;;
     esac
 
     BACKUP_FILE="${BACKUP_INPUT}"
@@ -233,9 +233,9 @@ init_cleanup() {
 validate_s3_backup_input() {
     local var
 
-    S3_BUCKET="${PG_RESTORE_S3_BUCKET}"
+    S3_BUCKET="${PG_RECOVER_S3_BUCKET}"
     if [ -z "${BACKUP_INPUT}" ]; then
-        S3_INPUT="${PG_RESTORE_S3_PREFIX}"
+        S3_INPUT="${PG_RECOVER_S3_PREFIX}"
     elif [[ "${BACKUP_INPUT}" == s3://* ]]; then
         S3_INPUT="${BACKUP_INPUT#s3://}"
         S3_BUCKET="${S3_INPUT%%/*}"
@@ -255,27 +255,27 @@ validate_s3_backup_input() {
         usage_error "Expected non-empty S3 key or prefix"
     fi
 
-    for var in PG_RESTORE_S3_ENDPOINT PG_RESTORE_S3_REGION PG_RESTORE_S3_ACCESS_KEY PG_RESTORE_S3_SECRET_KEY; do
+    for var in PG_RECOVER_S3_ENDPOINT PG_RECOVER_S3_REGION PG_RECOVER_S3_ACCESS_KEY PG_RECOVER_S3_SECRET_KEY; do
         if [ -z "${!var}" ]; then
             error "${var} is not set"
         fi
     done
 
     if [ -z "${S3_BUCKET}" ]; then
-        error "PG_RESTORE_S3_BUCKET is not set"
+        error "PG_RECOVER_S3_BUCKET is not set"
     fi
 }
 
 validate_backup_input() {
     if [ -z "${BACKUP_INPUT}" ]; then
-        if is_s3_enabled && [ -n "${PG_RESTORE_S3_PREFIX}" ]; then
+        if is_s3_enabled && [ -n "${PG_RECOVER_S3_PREFIX}" ]; then
             validate_s3_backup_input
         else
-            usage_error "Backup source is required unless PG_RESTORE_S3_PREFIX is set and S3 restore is enabled"
+            usage_error "Backup source is required unless PG_RECOVER_S3_PREFIX is set and S3 restore is enabled"
         fi
     elif [[ "${BACKUP_INPUT}" == s3:* ]]; then
         if ! is_s3_enabled; then
-            error "S3 restore is disabled by PG_RESTORE_S3=${PG_RESTORE_S3}"
+            error "S3 restore is disabled by PG_RECOVER_S3=${PG_RECOVER_S3}"
         fi
         validate_s3_backup_input
     elif [ ! -f "${BACKUP_INPUT}" ] && [ ! -d "${BACKUP_INPUT}" ]; then
@@ -295,20 +295,20 @@ resolve_s3_backup() {
     DOWNLOADED_DIR=$(mktemp -d "/tmp/${PG_BASE}.restore.XXXXXX")
     DOWNLOADED_FILE="${DOWNLOADED_DIR}/${S3_KEY##*/}"
     run "Downloading backup s3://${S3_BUCKET}/${S3_KEY}..." \
-        aws_env aws --endpoint-url="${PG_RESTORE_S3_ENDPOINT}" s3api get-object --bucket "${S3_BUCKET}" --key "${S3_KEY}" "${DOWNLOADED_FILE}"
+        aws_env aws --endpoint-url="${PG_RECOVER_S3_ENDPOINT}" s3api get-object --bucket "${S3_BUCKET}" --key "${S3_KEY}" "${DOWNLOADED_FILE}"
     BACKUP_FILE="${DOWNLOADED_FILE}"
 }
 
 resolve_backup_source() {
     if [ -z "${BACKUP_INPUT}" ]; then
-        if is_s3_enabled && [ -n "${PG_RESTORE_S3_PREFIX}" ]; then
+        if is_s3_enabled && [ -n "${PG_RECOVER_S3_PREFIX}" ]; then
             resolve_s3_backup
         else
-            usage_error "Backup source is required unless PG_RESTORE_S3_PREFIX is set and S3 restore is enabled"
+            usage_error "Backup source is required unless PG_RECOVER_S3_PREFIX is set and S3 restore is enabled"
         fi
     elif [[ "${BACKUP_INPUT}" == s3:* ]]; then
         if ! is_s3_enabled; then
-            error "S3 restore is disabled by PG_RESTORE_S3=${PG_RESTORE_S3}"
+            error "S3 restore is disabled by PG_RECOVER_S3=${PG_RECOVER_S3}"
         fi
         resolve_s3_backup
     fi
@@ -327,14 +327,14 @@ decrypt_backup() {
         return
     fi
 
-    if [ -z "${PG_RESTORE_SECRET}" ]; then
-        error "Backup file ${BACKUP_FILE} is encrypted but PG_RESTORE_SECRET is not set"
+    if [ -z "${PG_RECOVER_SECRET}" ]; then
+        error "Backup file ${BACKUP_FILE} is encrypted but PG_RECOVER_SECRET is not set"
     fi
 
     DECRYPTED_FILE="${BACKUP_FILE%.enc}"
     rm -rf "${DECRYPTED_FILE}"
     run "Decrypting backup ${BACKUP_FILE}..." \
-        openssl enc -aes-256-cbc -base64 -pbkdf2 -pass "pass:${PG_RESTORE_SECRET}" -d -in "${BACKUP_FILE}" -out "${DECRYPTED_FILE}"
+        openssl enc -aes-256-cbc -base64 -pbkdf2 -pass "pass:${PG_RECOVER_SECRET}" -d -in "${BACKUP_FILE}" -out "${DECRYPTED_FILE}"
 
     if [ ! -f "${DECRYPTED_FILE}" ]; then
         error "Failed to decrypt ${BACKUP_FILE} to ${DECRYPTED_FILE}"
@@ -410,7 +410,7 @@ log_started() {
 init_restore_context() {
     RESTORE_DB_NAME="${PG_BASE}"
     ARCHIVE_DB_NAME="${PG_BASE}_archive_${TIME_TAG}"
-    PG_RESTORE_CREATE_EXTENSIONS="${PG_RESTORE_CREATE_EXTENSIONS:-}"
+    PG_RECOVER_CREATE_EXTENSIONS="${PG_RECOVER_CREATE_EXTENSIONS:-}"
 }
 
 docker_pg() {
@@ -474,11 +474,11 @@ SQL
 }
 
 is_plain_sql_backup() {
-    [ "${PG_RESTORE_FORMAT}" = "sql" ]
+    [ "${PG_RECOVER_FORMAT}" = "sql" ]
 }
 
 detect_backup_format() {
-    if [ -n "${PG_RESTORE_FORMAT}" ]; then
+    if [ -n "${PG_RECOVER_FORMAT}" ]; then
         return
     fi
 
@@ -486,37 +486,37 @@ detect_backup_format() {
         if [ ! -f "${BACKUP_FILE}/toc.dat" ]; then
             error "Directory backup source ${BACKUP_FILE} does not contain PostgreSQL directory-format toc.dat"
         fi
-        PG_RESTORE_FORMAT=dir
+        PG_RECOVER_FORMAT=dir
         return
     fi
 
     case "${BACKUP_FILE}" in
-    *.sql) PG_RESTORE_FORMAT=sql ;;
-    *.tar) PG_RESTORE_FORMAT=dir ;;
-    *.dump) PG_RESTORE_FORMAT=cst ;;
-    *) error "Could not determine backup format from ${BACKUP_FILE}; set PG_RESTORE_FORMAT=sql, dir, or cst" ;;
+    *.sql) PG_RECOVER_FORMAT=sql ;;
+    *.tar) PG_RECOVER_FORMAT=dir ;;
+    *.dump) PG_RECOVER_FORMAT=cst ;;
+    *) error "Could not determine backup format from ${BACKUP_FILE}; set PG_RECOVER_FORMAT=sql, dir, or cst" ;;
     esac
 }
 
 create_extensions() {
     local extension
 
-    if [ -z "${PG_RESTORE_CREATE_EXTENSIONS}" ]; then
+    if [ -z "${PG_RECOVER_CREATE_EXTENSIONS}" ]; then
         return
     fi
 
-    echo "Creating extensions: ${PG_RESTORE_CREATE_EXTENSIONS}"
-    for extension in ${PG_RESTORE_CREATE_EXTENSIONS}; do
+    echo "Creating extensions: ${PG_RECOVER_CREATE_EXTENSIONS}"
+    for extension in ${PG_RECOVER_CREATE_EXTENSIONS}; do
         run "Creating extension ${extension}..." \
             docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" -c "CREATE EXTENSION IF NOT EXISTS ${extension}"
     done
 }
 
 prepare_restore_database() {
-    if is_true "${PG_RESTORE_NO_RECREATE}" PG_RESTORE_NO_RECREATE; then
+    if is_true "${PG_RECOVER_NO_RECREATE}" PG_RECOVER_NO_RECREATE; then
         info "Restoring directly into existing database ${RESTORE_DB_NAME}"
         drop_user_schemas
-    elif ! is_true "${PG_RESTORE_NO_PREPARE}" PG_RESTORE_NO_PREPARE; then
+    elif ! is_true "${PG_RECOVER_NO_PREPARE}" PG_RECOVER_NO_PREPARE; then
         RESTORE_DB_NAME="${PG_BASE}_prepare_${TIME_TAG}"
         create_database "${RESTORE_DB_NAME}"
         PREPARE_DB_CREATED=1
@@ -547,10 +547,10 @@ restore_archive_backup_with_filtered_list() {
     RESTORE_LIST_FILE=$(mktemp "/tmp/${PG_BASE}.restore.XXXXXX.list")
     restore_format_flag_value=$(restore_format_flag)
 
-    run_output "${RESTORE_LIST_FILE}" "Listing ${PG_RESTORE_FORMAT} backup contents..." \
+    run_output "${RESTORE_LIST_FILE}" "Listing ${PG_RECOVER_FORMAT} backup contents..." \
         docker_pg_with_backup pg_restore -l -F "${restore_format_flag_value}" /backup.dump
 
-    awk -v excluded="${PG_RESTORE_EXCLUDE_EXTENSIONS}" '
+    awk -v excluded="${PG_RECOVER_EXCLUDE_EXTENSIONS}" '
         BEGIN {
             split(excluded, names, /[[:space:]]+/)
             for (name_index in names) {
@@ -577,8 +577,8 @@ restore_archive_backup_with_filtered_list() {
     ' "${RESTORE_LIST_FILE}" >"${RESTORE_LIST_FILE}.filtered"
     mv "${RESTORE_LIST_FILE}.filtered" "${RESTORE_LIST_FILE}"
 
-    run "Restoring ${PG_RESTORE_FORMAT} backup into ${RESTORE_DB_NAME} without extensions: ${PG_RESTORE_EXCLUDE_EXTENSIONS}..." \
-        docker_pg_with_backup_and_restore_list pg_restore -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --no-owner --no-privileges --no-comments -j "${PG_RESTORE_CONCURRENCY}" -F "${restore_format_flag_value}" -L /restore.list -v /backup.dump
+    run "Restoring ${PG_RECOVER_FORMAT} backup into ${RESTORE_DB_NAME} without extensions: ${PG_RECOVER_EXCLUDE_EXTENSIONS}..." \
+        docker_pg_with_backup_and_restore_list pg_restore -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --no-owner --no-privileges --no-comments -j "${PG_RECOVER_CONCURRENCY}" -F "${restore_format_flag_value}" -L /restore.list -v /backup.dump
 }
 
 restore_backup() {
@@ -586,30 +586,30 @@ restore_backup() {
 
     if is_plain_sql_backup; then
         restore_plain_sql_backup
-    elif [ -n "${PG_RESTORE_EXCLUDE_EXTENSIONS}" ]; then
+    elif [ -n "${PG_RECOVER_EXCLUDE_EXTENSIONS}" ]; then
         restore_archive_backup_with_filtered_list
     else
         restore_format_flag_value=$(restore_format_flag)
-        run "Restoring ${PG_RESTORE_FORMAT} backup into ${RESTORE_DB_NAME}..." \
-            docker_pg_with_backup pg_restore -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --no-owner --no-privileges --no-comments -j "${PG_RESTORE_CONCURRENCY}" -F "${restore_format_flag_value}" -v /backup.dump
+        run "Restoring ${PG_RECOVER_FORMAT} backup into ${RESTORE_DB_NAME}..." \
+            docker_pg_with_backup pg_restore -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --no-owner --no-privileges --no-comments -j "${PG_RECOVER_CONCURRENCY}" -F "${restore_format_flag_value}" -v /backup.dump
     fi
 }
 
 vacuum_restored_database() {
-    if is_true "${PG_RESTORE_NO_VACUUM}" PG_RESTORE_NO_VACUUM; then
+    if is_true "${PG_RECOVER_NO_VACUUM}" PG_RECOVER_NO_VACUUM; then
         return
     fi
 
     run "Setting statement timeout for ${RESTORE_DB_NAME}..." \
         docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" -c "ALTER ROLE ${PG_USER} SET statement_timeout = 300000"
     run "Analyzing restored database ${RESTORE_DB_NAME}..." \
-        docker_pg vacuumdb -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --echo --analyze-in-stages -j "${PG_RESTORE_CONCURRENCY}"
+        docker_pg vacuumdb -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --echo --analyze-in-stages -j "${PG_RECOVER_CONCURRENCY}"
     run "Resetting statement timeout for ${RESTORE_DB_NAME}..." \
         docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" -c "ALTER ROLE ${PG_USER} RESET statement_timeout"
 }
 
 promote_restored_database() {
-    if is_true "${PG_RESTORE_NO_PREPARE}" PG_RESTORE_NO_PREPARE || is_true "${PG_RESTORE_NO_RECREATE}" PG_RESTORE_NO_RECREATE; then
+    if is_true "${PG_RECOVER_NO_PREPARE}" PG_RECOVER_NO_PREPARE || is_true "${PG_RECOVER_NO_RECREATE}" PG_RECOVER_NO_RECREATE; then
         return
     fi
 

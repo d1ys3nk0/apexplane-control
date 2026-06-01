@@ -1,6 +1,6 @@
-pg-toolbox() {
+pg_run() {
     if [ "$#" -ne 3 ]; then
-        echo "usage: pg-toolbox <env-name> <dump|restore> <script>" >&2
+        echo "usage: pg_run <env-name> <dump|restore> <script>" >&2
         return 64
     fi
 
@@ -14,15 +14,15 @@ pg-toolbox() {
     return "$pg_status"
 }
 
-pg-backup() {
+pg_backup_all() {
     if [ "$#" -ne 0 ]; then
-        echo "usage: pg-backup" >&2
+        echo "usage: pg_backup_all" >&2
         return 64
     fi
 
 {% if app_stack_backups_s3_enabled | bool %}
 {% for extra in app_stack_extra_pg_envs if extra.enabled | default(true, true) %}
-    pg-toolbox "{{ extra.pg_base }}" dump /opt/toolbox/bin/pg_dump || return
+    pg_run "{{ extra.pg_base }}" dump /opt/toolbox/bin/pg_backup || return
 {% endfor %}
 {% for app in app_stack_selected_apps %}
 {% for env in app.envs | default([], true) %}
@@ -31,7 +31,7 @@ pg-backup() {
 {% set _pg_env = (service.postgres.envs | default({}, true)).get(env.slug, {}) %}
 {% set _pg_base_suffix = _pg_env.base_suffix | default(service.postgres.base_suffix | default(service.name, true), true) %}
 {% set _pg_env_stem = _pg_env.base_name | default(service.postgres.base_name | default(app.name ~ '_' ~ app_stack_cluster_realm ~ '_' ~ env.slug ~ '_' ~ _pg_base_suffix, true), true) %}
-    pg-toolbox "{{ _pg_env_stem }}" dump /opt/toolbox/bin/pg_dump || return
+    pg_run "{{ _pg_env_stem }}" dump /opt/toolbox/bin/pg_backup || return
 {% endif %}
 {% endfor %}
 {% endfor %}
@@ -39,15 +39,15 @@ pg-backup() {
 {% endif %}
 }
 
-pg-recover() {
+pg_recover_all() {
     if [ "$#" -ne 0 ]; then
-        echo "usage: pg-recover" >&2
+        echo "usage: pg_recover_all" >&2
         return 64
     fi
 
 {% if app_stack_backups_s3_enabled | bool %}
 {% for extra in app_stack_extra_pg_envs if extra.enabled | default(true, true) %}
-    pg-toolbox "{{ extra.pg_base }}" restore /opt/toolbox/bin/pg_restore || return
+    pg_run "{{ extra.pg_base }}" restore /opt/toolbox/bin/pg_recover || return
 {% endfor %}
 {% for app in app_stack_selected_apps %}
 {% for env in app.envs | default([], true) %}
@@ -56,7 +56,7 @@ pg-recover() {
 {% set _pg_env = (service.postgres.envs | default({}, true)).get(env.slug, {}) %}
 {% set _pg_base_suffix = _pg_env.base_suffix | default(service.postgres.base_suffix | default(service.name, true), true) %}
 {% set _pg_env_stem = _pg_env.base_name | default(service.postgres.base_name | default(app.name ~ '_' ~ app_stack_cluster_realm ~ '_' ~ env.slug ~ '_' ~ _pg_base_suffix, true), true) %}
-    pg-toolbox "{{ _pg_env_stem }}" restore /opt/toolbox/bin/pg_restore || return
+    pg_run "{{ _pg_env_stem }}" restore /opt/toolbox/bin/pg_recover || return
 {% endif %}
 {% endfor %}
 {% endfor %}

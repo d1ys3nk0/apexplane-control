@@ -45,11 +45,11 @@ toolbox_postgres_scripts:
   - name: pg_amcheck
     src: pg_amcheck.sh
 
-  - name: pg_dump
-    src: pg_dump.sh
+  - name: pg_backup
+    src: pg_backup.sh
 
-  - name: pg_restore
-    src: pg_restore.sh
+  - name: pg_recover
+    src: pg_recover.sh
 
   - name: pg_user
     src: pg_user.sh

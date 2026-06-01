@@ -1,2 +1,3 @@
 # Ansible managed
-{{ app_stack_app_name }} ALL=(root) NOPASSWD: /usr/local/bin/dotenv /home/{{ app_stack_app_name }}/postgres/*.env /opt/toolbox/bin/pg_dump
+{{ app_stack_app_name }} ALL=(root) NOPASSWD: /usr/local/bin/dotenv /home/{{ app_stack_app_name }}/postgres/*.env /opt/toolbox/bin/pg_backup
+{{ app_stack_app_name }} ALL=(root) NOPASSWD: /usr/local/bin/dotenv /home/{{ app_stack_app_name }}/postgres/*.env /opt/toolbox/bin/pg_recover

@@ -75,8 +75,8 @@ PostgreSQL scripts are installed when `toolbox_postgres_enabled` is true:
 - `/opt/toolbox/bin/pg_vacuum`
 - `/opt/toolbox/bin/pg_reindex`
 - `/opt/toolbox/bin/pg_amcheck`
-- `/opt/toolbox/bin/pg_dump`
-- `/opt/toolbox/bin/pg_restore`
+- `/opt/toolbox/bin/pg_backup`
+- `/opt/toolbox/bin/pg_recover`
 - `/opt/toolbox/bin/pg_user`
 
 ### Docker Secrets
@@ -121,63 +121,63 @@ After the PEM is installed, run the HAProxy role so it validates SAN coverage, v
 Create a backup:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_dump
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_backup
 ```
 
-By default, backups use `PG_DUMP_FORMAT=dir` and `PG_DUMP_CONCURRENCY=4`.
+By default, backups use `PG_BACKUP_FORMAT=dir` and `PG_BACKUP_CONCURRENCY=4`.
 
 Create a local-only backup when S3 variables are configured:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_DUMP_S3=0 /opt/toolbox/bin/pg_dump backups
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_BACKUP_S3=0 /opt/toolbox/bin/pg_backup backups
 ```
 
 Override dir-format backup concurrency:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_DUMP_CONCURRENCY=8 /opt/toolbox/bin/pg_dump
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_BACKUP_CONCURRENCY=8 /opt/toolbox/bin/pg_backup
 ```
 
 Restore a local backup file:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_restore /var/backups/postgres/latest.dump.enc
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_recover /var/backups/postgres/latest.dump.enc
 ```
 
-Restore format is detected from the backup extension. Set `PG_RESTORE_FORMAT=sql|dir|cst` only for backups with non-standard extensions; restore fails when it cannot determine the format.
+Restore format is detected from the backup extension. Set `PG_RECOVER_FORMAT=sql|dir|cst` only for backups with non-standard extensions; restore fails when it cannot determine the format.
 
-Restore the latest S3 backup under `PG_RESTORE_S3_PREFIX`:
+Restore the latest S3 backup under `PG_RECOVER_S3_PREFIX`:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_restore
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_recover
 ```
 
 Run restore and post-restore analyze with multiple jobs:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_RESTORE_CONCURRENCY=8 /opt/toolbox/bin/pg_restore
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_RECOVER_CONCURRENCY=8 /opt/toolbox/bin/pg_recover
 ```
 
 Override restore format detection when restoring a backup with a non-standard extension:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_RESTORE_FORMAT=cst /opt/toolbox/bin/pg_restore /var/backups/postgres/manual.backup
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_RECOVER_FORMAT=cst /opt/toolbox/bin/pg_recover /var/backups/postgres/manual.backup
 ```
 
 Restore into an existing managed database by dropping all non-system schemas first:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_RESTORE_NO_RECREATE=true /opt/toolbox/bin/pg_restore
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_RECOVER_NO_RECREATE=true /opt/toolbox/bin/pg_recover
 ```
 
 Exclude extension entries from an archive restore when the target role cannot create them:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_RESTORE_EXCLUDE_EXTENSIONS="pg_stat_statements" /opt/toolbox/bin/pg_restore
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_RECOVER_EXCLUDE_EXTENSIONS="pg_stat_statements" /opt/toolbox/bin/pg_recover
 ```
 
 Restore an exact S3 object:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_restore s3:<prefix>/<object>.dump.enc
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_recover s3:<prefix>/<object>.dump.enc
 ```
