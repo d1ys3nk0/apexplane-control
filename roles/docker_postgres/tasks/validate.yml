@@ -16,17 +16,5 @@
 - name: Validate Docker PostgreSQL image mode
   ansible.builtin.assert:
     that:
-      - >
-        (docker_postgres_walg_base_name | string | length == 0
-        and docker_postgres_walg_base_tag | string | length == 0)
-        or
-        (docker_postgres_walg_base_name | string | length > 0
-        and docker_postgres_walg_base_tag | string | length > 0)
-      - >
-        docker_postgres_walg_enabled | bool == (
-        docker_postgres_walg_base_name | string | length > 0
-        and docker_postgres_walg_base_tag | string | length > 0)
-    fail_msg: >-
-      Set both docker_postgres_walg_base_name and docker_postgres_walg_base_tag
-      to build a WAL-G image, or set neither and use docker_postgres_image_name /
-      docker_postgres_image_tag directly.
+      - docker_postgres_walg_enabled | bool == (docker_postgres_walg_version | string | length > 0)
+    fail_msg: Set docker_postgres_walg_version to build a WAL-G image from docker_postgres_image_name and docker_postgres_image_tag.

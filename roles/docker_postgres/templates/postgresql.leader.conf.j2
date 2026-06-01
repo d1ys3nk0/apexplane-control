@@ -4,6 +4,5 @@
 # WAL-G
 archive_mode = on
 archive_timeout = 300s
-archive_command = '/opt/config/walg.sh wal-push "%p" 2>&1 | tee -a /var/lib/postgresql/data/walg_archive.log'
-restore_command = '/opt/config/walg.sh wal-fetch "%f" "%p" 2>&1 | tee -a /var/lib/postgresql/data/walg_restore.log'
+archive_command = '/usr/local/bin/wal-g wal-push "%p" 2>&1 | tee -a /var/lib/postgresql/data/walg_archive.log'
 {% endif %}

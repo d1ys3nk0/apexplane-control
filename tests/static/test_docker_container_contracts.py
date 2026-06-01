@@ -352,7 +352,7 @@ def test_docker_image_full_defaults_use_name_and_tag_defaults() -> None:
         for name, value in sorted(defaults.items()):
             if not name.endswith("_image_full"):
                 continue
-            if name.endswith(("_runtime_image_full", "_walg_base_image_full")):
+            if name.endswith("_runtime_image_full"):
                 continue
 
             image_name = f"{name.removesuffix('_full')}_name"

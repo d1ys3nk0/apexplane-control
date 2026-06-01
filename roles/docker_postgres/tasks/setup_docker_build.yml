@@ -24,13 +24,13 @@
 
 - name: Build container image
   community.docker.docker_image:
-    name: '{{ docker_postgres_walg_image_name }}'
-    tag: '{{ docker_postgres_walg_image_tag }}'
+    name: '{{ docker_postgres_image_name }}-walg'
+    tag: '{{ docker_postgres_image_tag }}'
     source: build
     force_source: true
     build:
       path: /opt/postgres/docker
       dockerfile: Dockerfile
       args:
-        POSTGRES_IMAGE: '{{ docker_postgres_walg_base_image_full }}'
-        WALG_VERSION: '{{ docker_postgres_binary_version }}'
+        POSTGRES_IMAGE: '{{ docker_postgres_image_full }}'
+        WALG_VERSION: '{{ docker_postgres_walg_version }}'

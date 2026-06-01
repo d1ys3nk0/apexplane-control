@@ -28,6 +28,7 @@
     group: root
   loop:
     - /opt/postgres
+    - /opt/postgres/bin
     - /opt/postgres/log
     - /opt/postgres/config
     - /opt/postgres/snapshots
@@ -54,6 +55,29 @@
   loop:
     - src: pg_hba.conf.j2
       dest: pg_hba.conf
+
+- name: Install PostgreSQL dotenv
+  become: true
+  ansible.builtin.template:
+    src: postgres.env.j2
+    dest: /opt/postgres/postgres.env
+    mode: '0600'
+    owner: root
+    group: root
+  no_log: '{{ docker_postgres_nolog }}'
+
+- name: Install PostgreSQL WAL-G executables
+  become: true
+  ansible.builtin.copy:
+    src: scripts/{{ item }}.sh
+    dest: /opt/postgres/bin/{{ item }}
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - walg_backup
+    - walg_recover
+  when: docker_postgres_walg_enabled | bool
 
 - name: Make sure psql_history is created
   become: true
@@ -86,6 +110,15 @@
     env:
       POSTGRES_USER: '{{ docker_postgres_pg_admin_user }}'
       POSTGRES_PASSWORD: '{{ docker_postgres_pg_admin_pass }}'
+      PGHOST: /var/run/postgresql
+      PGUSER: '{{ docker_postgres_pg_admin_user }}'
+      AWS_ENDPOINT: '{{ docker_postgres_backup_s3_endpoint }}'
+      AWS_REGION: '{{ docker_postgres_backup_s3_region }}'
+      AWS_ACCESS_KEY_ID: '{{ docker_postgres_backup_s3_access_key }}'
+      AWS_SECRET_ACCESS_KEY: '{{ docker_postgres_backup_s3_secret_key }}'
+      WALG_S3_PREFIX: '{{ docker_postgres_backup_s3_prefix }}'
+      WALG_COMPRESSION_METHOD: brotli
+      WALG_COMPRESSION_LEVEL: '5'
     command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     restart_policy: unless-stopped
     shm_size: '{{ ((docker_postgres_mem_lim[:-1] | int) * 0.3) | int }}M'
@@ -135,11 +168,3 @@
 - name: Promote PostgreSQL leader during DR
   ansible.builtin.include_tasks: setup_dr.yml
   when: docker_postgres_dr_action == 'promote'
-
-- name: Configure WAL-G
-  ansible.builtin.include_tasks: setup_walg.yml
-  when:
-    - docker_postgres_walg_enabled | bool
-    - docker_postgres_backup_s3_access_key | string | length > 0
-    - docker_postgres_backup_s3_prefix | string | length > 0
-    - docker_postgres_backup_s3_secret_key | string | length > 0

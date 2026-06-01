@@ -7,6 +7,7 @@ This role runs PostgreSQL in a standalone Docker container with optional WAL-G a
 - Create host directories.
 - Install PostgreSQL config.
 - Install templated PostgreSQL configs.
+- Install PostgreSQL WAL-G executables.
 - Build custom PostgreSQL image with WAL-G support.
 - Create Docker volume.
 - Restore PostgreSQL replica from active leader.
@@ -23,15 +24,9 @@ Set these required inputs before applying the role: `docker_postgres_pg_admin_pa
 | `docker_postgres_image_name` | `postgres` |
 | `docker_postgres_image_tag` | `'18'` |
 | `docker_postgres_image_full` | `<derived>` |
-| `docker_postgres_walg_base_name` | `''` |
-| `docker_postgres_walg_base_tag` | `''` |
-| `docker_postgres_walg_base_image_full` | `<derived>` |
-| `docker_postgres_walg_image_name` | `<derived>` |
-| `docker_postgres_walg_image_tag` | `<derived>` |
+| `docker_postgres_walg_version` | `''` |
 | `docker_postgres_walg_enabled` | `<derived>` |
-| `docker_postgres_walg_image_full` | `<derived>` |
 | `docker_postgres_runtime_image_full` | `<derived>` |
-| `docker_postgres_binary_version` | `3.0.7` |
 | `docker_postgres_connections` | `100` |
 | `docker_postgres_container_name` | `postgres` |
 | `docker_postgres_data_volume` | `postgres-data` |
@@ -129,6 +124,27 @@ sudo docker exec postgres reindexdb -U admin --all
 
 Keep deployment-specific database names, users, backup locations, and restore targets outside this shared role documentation.
 
+### WAL-G Physical Backup and Recovery
+
+Create a physical PostgreSQL cluster backup from the local Docker PostgreSQL container:
+
+```sh
+sudo /opt/toolbox/bin/dotenv /opt/postgres/postgres.env /opt/postgres/bin/walg_backup
+```
+
+Recover the local PostgreSQL Docker data volume from the default `WALG_RECOVER_S3_PREFIX`:
+
+```sh
+sudo /opt/toolbox/bin/dotenv /opt/postgres/postgres.env /opt/postgres/bin/walg_recover
+```
+
+Recover from another WAL-G prefix:
+
+```sh
+sudo /opt/toolbox/bin/dotenv /opt/postgres/postgres.env /opt/postgres/bin/walg_recover s3://<bucket>/<prefix> LATEST
+```
+
+`walg_recover` is destructive at the PostgreSQL cluster level. It prints a 10-second countdown, stops the local `WALG_CONTAINER`, snapshots `WALG_DATA_VOLUME` into `WALG_SNAPSHOT_DIR`, clears the volume, fetches the requested WAL-G backup, writes a temporary PostgreSQL recovery command for the selected source prefix, starts PostgreSQL, waits for recovery, and removes the temporary recovery command after PostgreSQL leaves recovery.
 
 ## PostgreSQL Replica
 

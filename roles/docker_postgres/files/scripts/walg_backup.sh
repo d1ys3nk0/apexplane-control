@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_START_SECONDS=${SECONDS}
+
+is_quiet() {
+    case "${QUIET:-}" in
+    1 | true | True | TRUE) return 0 ;;
+    *) return 1 ;;
+    esac
+}
+
+info() {
+    is_quiet || printf '> %s\n' "$*"
+}
+
+error() {
+    printf '! %s\n' "$*" >&2
+    exit 1
+}
+
+usage_error() {
+    printf '! %s\n\n' "$*" >&2
+    usage >&2
+    exit 2
+}
+
+require_vars() {
+    local var
+
+    for var in "$@"; do
+        if [ -z "${!var:-}" ]; then
+            error "${var} is not set"
+        fi
+    done
+}
+
+usage() {
+    cat >&2 <<'USAGE'
+Usage: walg_backup
+
+Creates a physical PostgreSQL cluster backup with WAL-G from the local Docker
+PostgreSQL container.
+
+Required environment:
+  WALG_BACKUP_S3_ENDPOINT
+  WALG_BACKUP_S3_REGION
+  WALG_BACKUP_S3_PREFIX
+  WALG_BACKUP_S3_ACCESS_KEY
+  WALG_BACKUP_S3_SECRET_KEY
+
+Optional environment:
+  WALG_CONTAINER=postgres
+  WALG_DATA_DIR=/var/lib/postgresql/data
+  WALG_PGHOST=/var/run/postgresql
+  WALG_PGUSER=admin
+  WALG_DELTA_ORIGIN=LATEST
+  WALG_DELTA_MAX_STEPS=24
+  WALG_COMPRESSION_METHOD=brotli
+  WALG_COMPRESSION_LEVEL=5
+  WALG_DISK_RATE_LIMIT=10485760
+  WALG_UPLOAD_DISK_CONCURRENCY=1
+
+Example:
+  dotenv /opt/postgres/postgres.env /opt/postgres/bin/walg_backup
+USAGE
+}
+
+init_config() {
+    if [ "$#" -ne 0 ]; then
+        usage_error "Expected 0 arguments, got $#"
+    fi
+
+    WALG_CONTAINER="${WALG_CONTAINER:-postgres}"
+    WALG_DATA_DIR="${WALG_DATA_DIR:-/var/lib/postgresql/data}"
+    WALG_PGHOST="${WALG_PGHOST:-/var/run/postgresql}"
+    WALG_PGUSER="${WALG_PGUSER:-admin}"
+    WALG_DELTA_ORIGIN="${WALG_DELTA_ORIGIN:-LATEST}"
+    WALG_DELTA_MAX_STEPS="${WALG_DELTA_MAX_STEPS:-24}"
+    WALG_COMPRESSION_METHOD="${WALG_COMPRESSION_METHOD:-brotli}"
+    WALG_COMPRESSION_LEVEL="${WALG_COMPRESSION_LEVEL:-5}"
+    WALG_DISK_RATE_LIMIT="${WALG_DISK_RATE_LIMIT:-10485760}"
+    WALG_UPLOAD_DISK_CONCURRENCY="${WALG_UPLOAD_DISK_CONCURRENCY:-1}"
+
+    require_vars \
+        "WALG_BACKUP_S3_ENDPOINT" \
+        "WALG_BACKUP_S3_REGION" \
+        "WALG_BACKUP_S3_PREFIX" \
+        "WALG_BACKUP_S3_ACCESS_KEY" \
+        "WALG_BACKUP_S3_SECRET_KEY"
+}
+
+init_timestamps() {
+    TIME_UTC=$(date -u '+%Y-%m-%d %H:%M:%S')
+    info "Started at ${TIME_UTC} UTC"
+}
+
+create_backup() {
+    info "Creating WAL-G backup from ${WALG_CONTAINER}:${WALG_DATA_DIR} to ${WALG_BACKUP_S3_PREFIX}"
+    docker exec \
+        -e "PGHOST=${WALG_PGHOST}" \
+        -e "PGUSER=${WALG_PGUSER}" \
+        -e "AWS_ENDPOINT=${WALG_BACKUP_S3_ENDPOINT}" \
+        -e "AWS_REGION=${WALG_BACKUP_S3_REGION}" \
+        -e "AWS_ACCESS_KEY_ID=${WALG_BACKUP_S3_ACCESS_KEY}" \
+        -e "AWS_SECRET_ACCESS_KEY=${WALG_BACKUP_S3_SECRET_KEY}" \
+        -e "WALG_S3_PREFIX=${WALG_BACKUP_S3_PREFIX}" \
+        -e "WALG_DELTA_ORIGIN=${WALG_DELTA_ORIGIN}" \
+        -e "WALG_DELTA_MAX_STEPS=${WALG_DELTA_MAX_STEPS}" \
+        -e "WALG_COMPRESSION_METHOD=${WALG_COMPRESSION_METHOD}" \
+        -e "WALG_COMPRESSION_LEVEL=${WALG_COMPRESSION_LEVEL}" \
+        -e "WALG_DISK_RATE_LIMIT=${WALG_DISK_RATE_LIMIT}" \
+        -e "WALG_UPLOAD_DISK_CONCURRENCY=${WALG_UPLOAD_DISK_CONCURRENCY}" \
+        "${WALG_CONTAINER}" \
+        /usr/local/bin/wal-g backup-push "${WALG_DATA_DIR}"
+}
+
+finish() {
+    info "Finished in $((SECONDS - SCRIPT_START_SECONDS))s"
+}
+
+main() {
+    init_config "$@"
+    init_timestamps
+    create_backup
+    finish
+}
+
+main "$@"
