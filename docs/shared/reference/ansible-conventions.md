@@ -9,7 +9,7 @@
   ---
 
   collections:
-    - name: https://github.com/d1ys3nk0/apexplane-ansible-roles.git
+    - name: https://github.com/d1ys3nk0/apexplane-control.git
       type: git
       version: main
   ```
@@ -20,13 +20,13 @@
   ---
 
   collections:
-    - name: ../apexplane-ansible-roles
+    - name: ../apexplane-control
       type: dir
   ```
 
   This installs the current local checkout, including uncommitted framework changes, into the consumer repository collection path. Consumer wrappers should create local `requirements.yml` only when it does not already exist, so a selected source is preserved until the file is removed.
 - Keep project-specific values in `variables/**`.
-- Keep reusable role behavior in `apexplane-ansible-roles`.
+- Keep reusable role behavior in `apexplane-control`.
 - Put repository-history removals, migrations, and legacy cleanup in timestamped project migration playbooks named `playbooks/<cluster>/_YYMMDDHHMMSS_slug.yml`.
 - When a change implies cleanup of previous role behavior, add a new migration playbook for each affected cluster. Do not edit an already-applied migration except to fix a broken, unreleased change.
 - Keep setup/update playbooks focused on desired state; run `task apc:migrate -- apply` before `task apc:run --` when pending migrations should be previewed or applied.
@@ -55,7 +55,7 @@ Prefer these role task files when relevant:
 - Use `iv_` for custom inventory metadata in `inventories/**`; map it to `gv_` aliases in `variables/_global.yml` when roles need global-style access.
 - Variables in `variables/**` must start with `_`, `gv_`, `iv_`, `vv_`, `ansible_`, or an existing role prefix. Use `_` for private helper variables.
 - Every variables file except `_global.yml` and `_vault.yml` should use this top-level section order: private `_` helper variables, `# Ansible`, then `# Role: <role_name>` groups.
-- If a value is used only once, assign it directly to the role variable.
+- A `gv_` variable may be used for values with one or more real references outside the definition line.
 - For standard shared-role ports, use the numeric port directly and add an inline service comment when helpful.
 - For non-standard project ports that intentionally override role defaults, define a `gv_*_port` variable and map it into the relevant role variable.
 - `cluster_name`, `cluster_realm`, and `target_hosts` are wrapper-provided runtime variables and are allowed as explicit exceptions.

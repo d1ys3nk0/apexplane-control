@@ -24,6 +24,8 @@ class SyncModule(Protocol):
 
     def check_structure(self, repo_root: Path) -> bool: ...
 
+    def check_shared_conventions(self, repo_root: Path) -> bool: ...
+
 
 def load_sync_module() -> SyncModule:
     spec = importlib.util.spec_from_file_location("check_repo_sync", SCRIPT_PATH)
@@ -93,6 +95,29 @@ includes:
     monkeypatch.setattr(sync_module, "STRUCTURE_PATHS", structure_paths)
 
     assert sync_module.check_structure(repo_root) is True
+
+
+def test_shared_conventions_report_consumer_repository_failures(
+    sync_module: SyncModule,
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    monkeypatch.setattr(sync_module, "check_ansible_requirements", lambda _repo_root: ["requirements failed"])
+    monkeypatch.setattr(sync_module, "check_global_variables", lambda _repo_root: [])
+    monkeypatch.setattr(sync_module, "check_inventory", lambda _repo_root: ["inventory failed"])
+    monkeypatch.setattr(sync_module, "check_role_variable_overrides", lambda _repo_root: [])
+    monkeypatch.setattr(sync_module, "check_yaml_scalar_style", lambda _repo_root: [])
+
+    assert sync_module.check_shared_conventions(repo_root) is False
+
+    output = capsys.readouterr().out
+    assert "ansible requirements: 1 error(s)" in output
+    assert "  requirements failed" in output
+    assert "inventory: 1 error(s)" in output
+    assert "  inventory failed" in output
 
 
 def test_sync_commands_are_not_exposed() -> None:

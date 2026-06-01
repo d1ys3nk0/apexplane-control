@@ -79,7 +79,7 @@ wheels = [
 ]
 
 [[package]]
-name = "apexplane-ansible-roles"
+name = "apexplane-control"
 version = "1.0.0"
 source = { virtual = "." }
 dependencies = [

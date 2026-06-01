@@ -7,7 +7,7 @@ ApexPlane Control is an Ansible-based IaC management framework with reusable rol
 Install the collection from Git. This is the default mode for consuming repositories and uses committed code from the configured ref:
 
 ```sh
-ansible-galaxy collection install git+https://github.com/d1ys3nk0/apexplane-ansible-roles.git,v1.0.0
+ansible-galaxy collection install git+https://github.com/d1ys3nk0/apexplane-control.git,v1.0.0
 ```
 
 Or add it to a consumer repository `requirements.sample.yml`:
@@ -16,7 +16,7 @@ Or add it to a consumer repository `requirements.sample.yml`:
 ---
 
 collections:
-  - name: https://github.com/d1ys3nk0/apexplane-ansible-roles.git
+  - name: https://github.com/d1ys3nk0/apexplane-control.git
     type: git
     version: v1.0.0
 ```
@@ -27,7 +27,7 @@ For local Control framework debugging, generate the consumer repository's local 
 ---
 
 collections:
-  - name: ../apexplane-ansible-roles
+  - name: ../apexplane-control
     type: dir
 ```
 

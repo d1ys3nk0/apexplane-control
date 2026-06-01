@@ -21,7 +21,7 @@ tasks:
   clean:
     desc: Remove all caches and temporary files
     cmds:
-      - git clean -fdX -e '!.vpass' -e '!.env' -e '!*.env.*'
+      - git clean -fdX -e '!.env' -e '!*.env.*'
       - find . -path ./.git -o -type d -prune -empty -delete
 
   setup:

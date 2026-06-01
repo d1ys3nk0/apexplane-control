@@ -2,7 +2,7 @@
 
 These documents are maintained by ApexPlane Control and copied into consuming infrastructure repositories during `task install` and `task upgrade`.
 
-Edit the source documents in `apexplane-ansible-roles`, not in consuming repositories.
+Edit the source documents in `apexplane-control`, not in consuming repositories.
 
 ## Reference
 

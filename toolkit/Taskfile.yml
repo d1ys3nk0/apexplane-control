@@ -32,6 +32,6 @@ tasks:
       - sh '{{.APEXPLANE_TOOLKIT_DIR}}/runtime/scripts/ansible-vlint.sh' --fix {{.CLI_ARGS}}
 
   structure:check:
-    desc: Check repository structure expected by ApexPlane Control
+    desc: Check repository structure and shared conventions expected by ApexPlane Control
     cmds:
       - uv run python '{{.APEXPLANE_TOOLKIT_DIR}}/check_repo_sync.py' structure-check

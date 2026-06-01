@@ -9,7 +9,7 @@ authors:
 description: ApexPlane Control, an Ansible-based IaC management framework.
 license:
   - Apache-2.0
-repository: https://github.com/d1ys3nk0/apexplane-ansible-roles
+repository: https://github.com/d1ys3nk0/apexplane-control
 build_ignore:
   - docs/shared
   - scripts

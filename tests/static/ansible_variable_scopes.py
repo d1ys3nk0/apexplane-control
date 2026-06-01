@@ -210,7 +210,7 @@ def _iter_variable_assignments(variables_dir: Path) -> list[tuple[Path, int, str
 
 
 def _shared_roles_dir(repo_root: Path) -> Path:
-    return Path(os.environ.get("APEXPLANE_ANSIBLE_ROLES_PATH", repo_root.parent / "apexplane-ansible-roles")) / "roles"
+    return Path(os.environ.get("APEXPLANE_CONTROL_PATH", repo_root.parent / "apexplane-control")) / "roles"
 
 
 def _role_names(repo_root: Path) -> set[str]:
