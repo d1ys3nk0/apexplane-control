@@ -12,6 +12,7 @@ This role configures HAProxy as an application load balancer with existing PEM c
 - Update HAProxy local backend fragment.
 - Update HAProxy backend fragments per target group.
 - Update HAProxy throttle backend fragments.
+- Upload HAProxy whitelist files.
 - Update HAProxy frontend config.
 - Additional focused setup tasks for the same role-owned desired state.
 
@@ -30,8 +31,8 @@ Set these required inputs before applying the role: `haproxy_alb_self_signed_cer
 | `haproxy_alb_prometheus_exporter_port` | `8405` |
 | `haproxy_alb_bypass_http_port` | `80` |
 | `haproxy_alb_redirect_all_http` | `false` |
-| `haproxy_alb_whitelist` | `[]` |
-| `haproxy_alb_whitelist_enforced` | `false` |
+| `haproxy_alb_whitelists` | `{}` |
+| `haproxy_alb_whitelists_enforced` | `[]` |
 | `haproxy_alb_throttles` | `[]` |
 | `haproxy_alb_throttle_table_size` | `100k` |
 | `haproxy_alb_throttle_deny_status` | `429` |

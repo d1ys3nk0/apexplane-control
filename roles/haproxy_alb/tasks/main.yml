@@ -6,6 +6,28 @@
 - name: Configure self-signed SSL certificate
   ansible.builtin.include_tasks: setup_ssl.yml
 
+- name: Create HAProxy ALB list directory
+  become: true
+  ansible.builtin.file:
+    path: /opt/haproxy/lists
+    state: directory
+    owner: root
+    group: haproxy
+    mode: '0750'
+
+- name: Upload HAProxy ALB whitelist files
+  become: true
+  ansible.builtin.copy:
+    src: '{{ item.value }}'
+    dest: /opt/haproxy/lists/{{ item.key }}.lst
+    owner: root
+    group: haproxy
+    mode: '0640'
+  loop: '{{ haproxy_alb_whitelists | dict2items | sort(attribute="key") }}'
+  loop_control:
+    label: '{{ item.key }}'
+  register: haproxy_alb_whitelist_upload
+
 - name: Find HAProxy ALB backend fragments
   become: true
   ansible.builtin.find:

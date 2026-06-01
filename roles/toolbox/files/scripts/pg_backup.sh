@@ -11,7 +11,7 @@ usage() {
     cat >&2 <<'USAGE'
 Usage: pg_backup [backup-root]
 
-Creates a compressed PostgreSQL dump for PG_BASE.
+Creates a PostgreSQL backup for PG_BASE.
 Defaults backup-root to ~/backups/postgres.
 
 Required environment:
@@ -56,7 +56,7 @@ init_config() {
     PG_BACKUP_CONCURRENCY="${PG_BACKUP_CONCURRENCY:-1}"
     case "${PG_BACKUP_FORMAT}" in
     sql) BACKUP_EXT="sql.gz" ;;
-    dir) BACKUP_EXT="tar.gz" ;;
+    dir) BACKUP_EXT="tar" ;;
     cst) BACKUP_EXT="dump" ;;
     *) _usage_error "PG_BACKUP_FORMAT must be sql, dir, or cst" ;;
     esac
@@ -127,8 +127,8 @@ create_backup() {
         _info "Creating dir-format backup ${backup_dump_path}..."
         _cmd docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
             pg_dump -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" --no-owner --no-privileges --no-comments -j "${PG_BACKUP_CONCURRENCY}" -f "/backup/${BACKUP_NAME}.dir" -Fd
-        _info "Archiving dir-format backup ${BACKUP_FILE}..."
-        _cmd tar -czf "${BACKUP_FILE}" -C "${BACKUP_DIR}" "${BACKUP_NAME}.dir"
+        _info "Archiving dir-format backup ${BACKUP_FILE} without compression..."
+        _cmd tar -cf "${BACKUP_FILE}" -C "${BACKUP_DIR}" "${BACKUP_NAME}.dir"
         _cmd rm -rf "${backup_dump_path}"
     else
         _info "Creating cst-format backup ${BACKUP_FILE}..."

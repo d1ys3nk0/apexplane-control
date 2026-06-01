@@ -11,8 +11,9 @@ usage() {
     cat >&2 <<'USAGE'
 Usage: pg_recover [backup-file|s3:key|s3:prefix|s3://bucket/key|s3://bucket/prefix]
 
-Restores a cst-format dump, PostgreSQL dir-format directory or tar archive,
-plain .sql, gzip .sql.gz, gzip .tar.gz, or encrypted .enc backup into PG_BASE.
+Restores a cst-format dump, PostgreSQL dir-format directory or uncompressed tar
+archive, plain .sql, gzip .sql.gz, gzip .tar.gz, or encrypted .enc backup into
+PG_BASE.
 With no source argument and S3 enabled, restores the latest backup under
 PG_RECOVER_S3_PREFIX. Without PG_RECOVER_S3_PREFIX, pass a local backup file or S3
 source argument.
@@ -38,10 +39,10 @@ Optional environment:
   PG_RECOVER_S3_ACCESS_KEY=<access-key>
   PG_RECOVER_S3_SECRET_KEY=<secret-key>
 Examples:
-  dotenv /path/to/app.env pg_recover /var/backups/postgres/latest.dump.enc
+  dotenv /path/to/app.env pg_recover /var/backups/postgres/latest.tar
   dotenv /path/to/app.env pg_recover
   dotenv /path/to/app.env pg_recover s3:source_database/
-  dotenv /path/to/app.env pg_recover s3://bucket/source_database/backup.tar.gz
+  dotenv /path/to/app.env pg_recover s3://bucket/source_database/backup.tar
 USAGE
 }
 

@@ -107,10 +107,10 @@ frontend web
 {% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
   http-request set-src hdr_ip(X-Forwarded-For,-1) if from_trusted_proxy { hdr_ip(X-Forwarded-For,-1) -m found }
 {% endif %}
-{% if haproxy_alb_whitelist | default([]) | length > 0 %}
-  acl from_whitelist src -m ip {{ haproxy_alb_whitelist | join(' ') }}
-{% endif %}
-{% if haproxy_alb_whitelist_enforced | bool %}
+{% for whitelist_name in haproxy_alb_whitelists_enforced | default([]) | sort %}
+  acl from_whitelist src -m ip -f /opt/haproxy/lists/{{ whitelist_name }}.lst
+{% endfor %}
+{% if haproxy_alb_whitelists_enforced | default([]) | length > 0 %}
   http-request deny deny_status 403 if !is_acme !from_whitelist
 {% endif %}
 {% if haproxy_alb_redirect_all_http | default(false) | bool %}

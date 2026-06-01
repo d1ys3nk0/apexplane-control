@@ -128,7 +128,7 @@ Create a backup:
 sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_backup
 ```
 
-By default, backups use `PG_BACKUP_FORMAT=dir` and `PG_BACKUP_CONCURRENCY=1`.
+By default, backups use `PG_BACKUP_FORMAT=dir` and `PG_BACKUP_CONCURRENCY=1`. Directory-format backups are archived as uncompressed `.tar` files so `pg_dump` can stay parallel without adding a serial gzip pass.
 
 Create a local-only backup when S3 variables are configured:
 
@@ -145,7 +145,7 @@ sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_BACKUP_CONCURRENCY=8 /o
 Restore a local backup file:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_recover /var/backups/postgres/latest.dump.enc
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_recover /var/backups/postgres/latest.tar
 ```
 
 Restore format is detected from the backup extension. Set `PG_RECOVER_FORMAT=sql|dir|cst` only for backups with non-standard extensions; restore fails when it cannot determine the format.
@@ -183,5 +183,5 @@ sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_RECOVER_EXCLUDE_EXTENSI
 Restore an exact S3 object:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_recover s3:<prefix>/<object>.dump.enc
+sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_recover s3:<prefix>/<object>.tar
 ```

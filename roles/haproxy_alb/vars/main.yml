@@ -18,6 +18,7 @@ haproxy_alb_config_changed: >-
     or haproxy_alb_be_local_update.changed
     or haproxy_alb_be_system_update.changed
     or haproxy_alb_backend_fragment_cleanup.changed
+    or (haproxy_alb_whitelist_upload is defined and haproxy_alb_whitelist_upload.changed)
     or (haproxy_alb_be_throttle_update is defined and haproxy_alb_be_throttle_update.changed)
     or (haproxy_alb_config_crowdsec_update is defined and haproxy_alb_config_crowdsec_update.changed)
     or (haproxy_alb_config_crowdsec_remove is defined and haproxy_alb_config_crowdsec_remove.changed)

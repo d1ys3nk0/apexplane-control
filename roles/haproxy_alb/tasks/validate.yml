@@ -18,7 +18,6 @@
     that:
       - haproxy_alb_interactive_mode | type_debug == 'bool'
       - haproxy_alb_letsencrypt_enabled | type_debug == 'bool'
-      - haproxy_alb_whitelist_enforced is boolean
     fail_msg: Define HAProxy ALB mode variables with valid types before running role haproxy_alb.
 
 - name: Assert haproxy_alb_target_groups is a mapping
@@ -90,26 +89,47 @@
       - haproxy_alb_throttle_deny_status | int <= 599
     fail_msg: haproxy_alb_throttle_table_size must be a HAProxy table size and haproxy_alb_throttle_deny_status must be an HTTP 4xx or 5xx status code
 
-- name: Assert haproxy_alb_whitelist is a list
+- name: Assert haproxy_alb_whitelists is a mapping
   ansible.builtin.assert:
     that:
-      - haproxy_alb_whitelist is defined
-      - haproxy_alb_whitelist is iterable
-      - haproxy_alb_whitelist is not string
-      - not (haproxy_alb_whitelist_enforced | bool) or haproxy_alb_whitelist | length > 0
-    fail_msg: haproxy_alb_whitelist must be a list of IPv4 CIDR strings and cannot be empty when enforcement is enabled
+      - haproxy_alb_whitelists is defined
+      - haproxy_alb_whitelists is mapping
+    fail_msg: haproxy_alb_whitelists must be a mapping of list name to controller-side source path
 
-- name: Assert haproxy_alb_whitelist values are IPv4 CIDRs
+- name: Assert haproxy_alb_whitelists entries are valid
   ansible.builtin.assert:
     that:
       - >-
-        haproxy_alb_whitelist
-        | map('string')
-        | map('trim')
-        | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
+        haproxy_alb_whitelists.keys()
+        | select('match', '^[A-Za-z0-9][A-Za-z0-9_-]*$')
         | list
-        | length == (haproxy_alb_whitelist | length)
-    fail_msg: haproxy_alb_whitelist must contain only IPv4 CIDR strings
+        | length == (haproxy_alb_whitelists | length)
+    fail_msg: haproxy_alb_whitelists must use safe names and non-empty controller-side source paths
+
+- name: Assert haproxy_alb_whitelists source paths are strings
+  ansible.builtin.assert:
+    that:
+      - item.value is string
+      - item.value | trim | length > 0
+    fail_msg: HAProxy ALB whitelist '{{ item.key }}' must define a non-empty controller-side source path
+  loop: '{{ haproxy_alb_whitelists | dict2items | sort(attribute="key") }}'
+  loop_control:
+    label: '{{ item.key }}'
+
+- name: Assert haproxy_alb_whitelists_enforced is a valid list
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_whitelists_enforced is defined
+      - haproxy_alb_whitelists_enforced is iterable
+      - haproxy_alb_whitelists_enforced is not string
+      - haproxy_alb_whitelists_enforced | unique | length == haproxy_alb_whitelists_enforced | length
+      - >-
+        haproxy_alb_whitelists_enforced
+        | select('match', '^[A-Za-z0-9][A-Za-z0-9_-]*$')
+        | list
+        | length == (haproxy_alb_whitelists_enforced | length)
+      - haproxy_alb_whitelists_enforced | difference(haproxy_alb_whitelists.keys() | list) | length == 0
+    fail_msg: haproxy_alb_whitelists_enforced must be a list of names present in haproxy_alb_whitelists
 
 - name: Assert haproxy_alb_trusted_proxy_cidrs is a list
   ansible.builtin.assert:
