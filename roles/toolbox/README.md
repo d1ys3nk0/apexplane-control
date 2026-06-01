@@ -5,6 +5,7 @@ This role installs shared operator shell helpers and optional Docker, HAProxy, a
 ## Features
 - Create directories.
 - Install psqlrc.
+- Install toolbox shell library.
 - Install bash toolbox.
 - Install always-enabled executables from files.
 - Install Docker executables from files.
@@ -50,9 +51,12 @@ Override a value from the dotenv file for one command by placing the assignment 
 
 All PostgreSQL toolbox scripts use the same connection environment variables: `PG_IMAGE`, `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASS`, and optional `PG_SSL`. Database-scoped scripts use `PG_BASE` as the managed database name. `pg_client` connects to `PG_BASE`.
 
+Set `QUIET=1` or `QUIET=true` to suppress toolbox helper `_info`, `_warn`, and `_cmd` log lines while keeping the underlying command behavior unchanged.
+
 ### Installed Files
 
 - `/opt/toolbox/psqlrc`
+- `/opt/toolbox/lib/helpers.sh`, with shared elapsed-time logging and command execution helpers for toolbox scripts
 - `/etc/skel/.bash_toolbox`, with `/opt/toolbox/bin` added to `PATH` and optional Docker and HAProxy definitions rendered only when their script families are enabled
 - `/opt/toolbox/bin/dotenv`
 - `/opt/toolbox/bin/sysrep`

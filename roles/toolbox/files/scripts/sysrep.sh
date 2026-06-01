@@ -6,6 +6,10 @@
 
 set -o pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=../lib/helpers.sh
+source "${SCRIPT_DIR}/../lib/helpers.sh"
+
 HR_DOCKER_TIMEOUT="${HR_DOCKER_TIMEOUT:-10}"
 HR_DOCKER_QUICK="${HR_DOCKER_QUICK:-3}"
 

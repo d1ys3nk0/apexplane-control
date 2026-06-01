@@ -2,43 +2,10 @@
 
 set -euo pipefail
 
-run() {
-    echo "> $1"
-    shift
-
-    if [ "${DEBUG:-0}" = "1" ]; then
-        printf '$'
-        printf ' %q' "$@"
-        printf '\n'
-    fi
-
-    "$@"
-}
-
-run_output() {
-    local output="$1"
-    shift
-
-    echo "> $1"
-    shift
-
-    if [ "${DEBUG:-0}" = "1" ]; then
-        printf '$'
-        printf ' %q' "$@"
-        printf ' > %q\n' "${output}"
-    fi
-
-    "$@" >"${output}"
-}
-
-info() {
-    echo "[INFO] $*"
-}
-
-error() {
-    echo "[ERROR] $*" >&2
-    exit 1
-}
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+TOOLBOX_REDACT_VARS="PG_PASS PG_RECOVER_SECRET PG_RECOVER_S3_SECRET_KEY"
+# shellcheck source=../lib/helpers.sh
+source "${SCRIPT_DIR}/../lib/helpers.sh"
 
 usage() {
     cat >&2 <<'USAGE'
@@ -78,21 +45,6 @@ Examples:
 USAGE
 }
 
-usage_error() {
-    usage
-    error "$*"
-}
-
-check_vars() {
-    local arg
-
-    for arg in "$@"; do
-        if [ -z "${!arg:-}" ]; then
-            error "${arg} is not set"
-        fi
-    done
-}
-
 is_s3_enabled() {
     case "${PG_RECOVER_S3}" in
     0 | false | False | FALSE) return 1 ;;
@@ -100,44 +52,30 @@ is_s3_enabled() {
     esac
 }
 
-is_true() {
-    case "${1}" in
-    1 | true | True | TRUE) return 0 ;;
-    "" | 0 | false | False | FALSE) return 1 ;;
-    *) usage_error "${2} must be true or false" ;;
-    esac
-}
-
-require_positive_integer() {
-    if [[ ! "${1}" =~ ^[1-9][0-9]*$ ]]; then
-        usage_error "${2} must be a positive integer"
-    fi
-}
-
 cleanup() {
     if [ "${PREPARE_DB_CREATED:-0}" = "1" ] && [ "${PREPARE_DB_PROMOTED:-0}" != "1" ] && [ -n "${PREPARE_DB_NAME:-}" ]; then
-        info "Cleaning up prepare database ${PREPARE_DB_NAME}"
+        _info "Cleaning up prepare database ${PREPARE_DB_NAME}"
         drop_database "${PREPARE_DB_NAME}" || true
     fi
     if [ -n "${DECRYPTED_FILE:-}" ] && [ -f "${DECRYPTED_FILE}" ]; then
-        info "Cleaning up temporary decrypted file ${DECRYPTED_FILE}"
-        rm -f "${DECRYPTED_FILE}"
+        _info "Cleaning up temporary decrypted file ${DECRYPTED_FILE}"
+        _cmd rm -f "${DECRYPTED_FILE}"
     fi
     if [ -n "${DECOMPRESSED_FILE:-}" ] && [ -f "${DECOMPRESSED_FILE}" ]; then
-        info "Cleaning up temporary decompressed file ${DECOMPRESSED_FILE}"
-        rm -f "${DECOMPRESSED_FILE}"
+        _info "Cleaning up temporary decompressed file ${DECOMPRESSED_FILE}"
+        _cmd rm -f "${DECOMPRESSED_FILE}"
     fi
     if [ -n "${EXTRACTED_DIR:-}" ] && [ -d "${EXTRACTED_DIR}" ]; then
-        info "Cleaning up temporary extracted directory ${EXTRACTED_DIR}"
-        rm -rf "${EXTRACTED_DIR}"
+        _info "Cleaning up temporary extracted directory ${EXTRACTED_DIR}"
+        _cmd rm -rf "${EXTRACTED_DIR}"
     fi
     if [ -n "${DOWNLOADED_DIR:-}" ] && [ -d "${DOWNLOADED_DIR}" ]; then
-        info "Cleaning up temporary download directory ${DOWNLOADED_DIR}"
-        rm -rf "${DOWNLOADED_DIR}"
+        _info "Cleaning up temporary download directory ${DOWNLOADED_DIR}"
+        _cmd rm -rf "${DOWNLOADED_DIR}"
     fi
     if [ -n "${RESTORE_LIST_FILE:-}" ] && [ -f "${RESTORE_LIST_FILE}" ]; then
-        info "Cleaning up temporary restore list ${RESTORE_LIST_FILE}"
-        rm -f "${RESTORE_LIST_FILE}"
+        _info "Cleaning up temporary restore list ${RESTORE_LIST_FILE}"
+        _cmd rm -f "${RESTORE_LIST_FILE}"
     fi
 }
 
@@ -156,7 +94,7 @@ restore_format_flag() {
     case "${PG_RECOVER_FORMAT}" in
     dir) printf 'd' ;;
     cst) printf 'c' ;;
-    *) usage_error "PG_RECOVER_FORMAT must be sql, dir, or cst" ;;
+    *) _usage_error "PG_RECOVER_FORMAT must be sql, dir, or cst" ;;
     esac
 }
 
@@ -179,7 +117,7 @@ latest_s3_key() {
     )
 
     if [ -z "${key}" ] || [ "${key}" = "None" ]; then
-        error "No backup objects found in s3://${bucket}/${prefix}"
+        _error "No backup objects found in s3://${bucket}/${prefix}"
     fi
 
     echo "${key}"
@@ -187,7 +125,7 @@ latest_s3_key() {
 
 init_config() {
     if [ "$#" -gt 1 ]; then
-        usage_error "Expected 0 or 1 arguments, got $#"
+        _usage_error "Expected 0 or 1 arguments, got $#"
     fi
 
     BACKUP_INPUT="${1:-}"
@@ -207,11 +145,11 @@ init_config() {
     PG_RECOVER_CONCURRENCY="${PG_RECOVER_CONCURRENCY:-1}"
     PG_RECOVER_EXCLUDE_EXTENSIONS="${PG_RECOVER_EXCLUDE_EXTENSIONS:-}"
 
-    check_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE"
-    require_positive_integer "${PG_RECOVER_CONCURRENCY}" PG_RECOVER_CONCURRENCY
+    _require_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE"
+    _require_positive_integer "${PG_RECOVER_CONCURRENCY}" PG_RECOVER_CONCURRENCY
     case "${PG_RECOVER_FORMAT}" in
     "" | sql | dir | cst) ;;
-    *) usage_error "PG_RECOVER_FORMAT must be sql, dir, or cst" ;;
+    *) _usage_error "PG_RECOVER_FORMAT must be sql, dir, or cst" ;;
     esac
 
     BACKUP_FILE="${BACKUP_INPUT}"
@@ -242,27 +180,27 @@ validate_s3_backup_input() {
         if [[ "${S3_INPUT}" == */* ]]; then
             S3_INPUT="${S3_INPUT#*/}"
         else
-            usage_error "Expected non-empty S3 key or prefix after s3://${S3_BUCKET}/"
+            _usage_error "Expected non-empty S3 key or prefix after s3://${S3_BUCKET}/"
         fi
     else
         S3_INPUT="${BACKUP_INPUT#s3:}"
         if [ -z "${S3_INPUT}" ]; then
-            usage_error "Expected non-empty S3 key or prefix after s3:"
+            _usage_error "Expected non-empty S3 key or prefix after s3:"
         fi
     fi
 
     if [ -z "${S3_INPUT}" ]; then
-        usage_error "Expected non-empty S3 key or prefix"
+        _usage_error "Expected non-empty S3 key or prefix"
     fi
 
     for var in PG_RECOVER_S3_ENDPOINT PG_RECOVER_S3_REGION PG_RECOVER_S3_ACCESS_KEY PG_RECOVER_S3_SECRET_KEY; do
         if [ -z "${!var}" ]; then
-            error "${var} is not set"
+            _error "${var} is not set"
         fi
     done
 
     if [ -z "${S3_BUCKET}" ]; then
-        error "PG_RECOVER_S3_BUCKET is not set"
+        _error "PG_RECOVER_S3_BUCKET is not set"
     fi
 }
 
@@ -271,15 +209,15 @@ validate_backup_input() {
         if is_s3_enabled && [ -n "${PG_RECOVER_S3_PREFIX}" ]; then
             validate_s3_backup_input
         else
-            usage_error "Backup source is required unless PG_RECOVER_S3_PREFIX is set and S3 restore is enabled"
+            _usage_error "Backup source is required unless PG_RECOVER_S3_PREFIX is set and S3 restore is enabled"
         fi
     elif [[ "${BACKUP_INPUT}" == s3:* ]]; then
         if ! is_s3_enabled; then
-            error "S3 restore is disabled by PG_RECOVER_S3=${PG_RECOVER_S3}"
+            _error "S3 restore is disabled by PG_RECOVER_S3=${PG_RECOVER_S3}"
         fi
         validate_s3_backup_input
     elif [ ! -f "${BACKUP_INPUT}" ] && [ ! -d "${BACKUP_INPUT}" ]; then
-        error "Backup source ${BACKUP_INPUT} not found"
+        _error "Backup source ${BACKUP_INPUT} not found"
     fi
 }
 
@@ -294,8 +232,8 @@ resolve_s3_backup() {
 
     DOWNLOADED_DIR=$(mktemp -d "/tmp/${PG_BASE}.restore.XXXXXX")
     DOWNLOADED_FILE="${DOWNLOADED_DIR}/${S3_KEY##*/}"
-    run "Downloading backup s3://${S3_BUCKET}/${S3_KEY}..." \
-        aws_env aws --endpoint-url="${PG_RECOVER_S3_ENDPOINT}" s3api get-object --bucket "${S3_BUCKET}" --key "${S3_KEY}" "${DOWNLOADED_FILE}"
+    _info "Downloading backup s3://${S3_BUCKET}/${S3_KEY}..."
+    _cmd aws_env aws --endpoint-url="${PG_RECOVER_S3_ENDPOINT}" s3api get-object --bucket "${S3_BUCKET}" --key "${S3_KEY}" "${DOWNLOADED_FILE}"
     BACKUP_FILE="${DOWNLOADED_FILE}"
 }
 
@@ -304,11 +242,11 @@ resolve_backup_source() {
         if is_s3_enabled && [ -n "${PG_RECOVER_S3_PREFIX}" ]; then
             resolve_s3_backup
         else
-            usage_error "Backup source is required unless PG_RECOVER_S3_PREFIX is set and S3 restore is enabled"
+            _usage_error "Backup source is required unless PG_RECOVER_S3_PREFIX is set and S3 restore is enabled"
         fi
     elif [[ "${BACKUP_INPUT}" == s3:* ]]; then
         if ! is_s3_enabled; then
-            error "S3 restore is disabled by PG_RECOVER_S3=${PG_RECOVER_S3}"
+            _error "S3 restore is disabled by PG_RECOVER_S3=${PG_RECOVER_S3}"
         fi
         resolve_s3_backup
     fi
@@ -316,7 +254,7 @@ resolve_backup_source() {
 
 verify_backup_source() {
     if [ ! -f "${BACKUP_FILE}" ] && [ ! -d "${BACKUP_FILE}" ]; then
-        error "Backup source ${BACKUP_FILE} not found"
+        _error "Backup source ${BACKUP_FILE} not found"
     fi
 
     BACKUP_FILE=$(realpath -m "${BACKUP_FILE}")
@@ -328,16 +266,16 @@ decrypt_backup() {
     fi
 
     if [ -z "${PG_RECOVER_SECRET}" ]; then
-        error "Backup file ${BACKUP_FILE} is encrypted but PG_RECOVER_SECRET is not set"
+        _error "Backup file ${BACKUP_FILE} is encrypted but PG_RECOVER_SECRET is not set"
     fi
 
     DECRYPTED_FILE="${BACKUP_FILE%.enc}"
-    rm -rf "${DECRYPTED_FILE}"
-    run "Decrypting backup ${BACKUP_FILE}..." \
-        openssl enc -aes-256-cbc -base64 -pbkdf2 -pass "pass:${PG_RECOVER_SECRET}" -d -in "${BACKUP_FILE}" -out "${DECRYPTED_FILE}"
+    _cmd rm -rf "${DECRYPTED_FILE}"
+    _info "Decrypting backup ${BACKUP_FILE}..."
+    _cmd openssl enc -aes-256-cbc -base64 -pbkdf2 -pass "pass:${PG_RECOVER_SECRET}" -d -in "${BACKUP_FILE}" -out "${DECRYPTED_FILE}"
 
     if [ ! -f "${DECRYPTED_FILE}" ]; then
-        error "Failed to decrypt ${BACKUP_FILE} to ${DECRYPTED_FILE}"
+        _error "Failed to decrypt ${BACKUP_FILE} to ${DECRYPTED_FILE}"
     fi
 
     BACKUP_FILE="${DECRYPTED_FILE}"
@@ -357,11 +295,11 @@ decompress_backup() {
     else
         DECOMPRESSED_FILE=$(mktemp "/tmp/${PG_BASE}.restore.XXXXXX.tar")
     fi
-    run_output "${DECOMPRESSED_FILE}" "Decompressing backup ${BACKUP_FILE}..." \
-        gzip -dc "${BACKUP_FILE}"
+    _info "Decompressing backup ${BACKUP_FILE}..."
+    _cmd_output "${DECOMPRESSED_FILE}" gzip -dc "${BACKUP_FILE}"
 
     if [ ! -f "${DECOMPRESSED_FILE}" ]; then
-        error "Failed to decompress ${BACKUP_FILE} to ${DECOMPRESSED_FILE}"
+        _error "Failed to decompress ${BACKUP_FILE} to ${DECOMPRESSED_FILE}"
     fi
 
     BACKUP_FILE="${DECOMPRESSED_FILE}"
@@ -375,15 +313,15 @@ extract_backup() {
     fi
 
     EXTRACTED_DIR=$(mktemp -d "/tmp/${PG_BASE}.restore.XXXXXX.dir")
-    run "Extracting PostgreSQL directory-format archive ${BACKUP_FILE}..." \
-        tar -xf "${BACKUP_FILE}" -C "${EXTRACTED_DIR}"
+    _info "Extracting PostgreSQL directory-format archive ${BACKUP_FILE}..."
+    _cmd tar -xf "${BACKUP_FILE}" -C "${EXTRACTED_DIR}"
 
     if [ -f "${EXTRACTED_DIR}/toc.dat" ]; then
         BACKUP_FILE="${EXTRACTED_DIR}"
     else
         restore_toc=$(find "${EXTRACTED_DIR}" -mindepth 2 -maxdepth 2 -type f -name toc.dat -print -quit)
         if [ -z "${restore_toc}" ]; then
-            error "Extracted archive ${BACKUP_FILE} does not contain PostgreSQL directory-format toc.dat"
+            _error "Extracted archive ${BACKUP_FILE} does not contain PostgreSQL directory-format toc.dat"
         fi
         BACKUP_FILE=$(dirname "${restore_toc}")
     fi
@@ -398,13 +336,12 @@ prepare_backup_file() {
 }
 
 init_timestamps() {
-    SCRIPT_START=$(date -u '+%s.%3N')
-    TIME_TAG=$(date -d "@${SCRIPT_START%.*}" -u '+%y%m%d%H%M%S')
-    TIME_UTC=$(date -d "@${SCRIPT_START%.*}" -u '+%Y-%m-%d %H:%M:%S')
+    TIME_TAG=$(date -d "@${TOOLBOX_SCRIPT_START%.*}" -u '+%y%m%d%H%M%S')
+    TIME_UTC=$(date -d "@${TOOLBOX_SCRIPT_START%.*}" -u '+%Y-%m-%d %H:%M:%S')
 }
 
 log_started() {
-    info "Started at ${TIME_UTC} UTC"
+    _info "Started at ${TIME_UTC} UTC"
 }
 
 init_restore_context() {
@@ -428,8 +365,8 @@ docker_pg_with_backup_and_restore_list() {
 create_database() {
     local database_name="$1"
 
-    run "Creating database ${database_name}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "CREATE DATABASE ${database_name} WITH TEMPLATE template0 OWNER ${PG_USER}"
+    _info "Creating database ${database_name}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "CREATE DATABASE ${database_name} WITH TEMPLATE template0 OWNER ${PG_USER}"
 }
 
 database_exists() {
@@ -443,17 +380,17 @@ database_exists() {
 drop_database() {
     local database_name="$1"
 
-    run "Disabling connections to ${database_name}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "ALTER DATABASE ${database_name} WITH ALLOW_CONNECTIONS false" || true
-    run "Terminating active connections to ${database_name}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname = '${database_name}'" || true
-    run "Dropping database ${database_name}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "DROP DATABASE ${database_name}"
+    _info "Disabling connections to ${database_name}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "ALTER DATABASE ${database_name} WITH ALLOW_CONNECTIONS false" || true
+    _info "Terminating active connections to ${database_name}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname = '${database_name}'" || true
+    _info "Dropping database ${database_name}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "DROP DATABASE ${database_name}"
 }
 
 drop_user_schemas() {
-    run "Dropping user schemas from ${PG_BASE}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -v ON_ERROR_STOP=1 <<'SQL'
+    _info "Dropping user schemas from ${PG_BASE}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -v ON_ERROR_STOP=1 <<'SQL'
 DO $$
 DECLARE
     schema_name text;
@@ -484,7 +421,7 @@ detect_backup_format() {
 
     if [ -d "${BACKUP_FILE}" ]; then
         if [ ! -f "${BACKUP_FILE}/toc.dat" ]; then
-            error "Directory backup source ${BACKUP_FILE} does not contain PostgreSQL directory-format toc.dat"
+            _error "Directory backup source ${BACKUP_FILE} does not contain PostgreSQL directory-format toc.dat"
         fi
         PG_RECOVER_FORMAT=dir
         return
@@ -494,7 +431,7 @@ detect_backup_format() {
     *.sql) PG_RECOVER_FORMAT=sql ;;
     *.tar) PG_RECOVER_FORMAT=dir ;;
     *.dump) PG_RECOVER_FORMAT=cst ;;
-    *) error "Could not determine backup format from ${BACKUP_FILE}; set PG_RECOVER_FORMAT=sql, dir, or cst" ;;
+    *) _error "Could not determine backup format from ${BACKUP_FILE}; set PG_RECOVER_FORMAT=sql, dir, or cst" ;;
     esac
 }
 
@@ -505,18 +442,18 @@ create_extensions() {
         return
     fi
 
-    echo "Creating extensions: ${PG_RECOVER_CREATE_EXTENSIONS}"
+    _info "Creating extensions: ${PG_RECOVER_CREATE_EXTENSIONS}"
     for extension in ${PG_RECOVER_CREATE_EXTENSIONS}; do
-        run "Creating extension ${extension}..." \
-            docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" -c "CREATE EXTENSION IF NOT EXISTS ${extension}"
+        _info "Creating extension ${extension}..."
+        _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" -c "CREATE EXTENSION IF NOT EXISTS ${extension}"
     done
 }
 
 prepare_restore_database() {
-    if is_true "${PG_RECOVER_NO_RECREATE}" PG_RECOVER_NO_RECREATE; then
-        info "Restoring directly into existing database ${RESTORE_DB_NAME}"
+    if _is_true "${PG_RECOVER_NO_RECREATE}" PG_RECOVER_NO_RECREATE; then
+        _info "Restoring directly into existing database ${RESTORE_DB_NAME}"
         drop_user_schemas
-    elif ! is_true "${PG_RECOVER_NO_PREPARE}" PG_RECOVER_NO_PREPARE; then
+    elif ! _is_true "${PG_RECOVER_NO_PREPARE}" PG_RECOVER_NO_PREPARE; then
         RESTORE_DB_NAME="${PG_BASE}_prepare_${TIME_TAG}"
         create_database "${RESTORE_DB_NAME}"
         PREPARE_DB_CREATED=1
@@ -533,11 +470,11 @@ prepare_restore_database() {
 
 restore_plain_sql_backup() {
     if [[ "${BACKUP_FILE}" == *.sql.gz ]]; then
-        run "Restoring gzip SQL backup into ${RESTORE_DB_NAME}..." \
-            docker_pg_with_backup sh -c "gunzip -c /backup.dump | psql -h \"${PG_HOST}\" -p \"${PG_PORT}\" -U \"${PG_USER}\" -d \"${RESTORE_DB_NAME}\" -v ON_ERROR_STOP=1"
+        _info "Restoring gzip SQL backup into ${RESTORE_DB_NAME}..."
+        _cmd docker_pg_with_backup sh -c "gunzip -c /backup.dump | psql -h \"${PG_HOST}\" -p \"${PG_PORT}\" -U \"${PG_USER}\" -d \"${RESTORE_DB_NAME}\" -v ON_ERROR_STOP=1"
     else
-        run "Restoring SQL backup into ${RESTORE_DB_NAME}..." \
-            docker_pg_with_backup psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" -f /backup.dump -v ON_ERROR_STOP=1
+        _info "Restoring SQL backup into ${RESTORE_DB_NAME}..."
+        _cmd docker_pg_with_backup psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" -f /backup.dump -v ON_ERROR_STOP=1
     fi
 }
 
@@ -547,8 +484,8 @@ restore_archive_backup_with_filtered_list() {
     RESTORE_LIST_FILE=$(mktemp "/tmp/${PG_BASE}.restore.XXXXXX.list")
     restore_format_flag_value=$(restore_format_flag)
 
-    run_output "${RESTORE_LIST_FILE}" "Listing ${PG_RECOVER_FORMAT} backup contents..." \
-        docker_pg_with_backup pg_restore -l -F "${restore_format_flag_value}" /backup.dump
+    _info "Listing ${PG_RECOVER_FORMAT} backup contents..."
+    _cmd_output "${RESTORE_LIST_FILE}" docker_pg_with_backup pg_restore -l -F "${restore_format_flag_value}" /backup.dump
 
     awk -v excluded="${PG_RECOVER_EXCLUDE_EXTENSIONS}" '
         BEGIN {
@@ -575,10 +512,10 @@ restore_archive_backup_with_filtered_list() {
             print
         }
     ' "${RESTORE_LIST_FILE}" >"${RESTORE_LIST_FILE}.filtered"
-    mv "${RESTORE_LIST_FILE}.filtered" "${RESTORE_LIST_FILE}"
+    _cmd mv "${RESTORE_LIST_FILE}.filtered" "${RESTORE_LIST_FILE}"
 
-    run "Restoring ${PG_RECOVER_FORMAT} backup into ${RESTORE_DB_NAME} without extensions: ${PG_RECOVER_EXCLUDE_EXTENSIONS}..." \
-        docker_pg_with_backup_and_restore_list pg_restore -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --no-owner --no-privileges --no-comments -j "${PG_RECOVER_CONCURRENCY}" -F "${restore_format_flag_value}" -L /restore.list -v /backup.dump
+    _info "Restoring ${PG_RECOVER_FORMAT} backup into ${RESTORE_DB_NAME} without extensions: ${PG_RECOVER_EXCLUDE_EXTENSIONS}..."
+    _cmd docker_pg_with_backup_and_restore_list pg_restore -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --no-owner --no-privileges --no-comments -j "${PG_RECOVER_CONCURRENCY}" -F "${restore_format_flag_value}" -L /restore.list -v /backup.dump
 }
 
 restore_backup() {
@@ -590,54 +527,54 @@ restore_backup() {
         restore_archive_backup_with_filtered_list
     else
         restore_format_flag_value=$(restore_format_flag)
-        run "Restoring ${PG_RECOVER_FORMAT} backup into ${RESTORE_DB_NAME}..." \
-            docker_pg_with_backup pg_restore -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --no-owner --no-privileges --no-comments -j "${PG_RECOVER_CONCURRENCY}" -F "${restore_format_flag_value}" -v /backup.dump
+        _info "Restoring ${PG_RECOVER_FORMAT} backup into ${RESTORE_DB_NAME}..."
+        _cmd docker_pg_with_backup pg_restore -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --no-owner --no-privileges --no-comments -j "${PG_RECOVER_CONCURRENCY}" -F "${restore_format_flag_value}" -v /backup.dump
     fi
 }
 
 vacuum_restored_database() {
-    if is_true "${PG_RECOVER_NO_VACUUM}" PG_RECOVER_NO_VACUUM; then
+    if _is_true "${PG_RECOVER_NO_VACUUM}" PG_RECOVER_NO_VACUUM; then
         return
     fi
 
-    run "Setting statement timeout for ${RESTORE_DB_NAME}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" -c "ALTER ROLE ${PG_USER} SET statement_timeout = 300000"
-    run "Analyzing restored database ${RESTORE_DB_NAME}..." \
-        docker_pg vacuumdb -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --echo --analyze-in-stages -j "${PG_RECOVER_CONCURRENCY}"
-    run "Resetting statement timeout for ${RESTORE_DB_NAME}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" -c "ALTER ROLE ${PG_USER} RESET statement_timeout"
+    _info "Setting statement timeout for ${RESTORE_DB_NAME}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" -c "ALTER ROLE ${PG_USER} SET statement_timeout = 300000"
+    _info "Analyzing restored database ${RESTORE_DB_NAME}..."
+    _cmd docker_pg vacuumdb -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" --echo --analyze-in-stages -j "${PG_RECOVER_CONCURRENCY}"
+    _info "Resetting statement timeout for ${RESTORE_DB_NAME}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${RESTORE_DB_NAME}" -c "ALTER ROLE ${PG_USER} RESET statement_timeout"
 }
 
 promote_restored_database() {
-    if is_true "${PG_RECOVER_NO_PREPARE}" PG_RECOVER_NO_PREPARE || is_true "${PG_RECOVER_NO_RECREATE}" PG_RECOVER_NO_RECREATE; then
+    if _is_true "${PG_RECOVER_NO_PREPARE}" PG_RECOVER_NO_PREPARE || _is_true "${PG_RECOVER_NO_RECREATE}" PG_RECOVER_NO_RECREATE; then
         return
     fi
 
-    run "Disabling connections to ${PG_BASE}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "ALTER DATABASE ${PG_BASE} WITH ALLOW_CONNECTIONS false" || true
-    run "Terminating active connections to ${PG_BASE}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname = '${PG_BASE}'" || true
-    run "Archiving current database ${PG_BASE}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "ALTER DATABASE ${PG_BASE} RENAME TO ${ARCHIVE_DB_NAME}" || true
-    run "Promoting restored database ${RESTORE_DB_NAME}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "ALTER DATABASE ${RESTORE_DB_NAME} RENAME TO ${PG_BASE}"
+    _info "Disabling connections to ${PG_BASE}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "ALTER DATABASE ${PG_BASE} WITH ALLOW_CONNECTIONS false" || true
+    _info "Terminating active connections to ${PG_BASE}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname = '${PG_BASE}'" || true
+    _info "Archiving current database ${PG_BASE}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "ALTER DATABASE ${PG_BASE} RENAME TO ${ARCHIVE_DB_NAME}" || true
+    _info "Promoting restored database ${RESTORE_DB_NAME}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "ALTER DATABASE ${RESTORE_DB_NAME} RENAME TO ${PG_BASE}"
     PREPARE_DB_PROMOTED=1
-    run "Dropping archive database ${ARCHIVE_DB_NAME}..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "DROP DATABASE IF EXISTS ${ARCHIVE_DB_NAME}"
+    _info "Dropping archive database ${ARCHIVE_DB_NAME}..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "DROP DATABASE IF EXISTS ${ARCHIVE_DB_NAME}"
 }
 
 verify_restore() {
-    run "Checking databases..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c '\l'
+    _info "Checking databases..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c '\l'
 
-    run "Checking tables..." \
-        docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c '\dt *.*'
+    _info "Checking tables..."
+    _cmd docker_pg psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c '\dt *.*'
 }
 
 finish() {
     SCRIPT_END=$(date -u '+%s.%3N')
-    SCRIPT_ELAPSED=$(echo "scale=3; $SCRIPT_END - $SCRIPT_START" | bc)
-    info "Finished in ${SCRIPT_ELAPSED}s"
+    SCRIPT_ELAPSED=$(echo "scale=3; $SCRIPT_END - $TOOLBOX_SCRIPT_START" | bc)
+    _info "Finished in ${SCRIPT_ELAPSED}s"
 }
 
 main() {

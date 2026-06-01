@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=../lib/helpers.sh
+source "${SCRIPT_DIR}/../lib/helpers.sh"
+
 usage() {
     cat <<'EOF'
 Docker Secret Manager
@@ -42,26 +46,13 @@ Examples:
 EOF
 }
 
-info() {
-    printf '%s\n' "$*"
-}
-
-error() {
-    printf 'Error: %s\n' "$*" >&2
-}
-
-die() {
-    error "$*"
-    exit 1
-}
-
 validate_slug() {
     local name="$1"
     local value="$2"
     local slug_regex='^[a-z][a-z0-9-]*$'
 
     if [[ ! "${value}" =~ ${slug_regex} ]]; then
-        die "Invalid ${name} '${value}'"
+        _die "Invalid ${name} '${value}'"
     fi
 }
 
@@ -78,7 +69,7 @@ parse_full_target() {
 
     IFS=/ read -r APP_NAME REALM ENVIRONMENT SERVICE extra <<<"${target}"
     if [ -z "${APP_NAME}" ] || [ -z "${REALM}" ] || [ -z "${ENVIRONMENT}" ] || [ -z "${SERVICE}" ] || [ -n "${extra}" ]; then
-        die "Invalid target '${target}'"
+        _die "Invalid target '${target}'"
     fi
 
     validate_target_parts
@@ -98,7 +89,7 @@ parse_prune_prefix() {
 
     IFS=/ read -r APP_NAME REALM ENVIRONMENT SERVICE extra <<<"${target}"
     if [ -z "${APP_NAME}" ] || [ -n "${extra}" ]; then
-        die "Invalid prune prefix '${target}'"
+        _die "Invalid prune prefix '${target}'"
     fi
 
     validate_slug app "${APP_NAME}"
@@ -124,11 +115,11 @@ require_file() {
     local file_path="$1"
 
     if [ ! -f "${file_path}" ]; then
-        die "File '${file_path}' not found"
+        _die "File '${file_path}' not found"
     fi
 
     if [ ! -r "${file_path}" ]; then
-        die "File '${file_path}' is not readable"
+        _die "File '${file_path}' is not readable"
     fi
 }
 
@@ -183,7 +174,7 @@ push_secret() {
     parse_full_target "$1"
     require_file "${SECRET_FILE}"
 
-    jq -e . "${SECRET_FILE}" >/dev/null
+    _cmd_output /dev/null jq -e . "${SECRET_FILE}"
 
     local secver="${SECVER:-}"
     local force_mode=false
@@ -196,14 +187,14 @@ push_secret() {
     local secret_name="${SECRET_PREFIX}-${secver}"
 
     if [ "${force_mode}" = true ] && docker_secret_exists "${secret_name}"; then
-        info "Secret '${secret_name}' already exists. Deleting it before creating a new one..."
-        docker secret rm "${secret_name}" >/dev/null
+        _info "Secret '${secret_name}' already exists. Deleting it before creating a new one..."
+        _cmd_output /dev/null docker secret rm "${secret_name}"
     fi
 
-    info "Creating Docker secret: ${secret_name}"
+    _info "Creating Docker secret: ${secret_name}"
     local secret_id
     secret_id="$(docker secret create "${secret_name}" "${SECRET_FILE}")"
-    info "Successfully created secret: ${secret_name}:${secret_id}"
+    _info "Successfully created secret: ${secret_name}:${secret_id}"
     printf '%s\n' "${secret_name}"
 }
 
@@ -227,7 +218,7 @@ prune_secrets() {
     done >"${candidate_file}"
 
     if [ ! -s "${candidate_file}" ]; then
-        info "No managed Docker secrets found for pruning."
+        _info "No managed Docker secrets found for pruning."
         return 0
     fi
 
@@ -242,17 +233,17 @@ prune_secrets() {
         secret_prefix="$(secret_prefix_without_timestamp "${secret_name}")"
 
         if grep -Fxq "${secret_prefix}" "${kept_file}"; then
-            info "Removing outdated Docker secret: ${secret_name}"
-            docker secret rm "${secret_name}" >/dev/null
+            _info "Removing outdated Docker secret: ${secret_name}"
+            _cmd_output /dev/null docker secret rm "${secret_name}"
             removed_count=$((removed_count + 1))
         else
             printf '%s\n' "${secret_prefix}" >>"${kept_file}"
-            info "Keeping latest Docker secret: ${secret_name}"
+            _info "Keeping latest Docker secret: ${secret_name}"
             kept_count=$((kept_count + 1))
         fi
     done <"${sorted_file}"
 
-    info "Prune completed. Kept ${kept_count} latest secret(s); removed ${removed_count} outdated secret(s)."
+    _info "Prune completed. Kept ${kept_count} latest secret(s); removed ${removed_count} outdated secret(s)."
 }
 
 main() {
@@ -260,19 +251,19 @@ main() {
 
     case "${action}" in
     view)
-        [ "$#" -eq 2 ] || die "view requires exactly one target"
+        [ "$#" -eq 2 ] || _die "view requires exactly one target"
         view_secret_file "$2"
         ;;
     edit)
-        [ "$#" -eq 2 ] || die "edit requires exactly one target"
+        [ "$#" -eq 2 ] || _die "edit requires exactly one target"
         edit_secret_file "$2"
         ;;
     push)
-        [ "$#" -eq 2 ] || die "push requires exactly one target"
+        [ "$#" -eq 2 ] || _die "push requires exactly one target"
         push_secret "$2"
         ;;
     prune)
-        [ "$#" -le 2 ] || die "prune accepts at most one prefix"
+        [ "$#" -le 2 ] || _die "prune accepts at most one prefix"
         prune_secrets "${2:-}"
         ;;
     help | -h | --help)
@@ -283,7 +274,7 @@ main() {
         exit 1
         ;;
     *)
-        die "Invalid action '${action}'"
+        _die "Invalid action '${action}'"
         ;;
     esac
 }

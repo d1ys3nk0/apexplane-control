@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -34,6 +35,24 @@ def test_toolbox_scripts_are_valid_bash() -> None:
 
     for script_path in sorted(script_path for script_path in TOOLBOX_SCRIPTS_DIR.iterdir() if script_path.is_file()):
         subprocess.run([bash, "-n", str(script_path)], check=True)  # noqa: S603
+
+
+def test_toolbox_scripts_use_shared_helpers_for_operator_logging() -> None:
+    forbidden_patterns = (
+        r"^\s*_log\b",
+        r"\bstep_cmd\b",
+        r"^\s*run\(\)",
+        r"^\s*(info|warn|error|die|usage_error|cmd|cmd_output|require_vars|require_command|require_positive_integer|is_true|toolbox_[a-z_]+)\b",
+    )
+
+    for script_path in sorted(script_path for script_path in TOOLBOX_SCRIPTS_DIR.iterdir() if script_path.is_file()):
+        script = script_path.read_text(encoding="utf-8")
+        assert 'source "${SCRIPT_DIR}/../lib/helpers.sh"' in script
+        for pattern in forbidden_patterns:
+            assert not re.search(pattern, script, re.MULTILINE), (
+                f"{script_path.relative_to(REPO_ROOT)} must use underscore-prefixed toolbox helpers"
+            )
+        assert "_cmd vi " not in script
 
 
 def test_haproxy_alb_no_longer_manages_manual_dns_certbot() -> None:

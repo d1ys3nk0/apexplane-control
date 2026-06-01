@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=../lib/helpers.sh
+source "${SCRIPT_DIR}/../lib/helpers.sh"
+
 DEFAULT_LOG_FILE="/var/log/haproxy/traffic.log"
 
 usage() {

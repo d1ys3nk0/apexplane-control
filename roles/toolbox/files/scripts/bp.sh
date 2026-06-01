@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=../lib/helpers.sh
+source "${SCRIPT_DIR}/../lib/helpers.sh"
+
 main() {
     local target="${1:-}"
     local dir pattern file answer
@@ -27,7 +31,7 @@ main() {
     )
 
     if [ "${#matches[@]}" -eq 0 ]; then
-        printf 'No backup files found.\n'
+        _info "No backup files found."
         return 0
     fi
 
@@ -37,11 +41,11 @@ main() {
             read -r -p "Delete '${file}'? [y/N] " answer
             case "$answer" in
             [Yy] | [Yy][Ee][Ss])
-                rm -f -- "$file"
-                printf 'Deleted: %s\n' "$file"
+                _cmd rm -f -- "$file"
+                _info "Deleted: ${file}"
                 ;;
             *)
-                printf 'Skipped: %s\n' "$file"
+                _info "Skipped: ${file}"
                 ;;
             esac
             ;;

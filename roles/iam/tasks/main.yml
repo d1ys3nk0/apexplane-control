@@ -12,5 +12,8 @@
 - name: Configure service users
   ansible.builtin.include_tasks: setup_service_users.yml
 
+- name: Reconcile authorized SSH keys
+  ansible.builtin.include_tasks: setup_authorized_keys.yml
+
 - name: Remove unmanaged users
   ansible.builtin.include_tasks: setup_cleanup.yml

@@ -2,27 +2,10 @@
 
 set -euo pipefail
 
-run() {
-    echo "> $1"
-    shift
-
-    if [ "${DEBUG:-0}" = "1" ]; then
-        printf '$'
-        printf ' %q' "$@"
-        printf '\n'
-    fi
-
-    "$@"
-}
-
-info() {
-    echo "[INFO] $*"
-}
-
-error() {
-    echo "[ERROR] $*" >&2
-    exit 1
-}
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+TOOLBOX_REDACT_VARS="PG_PASS PG_BACKUP_SECRET PG_BACKUP_S3_SECRET_KEY"
+# shellcheck source=../lib/helpers.sh
+source "${SCRIPT_DIR}/../lib/helpers.sh"
 
 usage() {
     cat >&2 <<'USAGE'
@@ -54,21 +37,6 @@ Example:
 USAGE
 }
 
-usage_error() {
-    usage
-    error "$*"
-}
-
-check_vars() {
-    local arg
-
-    for arg in "$@"; do
-        if [ -z "${!arg:-}" ]; then
-            error "${arg} is not set"
-        fi
-    done
-}
-
 is_s3_enabled() {
     case "${PG_BACKUP_S3}" in
     0 | false | False | FALSE) return 1 ;;
@@ -76,15 +44,9 @@ is_s3_enabled() {
     esac
 }
 
-require_positive_integer() {
-    if [[ ! "${1}" =~ ^[1-9][0-9]*$ ]]; then
-        usage_error "${2} must be a positive integer"
-    fi
-}
-
 init_config() {
     if [ "$#" -gt 1 ]; then
-        usage_error "Expected 0 or 1 arguments, got $#"
+        _usage_error "Expected 0 or 1 arguments, got $#"
     fi
 
     PG_IMAGE="${PG_IMAGE:-}"
@@ -96,7 +58,7 @@ init_config() {
     sql) BACKUP_EXT="sql.gz" ;;
     dir) BACKUP_EXT="tar.gz" ;;
     cst) BACKUP_EXT="dump" ;;
-    *) usage_error "PG_BACKUP_FORMAT must be sql, dir, or cst" ;;
+    *) _usage_error "PG_BACKUP_FORMAT must be sql, dir, or cst" ;;
     esac
     PG_BACKUP_PREFIX="${PG_BACKUP_PREFIX:-}"
     PG_BACKUP_SECRET="${PG_BACKUP_SECRET:-}"
@@ -108,19 +70,18 @@ init_config() {
     PG_BACKUP_S3_ACCESS_KEY="${PG_BACKUP_S3_ACCESS_KEY:-}"
     PG_BACKUP_S3_SECRET_KEY="${PG_BACKUP_S3_SECRET_KEY:-}"
 
-    check_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE" "PG_BACKUP_ROOT"
+    _require_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE" "PG_BACKUP_ROOT"
     if [ "${PG_BACKUP_FORMAT}" = "dir" ]; then
-        require_positive_integer "${PG_BACKUP_CONCURRENCY}" PG_BACKUP_CONCURRENCY
+        _require_positive_integer "${PG_BACKUP_CONCURRENCY}" PG_BACKUP_CONCURRENCY
     fi
     PG_BACKUP_S3_PREFIX="${PG_BACKUP_S3_PREFIX:-${PG_BASE}}"
 }
 
 init_timestamps() {
-    SCRIPT_START=$(date -u '+%s.%3N')
-    TIME_TAG=$(date -d "@${SCRIPT_START%.*}" -u '+%y%m%d%H%M%S')
-    TIME_UTC=$(date -d "@${SCRIPT_START%.*}" -u '+%Y-%m-%d %H:%M:%S')
+    TIME_TAG=$(date -d "@${TOOLBOX_SCRIPT_START%.*}" -u '+%y%m%d%H%M%S')
+    TIME_UTC=$(date -d "@${TOOLBOX_SCRIPT_START%.*}" -u '+%Y-%m-%d %H:%M:%S')
 
-    info "Started at ${TIME_UTC} UTC"
+    _info "Started at ${TIME_UTC} UTC"
 }
 
 init_backup_paths() {
@@ -149,30 +110,29 @@ init_backup_paths() {
 create_backup() {
     local backup_dump_path
 
-    run "Checking database tables..." \
-        docker run --name "pg-backup-${PG_BASE}" --rm --network host -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
+    _info "Checking database tables..."
+    _cmd docker run --name "pg-backup-${PG_BASE}" --rm --network host -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
         psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c '\dt *.*'
 
-    echo "Creating ${BACKUP_DIR}"
-    mkdir -p "${BACKUP_DIR}"
+    _info "Creating ${BACKUP_DIR}"
+    _cmd mkdir -p "${BACKUP_DIR}"
 
     if [ "${PG_BACKUP_FORMAT}" = "sql" ]; then
-        # shellcheck disable=SC2016
-        run "Creating SQL backup ${BACKUP_FILE}..." \
-            docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
-            sh -c 'pg_dump -h "$1" -p "$2" -U "$3" -d "$4" --no-owner --no-privileges --no-comments -Fp | gzip -c > "$5"' sh "${PG_HOST}" "${PG_PORT}" "${PG_USER}" "${PG_BASE}" "/backup/${BACKUP_NAME}.sql.gz"
+        _info "Creating SQL backup ${BACKUP_FILE}..."
+        _cmd docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
+            sh -c "pg_dump -h \"\$1\" -p \"\$2\" -U \"\$3\" -d \"\$4\" --no-owner --no-privileges --no-comments -Fp | gzip -c > \"\$5\"" sh "${PG_HOST}" "${PG_PORT}" "${PG_USER}" "${PG_BASE}" "/backup/${BACKUP_NAME}.sql.gz"
     elif [ "${PG_BACKUP_FORMAT}" = "dir" ]; then
         backup_dump_path="${BACKUP_DIR}/${BACKUP_NAME}.dir"
-        rm -rf "${backup_dump_path}"
-        run "Creating dir-format backup ${backup_dump_path}..." \
-            docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
+        _cmd rm -rf "${backup_dump_path}"
+        _info "Creating dir-format backup ${backup_dump_path}..."
+        _cmd docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
             pg_dump -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" --no-owner --no-privileges --no-comments -j "${PG_BACKUP_CONCURRENCY}" -f "/backup/${BACKUP_NAME}.dir" -Fd
-        run "Archiving dir-format backup ${BACKUP_FILE}..." \
-            tar -czf "${BACKUP_FILE}" -C "${BACKUP_DIR}" "${BACKUP_NAME}.dir"
-        rm -rf "${backup_dump_path}"
+        _info "Archiving dir-format backup ${BACKUP_FILE}..."
+        _cmd tar -czf "${BACKUP_FILE}" -C "${BACKUP_DIR}" "${BACKUP_NAME}.dir"
+        _cmd rm -rf "${backup_dump_path}"
     else
-        run "Creating cst-format backup ${BACKUP_FILE}..." \
-            docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
+        _info "Creating cst-format backup ${BACKUP_FILE}..."
+        _cmd docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
             pg_dump -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" --no-owner --no-privileges --no-comments -f "/backup/${BACKUP_NAME}.dump" -Fc
     fi
 }
@@ -182,42 +142,42 @@ encrypt_backup() {
         return
     fi
 
-    run "Encrypting backup ${BACKUP_FILE}.enc..." \
-        openssl enc -aes-256-cbc -base64 -pbkdf2 -pass "pass:${PG_BACKUP_SECRET}" -e -in "${BACKUP_FILE}" -out "${BACKUP_FILE}.enc"
-    rm -f "${BACKUP_FILE}"
+    _info "Encrypting backup ${BACKUP_FILE}.enc..."
+    _cmd openssl enc -aes-256-cbc -base64 -pbkdf2 -pass "pass:${PG_BACKUP_SECRET}" -e -in "${BACKUP_FILE}" -out "${BACKUP_FILE}.enc"
+    _cmd rm -f "${BACKUP_FILE}"
     BACKUP_EXT="${BACKUP_EXT}.enc"
     BACKUP_FILE="${BACKUP_DIR}/${BACKUP_NAME}.${BACKUP_EXT}"
 }
 
 verify_backup_file() {
     if [ ! -f "${BACKUP_FILE}" ]; then
-        error "Backup file ${BACKUP_FILE} should be created, but not found"
+        _error "Backup file ${BACKUP_FILE} should be created, but not found"
     fi
 
-    echo "Created backup: ${BACKUP_FILE}"
+    _info "Created backup: ${BACKUP_FILE}"
 }
 
 link_latest_backup() {
-    echo "Linking backup to ${BACKUP_LATEST_DIR}/latest.${BACKUP_EXT}"
-    ln -sf "${BACKUP_FILE}" "${BACKUP_LATEST_DIR}/latest.${BACKUP_EXT}"
+    _info "Linking backup to ${BACKUP_LATEST_DIR}/latest.${BACKUP_EXT}"
+    _cmd ln -sf "${BACKUP_FILE}" "${BACKUP_LATEST_DIR}/latest.${BACKUP_EXT}"
 }
 
 upload_backup() {
     local var
 
     if [ -z "${PG_BACKUP_S3_BUCKET}" ]; then
-        info "Backup uploading is not configured, skipping..."
+        _info "Backup uploading is not configured, skipping..."
         return
     fi
 
     if ! is_s3_enabled; then
-        info "S3 backup uploading is disabled by PG_BACKUP_S3=${PG_BACKUP_S3}, skipping..."
+        _info "S3 backup uploading is disabled by PG_BACKUP_S3=${PG_BACKUP_S3}, skipping..."
         return
     fi
 
     for var in PG_BACKUP_S3_ENDPOINT PG_BACKUP_S3_REGION PG_BACKUP_S3_ACCESS_KEY PG_BACKUP_S3_SECRET_KEY; do
         if [ -z "${!var}" ]; then
-            error "${var} is not set"
+            _error "${var} is not set"
         fi
     done
 
@@ -226,22 +186,22 @@ upload_backup() {
         BACKUP_KEY="${BACKUP_KEY}/${PG_BACKUP_PREFIX}"
     fi
     BACKUP_KEY="${BACKUP_KEY%/}/${BACKUP_NAME}.${BACKUP_EXT}"
-    info "Uploading ${BACKUP_FILE} to s3://${PG_BACKUP_S3_BUCKET}/${BACKUP_KEY} via ${PG_BACKUP_S3_ENDPOINT} with PG_BACKUP_S3_REGION=${PG_BACKUP_S3_REGION}"
+    _info "Uploading ${BACKUP_FILE} to s3://${PG_BACKUP_S3_BUCKET}/${BACKUP_KEY} via ${PG_BACKUP_S3_ENDPOINT} with PG_BACKUP_S3_REGION=${PG_BACKUP_S3_REGION}"
     BACKUP_MD5_BASE64=$(openssl md5 -binary "${BACKUP_FILE}" | base64)
-    run "Uploading backup to S3..." \
-        env AWS_REGION="${PG_BACKUP_S3_REGION}" AWS_ACCESS_KEY_ID="${PG_BACKUP_S3_ACCESS_KEY}" AWS_SECRET_ACCESS_KEY="${PG_BACKUP_S3_SECRET_KEY}" \
+    _info "Uploading backup to S3..."
+    _cmd env AWS_REGION="${PG_BACKUP_S3_REGION}" AWS_ACCESS_KEY_ID="${PG_BACKUP_S3_ACCESS_KEY}" AWS_SECRET_ACCESS_KEY="${PG_BACKUP_S3_SECRET_KEY}" \
         aws --endpoint-url="${PG_BACKUP_S3_ENDPOINT}" s3api put-object --bucket "${PG_BACKUP_S3_BUCKET}" --key "${BACKUP_KEY}" --body "${BACKUP_FILE}" --content-md5 "${BACKUP_MD5_BASE64}"
 }
 
 prune_old_backups() {
-    info "Clean up ${BACKUP_DIR} from backups older than 24 hours"
-    find "${BACKUP_DIR}" -type f -mmin +1440 -exec rm {} \;
+    _info "Clean up ${BACKUP_DIR} from backups older than 24 hours"
+    _cmd find "${BACKUP_DIR}" -type f -mmin +1440 -exec rm {} \;
 }
 
 finish() {
     SCRIPT_END=$(date -u '+%s.%3N')
-    SCRIPT_ELAPSED=$(echo "scale=3; $SCRIPT_END - $SCRIPT_START" | bc)
-    info "Finished in ${SCRIPT_ELAPSED}s"
+    SCRIPT_ELAPSED=$(echo "scale=3; $SCRIPT_END - $TOOLBOX_SCRIPT_START" | bc)
+    _info "Finished in ${SCRIPT_ELAPSED}s"
 }
 
 main() {

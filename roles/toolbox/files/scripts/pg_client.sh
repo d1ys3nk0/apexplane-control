@@ -2,20 +2,10 @@
 
 set -euo pipefail
 
-error() {
-    echo "[ERROR] $*" >&2
-    exit 1
-}
-
-check() {
-    local arg
-
-    for arg in "$@"; do
-        if [ -z "${!arg:-}" ]; then
-            error "${arg} is not set"
-        fi
-    done
-}
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+TOOLBOX_REDACT_VARS="PG_PASS"
+# shellcheck source=../lib/helpers.sh
+source "${SCRIPT_DIR}/../lib/helpers.sh"
 
 PG_IMAGE="${PG_IMAGE:-}"
 PG_HOST="${PG_HOST:-}"
@@ -26,13 +16,13 @@ PG_BASE="${PG_BASE:-}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PSQLRC="${PWD}/psqlrc"
 
-check "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE"
+_require_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE"
 
 if [ ! -f "${PSQLRC}" ]; then
     PSQLRC="${SCRIPT_DIR}/psqlrc"
 fi
 
-sudo docker run \
+_cmd sudo docker run \
     --rm \
     --network host \
     -it \

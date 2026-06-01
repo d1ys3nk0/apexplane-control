@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=../lib/helpers.sh
+source "${SCRIPT_DIR}/../lib/helpers.sh"
+
 main() {
     local restart_docker=0
     local dry_run=0
@@ -21,48 +25,45 @@ main() {
             dry_run=1
             ;;
         -h | --help)
-            echo "usage: docker-cleanup [--dry-run] [--restart]" >&2
-            echo "remove Docker containers in dead state; --restart clears stale daemon records after backing up broken metadata" >&2
+            _info "usage: docker-cleanup [--dry-run] [--restart]"
+            _info "remove Docker containers in dead state; --restart clears stale daemon records after backing up broken metadata"
             return 0
             ;;
         *)
-            echo "docker-cleanup: unknown argument: $arg" >&2
-            echo "usage: docker-cleanup [--dry-run] [--restart]" >&2
-            return 2
+            _error "docker-cleanup: unknown argument: $arg"
             ;;
         esac
     done
 
     if ! command -v docker >/dev/null 2>&1; then
-        echo "docker-cleanup: docker command not found" >&2
-        return 127
+        _error "docker-cleanup: docker command not found"
     fi
 
     mapfile -t dead_ids < <(docker ps -a --no-trunc --filter status=dead --format '{{.ID}}')
     if [ "${#dead_ids[@]}" -eq 0 ]; then
-        echo "docker-cleanup: no dead containers found"
+        _info "docker-cleanup: no dead containers found"
         return 0
     fi
 
-    echo "docker-cleanup: found ${#dead_ids[@]} dead container(s)"
-    docker ps -a --filter status=dead --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}'
+    _info "docker-cleanup: found ${#dead_ids[@]} dead container(s)"
+    _cmd docker ps -a --filter status=dead --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}'
 
     if [ "$dry_run" -eq 1 ]; then
-        echo "docker-cleanup: dry run; no containers removed"
+        _info "docker-cleanup: dry run; no containers removed"
         return 0
     fi
 
-    docker rm "${dead_ids[@]}" || true
+    _cmd docker rm "${dead_ids[@]}" || true
 
     mapfile -t remaining_ids < <(docker ps -a --no-trunc --filter status=dead --format '{{.ID}}')
     if [ "${#remaining_ids[@]}" -eq 0 ]; then
-        echo "docker-cleanup: dead containers removed"
+        _info "docker-cleanup: dead containers removed"
         return 0
     fi
 
     for id in "${remaining_ids[@]}"; do
         if docker inspect "$id" >/dev/null 2>&1; then
-            echo "docker-cleanup: container $id is still inspectable after docker rm failed" >&2
+            _info "docker-cleanup: container $id is still inspectable after docker rm failed"
             continue
         fi
 
@@ -81,39 +82,38 @@ if config.get("ID") != container_id or state.get("Dead") is not True or state.ge
 PY
             stale_ids+=("$id")
         else
-            echo "docker-cleanup: refusing stale cleanup for $id because metadata validation failed" >&2
+            _info "docker-cleanup: refusing stale cleanup for $id because metadata validation failed"
         fi
     done
 
     if [ "${#stale_ids[@]}" -eq 0 ]; then
-        echo "docker-cleanup: no validated stale dead metadata to move" >&2
-        return 1
+        _error "docker-cleanup: no validated stale dead metadata to move"
     fi
 
     backup_dir="/var/lib/docker/dead-containers-backup-$(date +%Y%m%d%H%M%S)"
-    sudo mkdir "$backup_dir"
+    _cmd sudo mkdir "$backup_dir"
     for id in "${stale_ids[@]}"; do
-        sudo mv "/var/lib/docker/containers/$id" "$backup_dir/"
+        _cmd sudo mv "/var/lib/docker/containers/$id" "$backup_dir/"
     done
-    echo "docker-cleanup: moved ${#stale_ids[@]} stale container directories to $backup_dir"
+    _info "docker-cleanup: moved ${#stale_ids[@]} stale container directories to $backup_dir"
 
     if [ "$restart_docker" -ne 1 ]; then
-        echo "docker-cleanup: Docker may still list stale records until the daemon restarts"
-        echo "docker-cleanup: run docker-cleanup --restart to restart Docker after the backup step"
+        _info "docker-cleanup: Docker may still list stale records until the daemon restarts"
+        _info "docker-cleanup: run docker-cleanup --restart to restart Docker after the backup step"
         return 0
     fi
 
-    sudo systemctl restart docker
-    sudo systemctl is-active docker
+    _cmd sudo systemctl restart docker
+    _cmd sudo systemctl is-active docker
 
     mapfile -t remaining_ids < <(docker ps -a --no-trunc --filter status=dead --format '{{.ID}}')
     if [ "${#remaining_ids[@]}" -eq 0 ]; then
-        echo "docker-cleanup: no dead containers remain"
+        _info "docker-cleanup: no dead containers remain"
         return 0
     fi
 
-    echo "docker-cleanup: dead containers still remain after Docker restart" >&2
-    docker ps -a --filter status=dead --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}' >&2
+    _info "docker-cleanup: dead containers still remain after Docker restart"
+    _cmd docker ps -a --filter status=dead --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}' >&2
     return 1
 }
 

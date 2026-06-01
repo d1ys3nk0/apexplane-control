@@ -48,19 +48,6 @@
     label: '{{ item.item.name }}'
   when: not item.stat.exists
 
-- name: Add admin authorized ssh keys
-  become: true
-  ansible.posix.authorized_key:
-    user: '{{ item.0.name }}'
-    key: "{{ lookup('file', item.1) }}"
-    state: present
-  with_subelements:
-    - '{{ iam_admin_users }}'
-    - authorized_key_files
-    - skip_missing: true
-  loop_control:
-    label: '{{ item.0.name }}:{{ item.1 }}'
-
 - name: Apply admin .bashrc
   become: true
   ansible.builtin.copy:

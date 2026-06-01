@@ -4,6 +4,9 @@ set -euo pipefail
 
 DEFAULT_HAPROXY_CERT_DIR="/etc/ssl/haproxy"
 DEFAULT_STATE_ROOT="/run/toolbox-certbot-dns"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=../lib/helpers.sh
+source "${SCRIPT_DIR}/../lib/helpers.sh"
 
 usage() {
     cat <<'EOF'
@@ -28,26 +31,11 @@ Environment:
 EOF
 }
 
-error() {
-    printf 'certbot_dns_issue: %s\n' "$*" >&2
-    exit 1
-}
-
-usage_error() {
-    printf 'certbot_dns_issue: %s\n\n' "$*" >&2
-    usage >&2
-    exit 2
-}
-
-require_command() {
-    command -v "$1" >/dev/null 2>&1 || error "missing required command: $1"
-}
-
 add_domain() {
     local domain="$1"
 
     if [ -z "$domain" ]; then
-        usage_error "domain values must be non-empty"
+        _usage_error "domain values must be non-empty"
     fi
     domains+=("$domain")
 }
@@ -77,7 +65,7 @@ cleanup() {
         wait "$certbot_pid" 2>/dev/null || true
     fi
     if [ -n "${state_dir:-}" ]; then
-        rm -rf -- "$state_dir"
+        _cmd rm -rf -- "$state_dir"
     fi
     exit "$rc"
 }
@@ -95,13 +83,13 @@ wait_for_hook_ready() {
         fi
         if ! certbot_is_running; then
             wait "$certbot_pid" || true
-            error "Certbot finished before generating manual DNS challenge records"
+            _error "Certbot finished before generating manual DNS challenge records"
         fi
         sleep 5
         elapsed=$((elapsed + 5))
     done
 
-    error "timed out waiting for Certbot to generate manual DNS challenge records"
+    _error "timed out waiting for Certbot to generate manual DNS challenge records"
 }
 
 show_challenges() {
@@ -109,7 +97,7 @@ show_challenges() {
     local validation
     local identifier
 
-    printf 'Add these DNS TXT records for certificate %s:\n' "$cert_name"
+    _info "Add these DNS TXT records for certificate ${cert_name}:"
     while IFS=$'\t' read -r record validation identifier; do
         printf '  %s TXT "%s" for %s\n' "$record" "$validation" "$identifier"
     done <"${state_dir}/challenges.tsv"
@@ -124,7 +112,7 @@ wait_for_dns_records() {
     local lookup_output
 
     while IFS=$'\t' read -r record validation identifier; do
-        printf 'Waiting for %s TXT for %s\n' "$record" "$identifier"
+        _info "Waiting for ${record} TXT for ${identifier}"
         attempt=1
         while ((attempt <= dns_wait_retries)); do
             lookup_output="$(nslookup -type=TXT "$record" 2>/dev/null || true)"
@@ -135,7 +123,7 @@ wait_for_dns_records() {
             attempt=$((attempt + 1))
         done
         if ((attempt > dns_wait_retries)); then
-            error "timed out waiting for ${record} TXT value ${validation}"
+            _error "timed out waiting for ${record} TXT value ${validation}"
         fi
     done <"${state_dir}/challenges.tsv"
 }
@@ -145,21 +133,21 @@ install_haproxy_pem() {
     local pem_path="${haproxy_cert_dir}/${cert_basename}"
     local tmp_file
 
-    install -d -o haproxy -g haproxy -m 0755 "$haproxy_cert_dir"
+    _cmd install -d -o haproxy -g haproxy -m 0755 "$haproxy_cert_dir"
     tmp_file="$(mktemp "${pem_path}.tmp.XXXXXX")"
     trap 'rm -f "$tmp_file"; cleanup' EXIT
     sed '/^$/d' "${lineage_dir}/privkey.pem" "${lineage_dir}/fullchain.pem" >"$tmp_file"
-    chown haproxy:haproxy "$tmp_file"
-    chmod 600 "$tmp_file"
+    _cmd chown haproxy:haproxy "$tmp_file"
+    _cmd chmod 600 "$tmp_file"
 
     if [ -f "$pem_path" ] && cmp -s "$tmp_file" "$pem_path"; then
-        rm -f "$tmp_file"
+        _cmd rm -f "$tmp_file"
     else
-        mv "$tmp_file" "$pem_path"
+        _cmd mv "$tmp_file" "$pem_path"
     fi
     trap cleanup EXIT
 
-    printf 'Installed HAProxy certificate: %s\n' "$pem_path"
+    _info "Installed HAProxy certificate: ${pem_path}"
 }
 
 cert_name=""
@@ -171,32 +159,32 @@ domains=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
     --cert-name)
-        [ "$#" -ge 2 ] || usage_error "--cert-name requires a value"
+        [ "$#" -ge 2 ] || _usage_error "--cert-name requires a value"
         cert_name="$2"
         shift 2
         ;;
     --email)
-        [ "$#" -ge 2 ] || usage_error "--email requires a value"
+        [ "$#" -ge 2 ] || _usage_error "--email requires a value"
         email="$2"
         shift 2
         ;;
     --domain | -d)
-        [ "$#" -ge 2 ] || usage_error "$1 requires a value"
+        [ "$#" -ge 2 ] || _usage_error "$1 requires a value"
         add_domain "$2"
         shift 2
         ;;
     --domains)
-        [ "$#" -ge 2 ] || usage_error "--domains requires a value"
+        [ "$#" -ge 2 ] || _usage_error "--domains requires a value"
         add_domains_arg "$2"
         shift 2
         ;;
     --haproxy-cert-dir)
-        [ "$#" -ge 2 ] || usage_error "--haproxy-cert-dir requires a value"
+        [ "$#" -ge 2 ] || _usage_error "--haproxy-cert-dir requires a value"
         haproxy_cert_dir="$2"
         shift 2
         ;;
     --state-root)
-        [ "$#" -ge 2 ] || usage_error "--state-root requires a value"
+        [ "$#" -ge 2 ] || _usage_error "--state-root requires a value"
         state_root="$2"
         shift 2
         ;;
@@ -205,25 +193,24 @@ while [ "$#" -gt 0 ]; do
         exit 0
         ;;
     *)
-        usage_error "unknown argument: $1"
+        _usage_error "unknown argument: $1"
         ;;
     esac
 done
 
-[ -n "$cert_name" ] || usage_error "--cert-name is required"
-[ -n "$email" ] || usage_error "--email is required"
-[ "${#domains[@]}" -gt 0 ] || usage_error "at least one --domain is required"
+[ -n "$cert_name" ] || _usage_error "--cert-name is required"
+[ -n "$email" ] || _usage_error "--email is required"
+[ "${#domains[@]}" -gt 0 ] || _usage_error "at least one --domain is required"
 
-require_command certbot
-require_command md5sum
-require_command nslookup
-require_command openssl
+_require_command certbot
+_require_command md5sum
+_require_command nslookup
+_require_command openssl
 
-script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-auth_hook="${script_dir}/certbot_dns_auth"
-cleanup_hook="${script_dir}/certbot_dns_cleanup"
-[ -x "$auth_hook" ] || error "auth hook is not executable: $auth_hook"
-[ -x "$cleanup_hook" ] || error "cleanup hook is not executable: $cleanup_hook"
+auth_hook="${SCRIPT_DIR}/certbot_dns_auth"
+cleanup_hook="${SCRIPT_DIR}/certbot_dns_cleanup"
+[ -x "$auth_hook" ] || _error "auth hook is not executable: $auth_hook"
+[ -x "$cleanup_hook" ] || _error "cleanup hook is not executable: $cleanup_hook"
 
 mapfile -t sorted_domains < <(printf '%s\n' "${domains[@]}" | sort)
 domain_arg="$(join_by_comma "${sorted_domains[@]}")"
@@ -235,12 +222,12 @@ dns_wait_delay="${CERTBOT_DNS_WAIT_DELAY:-10}"
 hook_timeout="${CERTBOT_DNS_HOOK_TIMEOUT:-600}"
 certbot_pid=""
 
-install -d -m 0700 "$state_root"
-rm -rf -- "$state_dir"
-install -d -m 0700 "$state_dir"
+_cmd install -d -m 0700 "$state_root"
+_cmd rm -rf -- "$state_dir"
+_cmd install -d -m 0700 "$state_dir"
 trap cleanup EXIT
 
-CERTBOT_MANUAL_DNS_TIMEOUT="${CERTBOT_MANUAL_DNS_TIMEOUT:-3600}" certbot certonly \
+_cmd env CERTBOT_MANUAL_DNS_TIMEOUT="${CERTBOT_MANUAL_DNS_TIMEOUT:-3600}" certbot certonly \
     --non-interactive \
     --keep-until-expiring \
     --renew-with-new-domains \
@@ -259,11 +246,11 @@ wait_for_hook_ready
 show_challenges
 read -r -p "Press ENTER after adding the DNS TXT records shown above: " _
 wait_for_dns_records
-touch "${state_dir}/continue"
+_cmd touch "${state_dir}/continue"
 
 if ! wait "$certbot_pid"; then
     certbot_pid=""
-    error "Certbot manual DNS request failed"
+    _error "Certbot manual DNS request failed"
 fi
 certbot_pid=""
 

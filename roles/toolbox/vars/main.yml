@@ -1,6 +1,7 @@
 ---
 
 toolbox_bin_dir: '{{ toolbox_install_dir }}/bin'
+toolbox_lib_dir: '{{ toolbox_install_dir }}/lib'
 
 toolbox_always_scripts:
   - name: bp

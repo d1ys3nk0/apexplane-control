@@ -1,0 +1,175 @@
+---
+
+- name: Store managed authorized key users
+  ansible.builtin.set_fact:
+    iam_authorized_key_users: "{{ iam_admin_users + iam_service_users }}"
+
+- name: Reconcile managed authorized SSH keys
+  when: iam_authorized_key_users | length > 0
+  block:
+    - name: Render desired authorized SSH key content
+      ansible.builtin.set_fact:
+        iam_authorized_keys_desired_by_user: >-
+          {{ iam_authorized_keys_desired_by_user | default({}) | combine({item.name: lookup('template', 'authorized_keys.j2')}) }}
+      loop: '{{ iam_authorized_key_users }}'
+      loop_control:
+        label: '{{ item.name }}'
+      changed_when: false
+
+    - name: Compare managed authorized SSH keys
+      become: true
+      ansible.builtin.shell: |
+        set -euo pipefail
+        user={{ item.name | quote }}
+        desired_json={{ iam_authorized_keys_desired_by_user[item.name] | to_json | quote }}
+
+        python3 - "$user" "$desired_json" <<'PY'
+        import json
+        import os
+        import sys
+        from collections import Counter
+        from difflib import unified_diff
+
+        def build_plan(user, current, desired, current_exists):
+            desired_empty = desired == ""
+            current_lines = current.splitlines()
+            desired_line_counts = Counter(desired.splitlines())
+            removed_lines = []
+            for line_number, text in enumerate(current_lines, start=1):
+                if desired_line_counts[text] > 0:
+                    desired_line_counts[text] -= 1
+                    continue
+                removed_lines.append({"line": line_number, "text": text, "display": json.dumps(text)})
+            changed = current != desired or (desired_empty and current_exists)
+            destructive = bool(removed_lines)
+            diff_lines = list(
+                unified_diff(
+                    current.splitlines(),
+                    desired.splitlines(),
+                    fromfile=f"current/{user}/authorized_keys",
+                    tofile=f"repository/{user}/authorized_keys",
+                    lineterm="",
+                )
+            )
+            return {
+                "user": user,
+                "changed": changed,
+                "diff_lines": diff_lines,
+                "destructive": destructive,
+                "desired_empty": desired_empty,
+                "removed_lines": removed_lines,
+            }
+
+        user, desired_json = sys.argv[1:3]
+        desired = json.loads(desired_json)
+        path = f"/home/{user}/.ssh/authorized_keys"
+        current_exists = os.path.exists(path)
+        if current_exists:
+            with open(path, encoding="utf-8") as current_file:
+                current = current_file.read()
+        else:
+            current = ""
+
+        print(json.dumps(build_plan(user, current, desired, current_exists), sort_keys=True))
+        PY
+      args:
+        executable: /bin/bash
+      changed_when: false
+      loop: '{{ iam_authorized_key_users }}'
+      loop_control:
+        label: '{{ item.name }}'
+      register: iam_authorized_keys_compare_results
+      check_mode: false
+
+    - name: Store authorized SSH key reconciliation plan
+      ansible.builtin.set_fact:
+        iam_authorized_keys_reconciliation: "{{ iam_authorized_keys_compare_results.results | map(attribute='stdout') | map('from_json') | list }}"
+
+    - name: Store changed managed authorized SSH keys
+      ansible.builtin.set_fact:
+        iam_authorized_keys_install_users: >-
+          {{ iam_authorized_keys_reconciliation | selectattr('changed') | rejectattr('desired_empty') | map(attribute='user') | list }}
+        iam_authorized_keys_remove_users: >-
+          {{ iam_authorized_keys_reconciliation | selectattr('changed') | selectattr('desired_empty') | map(attribute='user') | list }}
+        iam_authorized_keys_destructive_reconciliation: >-
+          {{ iam_authorized_keys_reconciliation | selectattr('destructive') | list }}
+        iam_authorized_keys_destructive_users: >-
+          {{ iam_authorized_keys_reconciliation | selectattr('destructive') | map(attribute='user') | list }}
+
+    - name: Refuse destructive authorized SSH key reconciliation in non-interactive mode
+      ansible.builtin.fail:
+        msg: >-
+          Managed authorized_keys files would remove SSH key lines while INTERACTIVE is disabled:
+          {{ iam_authorized_keys_destructive_users | join(', ') }}.
+          Run interactively to approve replacement or update the remote authorized_keys file manually.
+      when:
+        - not ansible_check_mode
+        - not (iam_interactive_mode | bool)
+        - iam_authorized_keys_destructive_users | length > 0
+
+    - name: Report destructive authorized SSH key reconciliation in check mode
+      ansible.builtin.debug:
+        msg: |-
+          Existing authorized_keys files would lose SSH key lines during repository reconciliation.
+          Diff between current authorized_keys and repository-managed authorized_keys:
+          {% for entry in iam_authorized_keys_destructive_reconciliation %}
+          - {{ entry.user }}
+          {% for line in entry.diff_lines %}
+            {{ line }}
+          {% endfor %}
+          {% endfor %}
+      changed_when: true
+      when:
+        - ansible_check_mode
+        - iam_authorized_keys_destructive_users | length > 0
+
+    - name: Confirm destructive authorized SSH key reconciliation
+      ansible.builtin.pause:
+        prompt: |-
+          Existing authorized_keys files will lose SSH key lines during repository reconciliation.
+          Diff between current authorized_keys and repository-managed authorized_keys:
+          {% for entry in iam_authorized_keys_destructive_reconciliation %}
+          - {{ entry.user }}
+          {% for line in entry.diff_lines %}
+            {{ line }}
+          {% endfor %}
+          {% endfor %}
+
+          Press ENTER to proceed
+      when:
+        - not ansible_check_mode
+        - iam_interactive_mode | bool
+        - iam_authorized_keys_destructive_users | length > 0
+
+    - name: Ensure managed SSH directories exist
+      become: true
+      ansible.builtin.file:
+        path: /home/{{ item }}/.ssh
+        state: directory
+        mode: '0700'
+        owner: '{{ item }}'
+        group: '{{ item }}'
+      loop: '{{ iam_authorized_keys_install_users }}'
+      loop_control:
+        label: '{{ item }}'
+
+    - name: Install managed authorized SSH keys
+      become: true
+      ansible.builtin.copy:
+        content: '{{ iam_authorized_keys_desired_by_user[item] }}'
+        dest: /home/{{ item }}/.ssh/authorized_keys
+        owner: '{{ item }}'
+        group: '{{ item }}'
+        mode: '0600'
+      loop: '{{ iam_authorized_keys_install_users }}'
+      loop_control:
+        label: '{{ item }}'
+
+    - name: Remove empty managed authorized SSH keys
+      become: true
+      ansible.builtin.file:
+        path: /home/{{ item }}/.ssh/authorized_keys
+        state: absent
+      loop: '{{ iam_authorized_keys_remove_users }}'
+      loop_control:
+        label: '{{ item }}'

@@ -6,6 +6,7 @@ This role manages local administrative, service, and root account state.
 - Configure root user.
 - Configure admin users.
 - Configure service users.
+- Reconcile managed authorized SSH keys.
 - Remove unmanaged users.
 - Create a group for admins.
 - Grant sudo access without password to the group.

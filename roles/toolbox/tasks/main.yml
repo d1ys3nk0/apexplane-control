@@ -11,12 +11,22 @@
   loop:
     - '{{ toolbox_install_dir }}'
     - '{{ toolbox_bin_dir }}'
+    - '{{ toolbox_lib_dir }}'
 
 - name: Install psqlrc
   become: true
   ansible.builtin.copy:
     src: psqlrc
     dest: '{{ toolbox_install_dir }}/psqlrc'
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Install toolbox shell library
+  become: true
+  ansible.builtin.copy:
+    src: lib/helpers.sh
+    dest: '{{ toolbox_lib_dir }}/helpers.sh'
     mode: '0644'
     owner: root
     group: root

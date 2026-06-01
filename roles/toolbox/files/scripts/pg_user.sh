@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-error() {
-    echo "[ERROR] $*" >&2
-    exit 1
-}
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+TOOLBOX_REDACT_VARS="PG_PASS PG_TARGET_PASS"
+# shellcheck source=../lib/helpers.sh
+source "${SCRIPT_DIR}/../lib/helpers.sh"
 
 usage() {
     cat <<'EOF'
@@ -14,16 +14,6 @@ Usage:
   pg_user <target_user>:<target_pass> <database_name>:rw
   pg_user <target_user>:<target_pass> <database_name>:full
 EOF
-}
-
-check() {
-    local arg
-
-    for arg in "$@"; do
-        if [ -z "${!arg:-}" ]; then
-            error "${arg} is not set"
-        fi
-    done
 }
 
 PG_IMAGE="${PG_IMAGE:-}"
@@ -54,17 +44,17 @@ fi
 
 if [ -z "${PG_TARGET_USER}" ]; then
     usage
-    error "target user is empty"
+    _error "target user is empty"
 fi
 
 if [ "${PG_TARGET_PASS_SET}" = "1" ] && [ -z "${PG_TARGET_PASS}" ]; then
     usage
-    error "target password is empty"
+    _error "target password is empty"
 fi
 
 if [[ "${PG_GRANT_SPEC}" != *:* ]]; then
     usage
-    error "database grant must use <database_name>:<ro|rw|full>"
+    _error "database grant must use <database_name>:<ro|rw|full>"
 fi
 
 PG_BASE="${PG_GRANT_SPEC%%:*}"
@@ -75,20 +65,14 @@ case "${PG_GRANT}" in
 ro | rw | full) ;;
 *)
     usage
-    error "unknown grant mode: ${PG_GRANT}"
+    _error "unknown grant mode: ${PG_GRANT}"
     ;;
 esac
 
-check "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE" "PG_TARGET_USER"
+_require_pg_connection_vars
+_require_vars "PG_BASE" "PG_TARGET_USER"
 
-sudo docker run \
-    --rm \
-    --network host \
-    -i \
-    -e "PGPASSWORD=${PG_PASS}" \
-    -e "PGSSLMODE=${PG_SSL:-disable}" \
-    "${PG_IMAGE}" \
-    psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" \
+_pg_psql_cmd -d "${PG_BASE}" \
     -v ON_ERROR_STOP=1 \
     -v "grant_mode=${PG_GRANT}" \
     -v "target_user=${PG_TARGET_USER}" \
@@ -274,4 +258,4 @@ WHERE :'grant_mode' = 'full'
 \gexec
 SQL
 
-echo "User '${PG_TARGET_USER}' has been granted ${PG_GRANT} access to database '${PG_BASE}'"
+_info "User '${PG_TARGET_USER}' has been granted ${PG_GRANT} access to database '${PG_BASE}'"
