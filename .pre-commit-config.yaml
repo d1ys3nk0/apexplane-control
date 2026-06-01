@@ -154,6 +154,6 @@ repos:
 
       - id: pytest-static
         name: pytest-static
-        entry: uv run pytest tests/static
+        entry: uv run pytest tests/static tests/unit
         language: system
         pass_filenames: false

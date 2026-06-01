@@ -1,0 +1,50 @@
+# docker_swarm_postgres_exporter
+
+This role deploys Postgres Exporter as a Docker Swarm service and can provision exporter credentials.
+
+## Features
+- Configure PostgreSQL exporter database resources.
+- Deploy PostgreSQL exporter as Docker Swarm service.
+- Ensure PostgreSQL exporter swarm service created.
+- Create PostgreSQL exporter user.
+- Create PostgreSQL exporter database.
+- Grant PostgreSQL exporter pg_monitor role.
+
+## Configuration
+Set these required inputs before applying the role: `docker_swarm_postgres_exporter_pg_base`, `docker_swarm_postgres_exporter_pg_user`, `docker_swarm_postgres_exporter_pg_pass`, `docker_swarm_postgres_exporter_pg_host`.
+
+| Variable | Default |
+| --- | --- |
+| `docker_swarm_postgres_exporter_service_name` | `postgres-exporter` |
+| `docker_swarm_postgres_exporter_ci_mode` | `<derived>` |
+| `docker_swarm_postgres_exporter_debug_mode` | `<derived>` |
+| `docker_swarm_postgres_exporter_nolog` | `<derived>` |
+| `docker_swarm_postgres_exporter_image_name` | `quay.io/prometheuscommunity/postgres-exporter` |
+| `docker_swarm_postgres_exporter_image_tag` | `v0.19.1` |
+| `docker_swarm_postgres_exporter_image_full` | `<derived>` |
+| `docker_swarm_postgres_exporter_mem_res` | `100M` |
+| `docker_swarm_postgres_exporter_mem_lim` | `150M` |
+| `docker_swarm_postgres_exporter_pg_base` | `~` |
+| `docker_swarm_postgres_exporter_pg_user` | `~` |
+| `docker_swarm_postgres_exporter_pg_pass` | `~` |
+| `docker_swarm_postgres_exporter_pg_host` | `~` |
+| `docker_swarm_postgres_exporter_pg_port` | `5432` |
+| `docker_swarm_postgres_exporter_pg_sslmode` | `disable` |
+| `docker_swarm_postgres_exporter_pg_admin_user` | `''` |
+| `docker_swarm_postgres_exporter_pg_admin_pass` | `''` |
+| `docker_swarm_postgres_exporter_public_port` | `9187` |
+| `docker_swarm_postgres_exporter_enabled` | `true` |
+
+## Usage
+```yaml
+---
+
+- hosts: all
+  roles:
+    - role: apexplane.control.docker_swarm_postgres_exporter
+      vars:
+        docker_swarm_postgres_exporter_pg_base: <value>
+        docker_swarm_postgres_exporter_pg_user: <value>
+        docker_swarm_postgres_exporter_pg_pass: <value>
+        docker_swarm_postgres_exporter_pg_host: <value>
+```

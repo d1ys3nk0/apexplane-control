@@ -15,6 +15,7 @@ Migration playbooks handle one-time repository-history cleanup for consuming inf
 - `task apc:migrate -- apply [realm] [platform] [cluster]` previews pending migrations in dry/check mode. Omitted target arguments are treated as `all`.
 - `DRY=0 task apc:migrate -- apply [realm] [platform] [cluster]` applies pending migrations before the target playbook is run separately with `task apc:run --`.
 - `task apc:migrate --` stores per-host state in `tmp/cleanup.json` using `inventory_hostname` as the key and the latest successful migration timestamp as the value.
+- Migration runs write the latest full Ansible run log to `log/<realm>-<cluster>-migrate.log` and write timestamped changed-line summaries only when the full log contains changed results.
 - Missing host state means no migrations have been applied, so all migrations for that cluster are pending for that host.
 - Migrations update `tmp/cleanup.json` only when `DRY=0` or `DRY=false` is set and the migration playbook succeeds.
 - `T=<tags>` belongs to `task apc:run --`; migration playbooks always run all their tasks.

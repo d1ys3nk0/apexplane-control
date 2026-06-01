@@ -1,5 +1,37 @@
-# Toolbox
+# toolbox
 
+This role installs shared operator shell helpers and optional Docker, HAProxy, and PostgreSQL scripts.
+
+## Features
+- Create directories.
+- Install psqlrc.
+- Install bash toolbox.
+- Install always-enabled executables from files.
+- Install Docker executables from files.
+- Remove disabled Docker executables.
+- Install HAProxy executables from files.
+- Remove disabled HAProxy executables.
+- Install PostgreSQL executables from files.
+- Remove disabled PostgreSQL executables.
+
+## Configuration
+| Variable | Default |
+| --- | --- |
+| `toolbox_install_dir` | `/opt/toolbox` |
+| `toolbox_docker_enabled` | `false` |
+| `toolbox_haproxy_enabled` | `false` |
+| `toolbox_postgres_enabled` | `false` |
+
+## Usage
+```yaml
+---
+
+- hosts: all
+  roles:
+    - role: apexplane.control.toolbox
+```
+
+## Operations
 The `toolbox` role installs shell shortcuts plus always-enabled and optional operator scripts under `/opt/toolbox`. Executable scripts are installed without `.sh` extensions under `/opt/toolbox/bin`, which is added to `PATH` by the toolbox Bash definitions. The PostgreSQL scripts run client tools inside the configured `PG_IMAGE` Docker image with host networking.
 
 Run scripts through `dotenv` so the required environment is loaded without printing secrets.
@@ -18,7 +50,7 @@ Override a value from the dotenv file for one command by placing the assignment 
 
 All PostgreSQL toolbox scripts use the same connection environment variables: `PG_IMAGE`, `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASS`, and optional `PG_SSL`. Database-scoped scripts use `PG_BASE` as the managed database name. `pg_client` connects to `PG_BASE`.
 
-## Installed Files
+### Installed Files
 
 - `/opt/toolbox/psqlrc`
 - `/etc/skel/.bash_toolbox`, with `/opt/toolbox/bin` added to `PATH` and optional Docker and HAProxy definitions rendered only when their script families are enabled
@@ -47,7 +79,7 @@ PostgreSQL scripts are installed when `toolbox_postgres_enabled` is true:
 - `/opt/toolbox/bin/pg_restore`
 - `/opt/toolbox/bin/pg_user`
 
-## Docker Secrets
+### Docker Secrets
 
 View, edit, push, or prune timestamped Docker Swarm secrets from an app runtime secret file:
 
@@ -58,7 +90,7 @@ sudo /opt/toolbox/bin/docker_secret push app/eng/test01/api
 sudo /opt/toolbox/bin/docker_secret prune app/eng
 ```
 
-## HAProxy Reports
+### HAProxy Reports
 
 Count requests per effective client IP from the current HAProxy traffic log:
 
@@ -72,7 +104,7 @@ Include rotated logs by passing files or quoted globs:
 sudo /opt/toolbox/bin/haproxy_report '/var/log/haproxy/traffic.log*'
 ```
 
-## Manual Wildcard Certificates
+### Manual Wildcard Certificates
 
 Use `certbot_dns_issue` to generate wildcard certificates before running roles that expect pre-existing HAProxy PEM files:
 
@@ -84,7 +116,7 @@ The script starts Certbot with DNS-01 manual auth hooks, prints the required `_a
 
 After the PEM is installed, run the HAProxy role so it validates SAN coverage, validates expiry, and reloads HAProxy with the new certificate.
 
-## Backup and Restore
+### Backup and Restore
 
 Create a backup:
 

@@ -34,7 +34,7 @@ tasks:
   preflight:
     desc: Run preflight checks
     cmds:
-      - python --version | grep -q '{{.PYTHON_VERSION}}' || (echo "Python version is not correct"; exit 1)
+      - uv run python --version | grep -q '{{.PYTHON_VERSION}}' || (echo "Python version is not correct"; exit 1)
 
   install:
     desc: Install dependencies
@@ -79,4 +79,4 @@ tasks:
   test:
     desc: Run all tests
     cmds:
-      - uv run pytest tests/static
+      - uv run pytest tests/static tests/unit

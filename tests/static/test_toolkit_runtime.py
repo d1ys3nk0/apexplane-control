@@ -44,6 +44,11 @@ append_log() {
 }
 
 args="$*"
+if [ "${1:-}" = "run" ] && [ "${2:-}" = "python" ]; then
+    shift 2
+    exec python "$@"
+fi
+
 if [[ "${args}" == *"remote_ansible_state.py"* ]]; then
     mkdir -p tmp
     printf '%s\n' "${args}" >> tmp/remote_state_calls
@@ -137,7 +142,9 @@ def test_runtime_run_resolves_remote_state_from_installed_runtime(tmp_path: Path
     assert " acquire " in remote_state_calls
     assert r":task\ apc:run:" in remote_state_calls
     assert " release " in remote_state_calls
-    assert (tmp_path / "log/prd-app.log").is_file()
+    assert (tmp_path / "log/prd-app-setup.log").is_file()
+    assert not (tmp_path / "log/prd-app.log").exists()
+    assert list((tmp_path / "log").glob("prd-app-*-setup.log"))
 
 
 def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: Path) -> None:
@@ -162,7 +169,9 @@ def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: 
     assert " acquire " in remote_state_calls
     assert r":task\ apc:migrate:" in remote_state_calls
     assert " release " in remote_state_calls
-    assert (tmp_path / "log/prd-app-migration.log").is_file()
+    assert (tmp_path / "log/prd-app-migrate.log").is_file()
+    assert not (tmp_path / "log/prd-app-migration.log").exists()
+    assert list((tmp_path / "log").glob("prd-app-*-migrate.log"))
 
 
 def test_bootstrap_uses_target_working_directory_for_inventory() -> None:

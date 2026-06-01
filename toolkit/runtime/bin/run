@@ -33,7 +33,7 @@ for VAR in TARGET_REALM TARGET_PLATFORM TARGET_CLUSTER TARGET_ACTION; do
 done
 
 LOG_DIR="log"
-LOG_PATH="${LOG_DIR}/${TARGET_REALM}-${TARGET_CLUSTER}.log"
+LOG_PATH="${LOG_DIR}/${TARGET_REALM}-${TARGET_CLUSTER}-${TARGET_ACTION}.log"
 LOG_STARTED=0
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_RUNTIME_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -146,7 +146,7 @@ validate_extra_vars_file() {
         return 0
     fi
 
-    python - "${var_file}" <<'PY'
+    uv run python - "${var_file}" <<'PY'
 import sys
 from pathlib import Path
 
@@ -220,9 +220,9 @@ if [ "${TARGET_ACTION}" = "cmd" ]; then
         exit 1
     fi
 
+    start_run_log
     if is_live_action; then
         acquire_remote_lock
-        start_run_log
     fi
 
     cmd uv run ansible "${TARGET_HOSTS}" -i "${INVENTORY_PATH}" "${EXTRA_VARS_ARRAY[@]}" -m shell -u "${ANSIBLE_SSH_USER}" ${SSH_ARGS+"${SSH_ARGS[@]}"} -a "${TARGET_ARGS[*]}"
@@ -251,9 +251,9 @@ else
     fi
 
     echo "> Running playbook..."
+    start_run_log
     if is_live_action; then
         acquire_remote_lock
-        start_run_log
     fi
     cmd "${RUN_CMD[@]}"
 fi

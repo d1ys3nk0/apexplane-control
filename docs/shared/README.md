@@ -18,16 +18,8 @@ Edit the source documents in `apexplane-control`, not in consuming repositories.
 ## Runbooks
 
 - [Bootstrap](runbooks/bootstrap.md)
-- [CrowdSec](runbooks/crowdsec.md)
 - [Maintenance](runbooks/maintenance.md)
-- [Toolbox](runbooks/toolbox.md)
 
-## Services
+## Roles
 
-- [Elastic](services/elastic.md)
-- [GitLab Runner](services/gitlab-runner.md)
-- [Loki](services/loki.md)
-- [MinIO](services/minio.md)
-- [PostgreSQL](services/postgresql.md)
-- [PostgreSQL replica](services/postgresql-replica.md)
-- [ZITADEL](services/zitadel.md)
+Role-specific features, configuration, usage, and operations are documented in `roles/<role_name>/README.md`.
