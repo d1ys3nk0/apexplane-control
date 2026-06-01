@@ -230,7 +230,7 @@ init_cleanup() {
     trap cleanup EXIT
 }
 
-resolve_s3_backup() {
+validate_s3_backup_input() {
     local var
 
     S3_BUCKET="${PG_RESTORE_S3_BUCKET}"
@@ -264,6 +264,27 @@ resolve_s3_backup() {
     if [ -z "${S3_BUCKET}" ]; then
         error "PG_RESTORE_S3_BUCKET is not set"
     fi
+}
+
+validate_backup_input() {
+    if [ -z "${BACKUP_INPUT}" ]; then
+        if is_s3_enabled && [ -n "${PG_RESTORE_S3_PREFIX}" ]; then
+            validate_s3_backup_input
+        else
+            usage_error "Backup source is required unless PG_RESTORE_S3_PREFIX is set and S3 restore is enabled"
+        fi
+    elif [[ "${BACKUP_INPUT}" == s3:* ]]; then
+        if ! is_s3_enabled; then
+            error "S3 restore is disabled by PG_RESTORE_S3=${PG_RESTORE_S3}"
+        fi
+        validate_s3_backup_input
+    elif [ ! -f "${BACKUP_INPUT}" ] && [ ! -d "${BACKUP_INPUT}" ]; then
+        error "Backup source ${BACKUP_INPUT} not found"
+    fi
+}
+
+resolve_s3_backup() {
+    validate_s3_backup_input
 
     if is_exact_backup_key "${S3_INPUT}"; then
         S3_KEY="${S3_INPUT}"
@@ -380,7 +401,9 @@ init_timestamps() {
     SCRIPT_START=$(date -u '+%s.%3N')
     TIME_TAG=$(date -d "@${SCRIPT_START%.*}" -u '+%y%m%d%H%M%S')
     TIME_UTC=$(date -d "@${SCRIPT_START%.*}" -u '+%Y-%m-%d %H:%M:%S')
+}
 
+log_started() {
     info "Started at ${TIME_UTC} UTC"
 }
 
@@ -619,7 +642,9 @@ finish() {
 
 main() {
     init_config "$@"
+    validate_backup_input
     init_timestamps
+    log_started
     init_cleanup
     prepare_backup_file
     init_restore_context

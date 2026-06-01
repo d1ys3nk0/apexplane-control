@@ -22,7 +22,7 @@ pg-backup() {
 
 {% if app_stack_backups_s3_enabled | bool %}
 {% for extra in app_stack_extra_pg_envs if extra.enabled | default(true, true) %}
-    pg-toolbox "{{ extra.pg_base }}" dump /opt/toolbox/pg_dump.sh || return
+    pg-toolbox "{{ extra.pg_base }}" dump /opt/toolbox/bin/pg_dump || return
 {% endfor %}
 {% for app in app_stack_selected_apps %}
 {% for env in app.envs | default([], true) %}
@@ -31,7 +31,7 @@ pg-backup() {
 {% set _pg_env = (service.postgres.envs | default({}, true)).get(env.slug, {}) %}
 {% set _pg_base_suffix = _pg_env.base_suffix | default(service.postgres.base_suffix | default(service.name, true), true) %}
 {% set _pg_env_stem = _pg_env.base_name | default(service.postgres.base_name | default(app.name ~ '_' ~ app_stack_cluster_realm ~ '_' ~ env.slug ~ '_' ~ _pg_base_suffix, true), true) %}
-    pg-toolbox "{{ _pg_env_stem }}" dump /opt/toolbox/pg_dump.sh || return
+    pg-toolbox "{{ _pg_env_stem }}" dump /opt/toolbox/bin/pg_dump || return
 {% endif %}
 {% endfor %}
 {% endfor %}
@@ -47,7 +47,7 @@ pg-recover() {
 
 {% if app_stack_backups_s3_enabled | bool %}
 {% for extra in app_stack_extra_pg_envs if extra.enabled | default(true, true) %}
-    pg-toolbox "{{ extra.pg_base }}" restore /opt/toolbox/pg_restore.sh || return
+    pg-toolbox "{{ extra.pg_base }}" restore /opt/toolbox/bin/pg_restore || return
 {% endfor %}
 {% for app in app_stack_selected_apps %}
 {% for env in app.envs | default([], true) %}
@@ -56,7 +56,7 @@ pg-recover() {
 {% set _pg_env = (service.postgres.envs | default({}, true)).get(env.slug, {}) %}
 {% set _pg_base_suffix = _pg_env.base_suffix | default(service.postgres.base_suffix | default(service.name, true), true) %}
 {% set _pg_env_stem = _pg_env.base_name | default(service.postgres.base_name | default(app.name ~ '_' ~ app_stack_cluster_realm ~ '_' ~ env.slug ~ '_' ~ _pg_base_suffix, true), true) %}
-    pg-toolbox "{{ _pg_env_stem }}" restore /opt/toolbox/pg_restore.sh || return
+    pg-toolbox "{{ _pg_env_stem }}" restore /opt/toolbox/bin/pg_restore || return
 {% endif %}
 {% endfor %}
 {% endfor %}
