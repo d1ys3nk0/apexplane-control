@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import fcntl
 import json
 import re
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TextIO
+
+
+REMOTE_STATE_UTC = dt.timezone.utc  # noqa: UP017 - remote targets can still run Python 3.10.
 
 
 def state_paths(namespace: str) -> tuple[Path, Path]:
@@ -64,7 +67,7 @@ def acquire(state_path: Path, lock_path: Path, locked_by: str) -> None:
         current_locked_by = state.get("locked_by", "")
         if locked_at:
             raise SystemExit(f"Remote Ansible state is locked since {locked_at} by {current_locked_by}")
-        state["locked_at"] = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        state["locked_at"] = dt.datetime.now(REMOTE_STATE_UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         state["locked_by"] = locked_by
         write_state(state_path, state)
         emit(state)
