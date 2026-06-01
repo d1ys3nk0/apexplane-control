@@ -20,7 +20,7 @@ info() {
 }
 
 error() {
-    echo "[ERROR] $*"
+    echo "[ERROR] $*" >&2
     exit 1
 }
 
@@ -37,7 +37,7 @@ Required environment:
 Optional environment:
   PG_SSL=require|disable (defaults to disable)
   PG_BACKUP_FORMAT=sql|dir|cst (defaults to dir)
-  PG_BACKUP_CONCURRENCY=<jobs> (defaults to 4; dir format only)
+  PG_BACKUP_CONCURRENCY=<jobs> (defaults to 1; dir format only)
   PG_BACKUP_PREFIX=<relative-path>
   PG_BACKUP_SECRET=<passphrase>
   PG_BACKUP_S3=0|false
@@ -91,7 +91,7 @@ init_config() {
     PG_BACKUP_ROOT_INPUT="${1:-}"
     PG_BACKUP_ROOT="${PG_BACKUP_ROOT_INPUT:-${HOME}/backups/postgres}"
     PG_BACKUP_FORMAT="${PG_BACKUP_FORMAT:-dir}"
-    PG_BACKUP_CONCURRENCY="${PG_BACKUP_CONCURRENCY:-4}"
+    PG_BACKUP_CONCURRENCY="${PG_BACKUP_CONCURRENCY:-1}"
     case "${PG_BACKUP_FORMAT}" in
     sql) BACKUP_EXT="sql.gz" ;;
     dir) BACKUP_EXT="tar.gz" ;;
@@ -217,8 +217,7 @@ upload_backup() {
 
     for var in PG_BACKUP_S3_ENDPOINT PG_BACKUP_S3_REGION PG_BACKUP_S3_ACCESS_KEY PG_BACKUP_S3_SECRET_KEY; do
         if [ -z "${!var}" ]; then
-            echo "Error: ${var} is not set"
-            exit 1
+            error "${var} is not set"
         fi
     done
 

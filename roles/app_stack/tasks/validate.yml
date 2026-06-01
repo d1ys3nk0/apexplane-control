@@ -13,9 +13,10 @@
       - app_stack_pg_host is not none
       - app_stack_pg_host | string | length > 0
       - app_stack_pg_port is number or app_stack_pg_port | string | length > 0
-      - app_stack_pg_restore_concurrency | string is match('^[1-9][0-9]*$')
-      - app_stack_pg_restore_no_prepare is boolean
-      - app_stack_pg_restore_no_recreate is boolean
+      - app_stack_pg_backup_concurrency | string is match('^[1-9][0-9]*$')
+      - app_stack_pg_recover_concurrency | string is match('^[1-9][0-9]*$')
+      - app_stack_pg_recover_no_prepare is boolean
+      - app_stack_pg_recover_no_recreate is boolean
       - app_stack_extra_pg_envs is sequence
       - app_stack_extra_pg_envs is not string
       - app_stack_postgres_backup_sudoers_enabled is boolean

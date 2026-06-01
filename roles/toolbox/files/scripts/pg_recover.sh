@@ -36,7 +36,7 @@ info() {
 }
 
 error() {
-    echo "[ERROR] $*"
+    echo "[ERROR] $*" >&2
     exit 1
 }
 
@@ -59,7 +59,7 @@ Optional environment:
   PG_RECOVER_NO_PREPARE=true|false
   PG_RECOVER_NO_VACUUM=true|false
   PG_RECOVER_FORMAT=sql|dir|cst (optional override; defaults to extension detection)
-  PG_RECOVER_CONCURRENCY=<jobs> (defaults to 4)
+  PG_RECOVER_CONCURRENCY=<jobs> (defaults to 1)
   PG_RECOVER_CREATE_EXTENSIONS="extension_a extension_b"
   PG_RECOVER_EXCLUDE_EXTENSIONS="extension_a extension_b"
   PG_RECOVER_SECRET=<passphrase>
@@ -204,7 +204,7 @@ init_config() {
     PG_RECOVER_NO_PREPARE="${PG_RECOVER_NO_PREPARE:-}"
     PG_RECOVER_NO_VACUUM="${PG_RECOVER_NO_VACUUM:-}"
     PG_RECOVER_FORMAT="${PG_RECOVER_FORMAT:-}"
-    PG_RECOVER_CONCURRENCY="${PG_RECOVER_CONCURRENCY:-4}"
+    PG_RECOVER_CONCURRENCY="${PG_RECOVER_CONCURRENCY:-1}"
     PG_RECOVER_EXCLUDE_EXTENSIONS="${PG_RECOVER_EXCLUDE_EXTENSIONS:-}"
 
     check_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE"

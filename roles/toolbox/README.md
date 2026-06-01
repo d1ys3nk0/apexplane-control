@@ -124,7 +124,7 @@ Create a backup:
 sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_backup
 ```
 
-By default, backups use `PG_BACKUP_FORMAT=dir` and `PG_BACKUP_CONCURRENCY=4`.
+By default, backups use `PG_BACKUP_FORMAT=dir` and `PG_BACKUP_CONCURRENCY=1`.
 
 Create a local-only backup when S3 variables are configured:
 

@@ -31,9 +31,10 @@ Set these required inputs before applying the role: `app_stack_app_name`, `app_s
 | `app_stack_pg_host` | `~` |
 | `app_stack_pg_port` | `5432` |
 | `app_stack_pg_sslmode` | `disable` |
-| `app_stack_pg_restore_concurrency` | `1` |
-| `app_stack_pg_restore_no_prepare` | `false` |
-| `app_stack_pg_restore_no_recreate` | `false` |
+| `app_stack_pg_backup_concurrency` | `1` |
+| `app_stack_pg_recover_concurrency` | `1` |
+| `app_stack_pg_recover_no_prepare` | `false` |
+| `app_stack_pg_recover_no_recreate` | `false` |
 | `app_stack_secrets` | `{}` |
 | `app_stack_realm_secrets` | `{}` |
 | `app_stack_backups_secret` | `''` |

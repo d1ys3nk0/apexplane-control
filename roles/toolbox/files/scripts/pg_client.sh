@@ -3,7 +3,7 @@
 set -euo pipefail
 
 error() {
-    echo "[ERROR] $*"
+    echo "[ERROR] $*" >&2
     exit 1
 }
 
