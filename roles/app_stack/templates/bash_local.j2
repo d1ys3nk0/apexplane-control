@@ -20,9 +20,10 @@ pg_backup_all() {
         return 64
     fi
 
-{% if app_stack_backups_s3_enabled | bool %}
-{% for extra in app_stack_extra_pg_envs if extra.enabled | default(true, true) %}
+{% for extra in app_stack_extra_pg_envs %}
+{% if extra.enabled | default(true, true) | bool %}
     pg_run "{{ extra.pg_base }}" backup /opt/toolbox/bin/pg_backup || return
+{% endif %}
 {% endfor %}
 {% for app in app_stack_selected_apps %}
 {% for env in app.envs | default([], true) %}
@@ -36,7 +37,6 @@ pg_backup_all() {
 {% endfor %}
 {% endfor %}
 {% endfor %}
-{% endif %}
 }
 
 pg_recover_all() {
@@ -45,9 +45,10 @@ pg_recover_all() {
         return 64
     fi
 
-{% if app_stack_backups_s3_enabled | bool %}
-{% for extra in app_stack_extra_pg_envs if extra.enabled | default(true, true) %}
+{% for extra in app_stack_extra_pg_envs %}
+{% if extra.enabled | default(true, true) | bool %}
     pg_run "{{ extra.pg_base }}" recover /opt/toolbox/bin/pg_recover || return
+{% endif %}
 {% endfor %}
 {% for app in app_stack_selected_apps %}
 {% for env in app.envs | default([], true) %}
@@ -61,5 +62,4 @@ pg_recover_all() {
 {% endfor %}
 {% endfor %}
 {% endfor %}
-{% endif %}
 }
