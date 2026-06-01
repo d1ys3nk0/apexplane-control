@@ -373,10 +373,9 @@ def _is_variable_used(
         except UnicodeDecodeError:
             continue
         for line_number, line in enumerate(lines, start=1):
-            reference_line = line
             if path == definition_path and line_number == definition_line_number:
-                reference_line = line.split(":", maxsplit=1)[1]
-            if _line_has_variable_reference(reference_line, name):
+                continue
+            if _line_has_variable_reference(line, name):
                 return True
     return False
 

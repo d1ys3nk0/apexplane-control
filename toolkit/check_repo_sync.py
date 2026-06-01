@@ -374,12 +374,14 @@ def check_global_variables(repo_root: Path) -> list[str]:
 
             for line_number, line in enumerate(uncommented_lines(path), start=1):
                 definition_match = GV_VARIABLE_DEFINITION_PATTERN.match(line)
+                defined_variable_name: str | None = None
                 if definition_match is not None:
-                    definitions[definition_match.group("name")] = f"{relative_path}:{line_number}"
+                    defined_variable_name = definition_match.group("name")
+                    definitions[defined_variable_name] = f"{relative_path}:{line_number}"
 
                 for match in GV_VARIABLE_PATTERN.finditer(line):
                     variable_name = match.group(0)
-                    if definition_match is not None and definition_match.group("name") == variable_name:
+                    if variable_name == defined_variable_name:
                         continue
                     counts[variable_name] += 1
                     locations[variable_name].append(f"{relative_path}:{line_number}")

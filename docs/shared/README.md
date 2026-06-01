@@ -11,6 +11,10 @@ Edit the source documents in `apexplane-control`, not in consuming repositories.
 - [Port conventions](reference/port-conventions.md)
 - [Role contracts](reference/role-contracts.md)
 
+## Development
+
+- [Development conventions](development/conventions.md)
+
 ## Runbooks
 
 - [Bootstrap](runbooks/bootstrap.md)

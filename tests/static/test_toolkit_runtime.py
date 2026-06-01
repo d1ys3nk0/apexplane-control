@@ -55,7 +55,7 @@ fi
 
 if [[ "${args}" == *"--list-hosts"* ]]; then
     printf '%s\n' '  hosts (1):'
-    printf '%s\n' '    eng-ycl-app01'
+    printf '%s\n' '    prd-ycl-app01'
     exit 0
 fi
 
@@ -64,8 +64,8 @@ if [[ "${args}" == *"--syntax-check"* ]]; then
     exit 0
 fi
 
-append_log 'changed: [eng-ycl-app01] => {"changed": true}'
-printf '%s\n' 'ok: [eng-ycl-app01]'
+append_log 'changed: [prd-ycl-app01] => {"changed": true}'
+printf '%s\n' 'ok: [prd-ycl-app01]'
 """,
         encoding="utf-8",
     )
@@ -73,21 +73,21 @@ printf '%s\n' 'ok: [eng-ycl-app01]'
 
 
 def write_target_repo_fixture(tmp_path: Path) -> None:
-    (tmp_path / "variables/eng").mkdir(parents=True)
-    inventory_path = tmp_path / "inventories/app/eng.yml"
+    (tmp_path / "variables/prd").mkdir(parents=True)
+    inventory_path = tmp_path / "inventories/app/prd.yml"
     inventory_path.parent.mkdir(parents=True)
     inventory_path.write_text(
         """---
 
 all:
   children:
-    eng:
+    prd:
       children:
-        eng_ycl:
+        prd_ycl:
           children:
-            eng_ycl_app:
+            prd_ycl_app:
               hosts:
-                eng-ycl-app01: {}
+                prd-ycl-app01: {}
 """,
         encoding="utf-8",
     )
@@ -122,7 +122,7 @@ def test_runtime_run_resolves_remote_state_from_installed_runtime(tmp_path: Path
     write_target_repo_fixture(tmp_path)
 
     result = subprocess.run(  # noqa: S603
-        [BASH, "bin/run", "eng", "ycl", "app", "setup"],
+        [BASH, "bin/run", "prd", "ycl", "app", "setup"],
         cwd=tmp_path,
         env=runtime_env(tmp_path),
         text=True,
@@ -136,7 +136,7 @@ def test_runtime_run_resolves_remote_state_from_installed_runtime(tmp_path: Path
     assert " --namespace " in remote_state_calls
     assert " acquire " in remote_state_calls
     assert " release " in remote_state_calls
-    assert (tmp_path / "log/eng-app.log").is_file()
+    assert (tmp_path / "log/prd-app.log").is_file()
 
 
 def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: Path) -> None:
@@ -147,7 +147,7 @@ def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: 
     migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
 
     result = subprocess.run(  # noqa: S603
-        [BASH, "bin/migrate", "apply", "eng", "ycl", "app"],
+        [BASH, "bin/migrate", "apply", "prd", "ycl", "app"],
         cwd=tmp_path,
         env=runtime_env(tmp_path),
         text=True,
@@ -160,7 +160,7 @@ def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: 
     assert str(tmp_path / "scripts/remote_ansible_state.py") in remote_state_calls
     assert " acquire " in remote_state_calls
     assert " release " in remote_state_calls
-    assert (tmp_path / "log/eng-app-migration.log").is_file()
+    assert (tmp_path / "log/prd-app-migration.log").is_file()
 
 
 def test_bootstrap_uses_target_working_directory_for_inventory() -> None:

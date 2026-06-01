@@ -24,6 +24,8 @@ class SyncModule(Protocol):
 
     def check_structure(self, repo_root: Path) -> bool: ...
 
+    def check_global_variables(self, repo_root: Path) -> list[str]: ...
+
     def check_shared_conventions(self, repo_root: Path) -> bool: ...
 
 
@@ -118,6 +120,52 @@ def test_shared_conventions_report_consumer_repository_failures(
     assert "  requirements failed" in output
     assert "inventory: 1 error(s)" in output
     assert "  inventory failed" in output
+
+
+def test_global_variables_require_reference_outside_definition_line(sync_module: SyncModule, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    variables_dir = repo_root / "variables"
+    variables_dir.mkdir(parents=True)
+    (variables_dir / "_global.yml").write_text("---\ngv_foo: value\n", encoding="utf-8")
+
+    assert sync_module.check_global_variables(repo_root) == [
+        "gv_foo: defined at variables/_global.yml:2; referenced at none"
+    ]
+
+
+def test_global_variable_self_reference_on_definition_line_is_not_usage(
+    sync_module: SyncModule,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    variables_dir = repo_root / "variables"
+    variables_dir.mkdir(parents=True)
+    (variables_dir / "_global.yml").write_text("---\ngv_foo: '{{ gv_foo }}'\n", encoding="utf-8")
+
+    assert sync_module.check_global_variables(repo_root) == [
+        "gv_foo: defined at variables/_global.yml:2; referenced at none"
+    ]
+
+
+def test_global_variable_reference_from_another_line_is_usage(sync_module: SyncModule, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    variables_dir = repo_root / "variables"
+    variables_dir.mkdir(parents=True)
+    (variables_dir / "_global.yml").write_text("---\ngv_foo: value\n", encoding="utf-8")
+    (variables_dir / "_shared.yml").write_text("---\niv_example: '{{ gv_foo }}'\n", encoding="utf-8")
+
+    assert sync_module.check_global_variables(repo_root) == []
+
+
+def test_global_variable_definitions_outside_global_file_fail(sync_module: SyncModule, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    variables_dir = repo_root / "variables"
+    variables_dir.mkdir(parents=True)
+    (variables_dir / "app.yml").write_text("---\ngv_foo: value\niv_example: '{{ gv_foo }}'\n", encoding="utf-8")
+
+    assert sync_module.check_global_variables(repo_root) == [
+        "variables/app.yml:2: gv_foo must be defined in _global.yml"
+    ]
 
 
 def test_sync_commands_are_not_exposed() -> None:

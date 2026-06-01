@@ -7,6 +7,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONVENTIONS_DOC = REPO_ROOT / "docs" / "development" / "conventions.md"
+SHARED_CONVENTIONS_DOC = REPO_ROOT / "docs" / "shared" / "development" / "conventions.md"
 TEST_REF_RE = re.compile(r"`(?P<path>tests/static/test_[A-Za-z0-9_]+\.py)::(?P<name>test_[A-Za-z0-9_]+)`")
 
 
@@ -38,27 +39,33 @@ def referenced_static_tests(text: str) -> set[str]:
 
 
 def test_conventions_document_has_required_sections() -> None:
-    assert CONVENTIONS_DOC.is_file()
+    for path in (CONVENTIONS_DOC, SHARED_CONVENTIONS_DOC):
+        assert path.is_file()
 
-    text = CONVENTIONS_DOC.read_text(encoding="utf-8")
-    assert convention_section_titles(text) == ["Automated", "Manual"]
+        text = path.read_text(encoding="utf-8")
+        assert convention_section_titles(text) == ["Automated", "Manual"]
 
 
 def test_automated_conventions_reference_existing_static_tests() -> None:
-    text = CONVENTIONS_DOC.read_text(encoding="utf-8")
     existing_tests = static_test_functions()
     errors: list[str] = []
 
-    for bullet in automated_bullets(text):
-        references = {f"{match.group('path')}::{match.group('name')}" for match in TEST_REF_RE.finditer(bullet)}
-        if not references:
-            errors.append(f"automated convention lacks a static test reference: {bullet}")
-            continue
-        errors.extend(
-            f"referenced static test does not exist: {reference}" for reference in sorted(references - existing_tests)
-        )
+    for path in (CONVENTIONS_DOC, SHARED_CONVENTIONS_DOC):
+        text = path.read_text(encoding="utf-8")
+        for bullet in automated_bullets(text):
+            references = {f"{match.group('path')}::{match.group('name')}" for match in TEST_REF_RE.finditer(bullet)}
+            if not references:
+                errors.append(
+                    f"{path.relative_to(REPO_ROOT)} automated convention lacks a static test reference: {bullet}"
+                )
+                continue
+            errors.extend(
+                f"{path.relative_to(REPO_ROOT)} referenced static test does not exist: {reference}"
+                for reference in sorted(references - existing_tests)
+            )
 
-    assert automated_bullets(text)
+    assert automated_bullets(CONVENTIONS_DOC.read_text(encoding="utf-8"))
+    assert automated_bullets(SHARED_CONVENTIONS_DOC.read_text(encoding="utf-8"))
     assert errors == []
 
 
