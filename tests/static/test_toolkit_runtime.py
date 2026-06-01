@@ -135,6 +135,7 @@ def test_runtime_run_resolves_remote_state_from_installed_runtime(tmp_path: Path
     assert str(tmp_path / "scripts/remote_ansible_state.py") in remote_state_calls
     assert " --namespace " in remote_state_calls
     assert " acquire " in remote_state_calls
+    assert r":task\ apc:run:" in remote_state_calls
     assert " release " in remote_state_calls
     assert (tmp_path / "log/prd-app.log").is_file()
 
@@ -159,6 +160,7 @@ def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: 
     remote_state_calls = (tmp_path / "tmp/remote_state_calls").read_text(encoding="utf-8")
     assert str(tmp_path / "scripts/remote_ansible_state.py") in remote_state_calls
     assert " acquire " in remote_state_calls
+    assert r":task\ apc:migrate:" in remote_state_calls
     assert " release " in remote_state_calls
     assert (tmp_path / "log/prd-app-migration.log").is_file()
 

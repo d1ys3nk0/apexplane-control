@@ -102,10 +102,12 @@ start_migration_log() {
 remote_state() {
     local target_hosts="$1"
     local action="$2"
+    local remote_args
     shift 2
 
+    printf -v remote_args '%q ' "${REMOTE_STATE_SCRIPT}" --namespace "${REMOTE_STATE_NAMESPACE}" "${action}" "$@"
     cmd_capture uv run ansible "${target_hosts}" -i "${INVENTORY_PATH}" "${EXTRA_VARS_ARRAY[@]}" -u "${ANSIBLE_SSH_USER}" ${SSH_ARGS+"${SSH_ARGS[@]}"} -b \
-        -m ansible.builtin.script -a "${REMOTE_STATE_SCRIPT} --namespace ${REMOTE_STATE_NAMESPACE} ${action} $*"
+        -m ansible.builtin.script -a "${remote_args% }"
 }
 
 release_remote_lock() {

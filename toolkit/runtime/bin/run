@@ -187,10 +187,12 @@ is_live_action() {
 
 remote_state() {
     local action="$1"
+    local remote_args
     shift
 
+    printf -v remote_args '%q ' "${REMOTE_STATE_SCRIPT}" --namespace "${REMOTE_STATE_NAMESPACE}" "${action}" "$@"
     cmd_capture uv run ansible "${TARGET_HOSTS}" -i "${INVENTORY_PATH}" "${EXTRA_VARS_ARRAY[@]}" -u "${ANSIBLE_SSH_USER}" ${SSH_ARGS+"${SSH_ARGS[@]}"} -b \
-        -m ansible.builtin.script -a "${REMOTE_STATE_SCRIPT} --namespace ${REMOTE_STATE_NAMESPACE} ${action} $*"
+        -m ansible.builtin.script -a "${remote_args% }"
 }
 
 acquire_remote_lock() {
