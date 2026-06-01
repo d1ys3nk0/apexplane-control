@@ -288,22 +288,6 @@ remote_state_json() {
     printf '%s\n' "${output}" | parse_remote_state_output
 }
 
-migration_pending_hosts() {
-    local migration_tag="$1"
-    shift
-
-    uv run python - "${migration_tag}" "$@" <<'PY'
-import json
-import sys
-
-migration_tag = sys.argv[1]
-hosts = sys.argv[2:]
-
-for host in hosts:
-    print(host)
-PY
-}
-
 remote_migration_pending_hosts() {
     local migration_tag="$1"
     shift
@@ -343,6 +327,7 @@ apply_scope() {
     local migration_tag
     local pending_hosts=()
     local pending_limit
+    local remote_state_targets
     local remote_states_json="{}"
     local target_host_output
     local lock_output
@@ -375,8 +360,10 @@ apply_scope() {
         exit 1
     fi
 
+    printf -v remote_state_targets '%s,' "${target_host_list[@]}"
+
     if [[ "${DRY:-1}" =~ ^(0|false)$ ]]; then
-        printf -v REMOTE_LOCK_TARGETS '%s,' "${target_host_list[@]}"
+        REMOTE_LOCK_TARGETS="${remote_state_targets}"
         REMOTE_LOCKED_BY="$(id -un)@$(hostname -s):pid=$$:task apc:migrate:${TARGET_REALM}/${TARGET_PLATFORM}/${TARGET_CLUSTER}"
         if [[ "${UNLOCK:-0}" =~ ^(1|true)$ ]]; then
             remote_state "${REMOTE_LOCK_TARGETS}" unlock >/dev/null
@@ -387,8 +374,8 @@ apply_scope() {
             return 1
         fi
         REMOTE_LOCK_ACQUIRED=1
-        remote_states_json="$(remote_state_json "${REMOTE_LOCK_TARGETS}")"
     fi
+    remote_states_json="$(remote_state_json "${remote_state_targets}")"
 
     for migration_path in "${migration_files[@]}"; do
         migration_name="$(basename "${migration_path}")"
@@ -399,15 +386,9 @@ apply_scope() {
         migration_tag="${BASH_REMATCH[1]}"
 
         pending_hosts=()
-        if [[ ! "${DRY:-1}" =~ ^(0|false)$ ]]; then
-            while IFS= read -r host; do
-                pending_hosts+=("${host}")
-            done < <(migration_pending_hosts "${migration_tag}" "${target_host_list[@]}")
-        else
-            while IFS= read -r host; do
-                pending_hosts+=("${host}")
-            done < <(printf '%s\n' "${remote_states_json}" | remote_migration_pending_hosts "${migration_tag}" "${target_host_list[@]}")
-        fi
+        while IFS= read -r host; do
+            pending_hosts+=("${host}")
+        done < <(printf '%s\n' "${remote_states_json}" | remote_migration_pending_hosts "${migration_tag}" "${target_host_list[@]}")
         if [ "${#pending_hosts[@]}" -eq 0 ]; then
             continue
         fi

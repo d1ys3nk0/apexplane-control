@@ -54,7 +54,7 @@ if [[ "${args}" == *"remote_ansible_state.py"* ]]; then
     printf '%s\n' "${args}" >> tmp/remote_state_calls
     target="$3"
     printf '%s\n' "${target%,} | CHANGED | rc=0 >>"
-    printf '%s\n' '{"locked_at": "", "locked_by": "", "migrate_tag": ""}'
+    printf '{"locked_at": "", "locked_by": "", "migrate_tag": "%s"}\n' "${REMOTE_MIGRATE_TAG:-}"
     exit 0
 fi
 
@@ -173,6 +173,60 @@ def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: 
     assert (tmp_path / "log/prd-app-migrate.log").is_file()
     assert not (tmp_path / "log/prd-app-migration.log").exists()
     assert list((tmp_path / "log").glob("prd-app-*-migrate.log"))
+
+
+def test_runtime_migrate_dry_mode_skips_applied_migrations(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "migrate")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+    migration_path = tmp_path / "playbooks/app/_260601120000_runtime_test.yml"
+    migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
+    env = runtime_env(tmp_path)
+    env["DRY"] = "1"
+    env["REMOTE_MIGRATE_TAG"] = "260601120000"
+
+    result = subprocess.run(  # noqa: S603
+        [BASH, "bin/migrate", "apply", "prd", "ycl", "app"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    remote_state_calls = (tmp_path / "tmp/remote_state_calls").read_text(encoding="utf-8")
+    assert " get\n" in remote_state_calls
+    assert " acquire " not in remote_state_calls
+    assert " mark " not in remote_state_calls
+    assert not (tmp_path / "log/prd-app-migrate.log").exists()
+
+
+def test_runtime_migrate_dry_mode_runs_pending_migrations_in_check_mode(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "migrate")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+    migration_path = tmp_path / "playbooks/app/_260601120000_runtime_test.yml"
+    migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
+    env = runtime_env(tmp_path)
+    env["DRY"] = "1"
+
+    result = subprocess.run(  # noqa: S603
+        [BASH, "bin/migrate", "apply", "prd", "ycl", "app"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    remote_state_calls = (tmp_path / "tmp/remote_state_calls").read_text(encoding="utf-8")
+    assert " get\n" in remote_state_calls
+    assert " acquire " not in remote_state_calls
+    assert " mark " not in remote_state_calls
+    assert "--check" in result.stdout
+    assert (tmp_path / "log/prd-app-migrate.log").is_file()
 
 
 def test_bootstrap_uses_target_working_directory_for_inventory() -> None:
