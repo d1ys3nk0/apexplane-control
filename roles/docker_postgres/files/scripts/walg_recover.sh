@@ -178,6 +178,16 @@ cleanup() {
         return
     fi
 
+    local recovery_state
+    recovery_state=$(docker exec "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
+    if [ "${recovery_state}" = "f" ]; then
+        if [ -n "${RECOVER_SCRIPT:-}" ] && [ -f "${RECOVER_SCRIPT}" ]; then
+            info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
+            rm -f "${RECOVER_SCRIPT}"
+        fi
+        return
+    fi
+
     warn "Leaving ${RECOVER_SCRIPT} in place because PostgreSQL was started and may still need it for recovery"
 }
 
@@ -308,7 +318,14 @@ wait_for_recovery() {
 }
 
 cleanup_recover_config() {
-    if ! is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || ! is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT; then
+    if ! is_true "${WALG_RECOVER_START}" WALG_RECOVER_START; then
+        return
+    fi
+
+    local recovery_state
+    recovery_state=$(docker exec "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
+    if [ "${recovery_state}" = "t" ]; then
+        warn "PostgreSQL is still in recovery; leaving restore_command in place"
         return
     fi
 

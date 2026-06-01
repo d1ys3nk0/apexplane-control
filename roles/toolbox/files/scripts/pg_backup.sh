@@ -64,11 +64,14 @@ init_config() {
     PG_BACKUP_SECRET="${PG_BACKUP_SECRET:-}"
     PG_BACKUP_S3="${PG_BACKUP_S3:-}"
     PG_BACKUP_S3_ENDPOINT="${PG_BACKUP_S3_ENDPOINT:-}"
+    PG_BACKUP_S3="${PG_BACKUP_S3:-}"
+    PG_BACKUP_S3_ENDPOINT="${PG_BACKUP_S3_ENDPOINT:-}"
     PG_BACKUP_S3_PREFIX="${PG_BACKUP_S3_PREFIX:-}"
     PG_BACKUP_S3_REGION="${PG_BACKUP_S3_REGION:-}"
     PG_BACKUP_S3_BUCKET="${PG_BACKUP_S3_BUCKET:-}"
     PG_BACKUP_S3_ACCESS_KEY="${PG_BACKUP_S3_ACCESS_KEY:-}"
     PG_BACKUP_S3_SECRET_KEY="${PG_BACKUP_S3_SECRET_KEY:-}"
+    BACKUP_UPLOADED=0
 
     _require_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS" "PG_BASE" "PG_BACKUP_ROOT"
     if [ "${PG_BACKUP_FORMAT}" = "dir" ]; then
@@ -167,11 +170,13 @@ upload_backup() {
 
     if [ -z "${PG_BACKUP_S3_BUCKET}" ]; then
         _info "Backup uploading is not configured, skipping..."
+        BACKUP_UPLOADED=1
         return
     fi
 
     if ! is_s3_enabled; then
         _info "S3 backup uploading is disabled by PG_BACKUP_S3=${PG_BACKUP_S3}, skipping..."
+        BACKUP_UPLOADED=1
         return
     fi
 
@@ -191,9 +196,15 @@ upload_backup() {
     _info "Uploading backup to S3..."
     _cmd env AWS_REGION="${PG_BACKUP_S3_REGION}" AWS_ACCESS_KEY_ID="${PG_BACKUP_S3_ACCESS_KEY}" AWS_SECRET_ACCESS_KEY="${PG_BACKUP_S3_SECRET_KEY}" \
         aws --endpoint-url="${PG_BACKUP_S3_ENDPOINT}" s3api put-object --bucket "${PG_BACKUP_S3_BUCKET}" --key "${BACKUP_KEY}" --body "${BACKUP_FILE}" --content-md5 "${BACKUP_MD5_BASE64}"
+    BACKUP_UPLOADED=1
 }
 
 prune_old_backups() {
+    if [ "${BACKUP_UPLOADED}" != "1" ]; then
+        _warn "Skipping local backup cleanup in ${BACKUP_DIR} because the backup was not uploaded"
+        return
+    fi
+
     _info "Clean up ${BACKUP_DIR} from backups older than 24 hours"
     _cmd find "${BACKUP_DIR}" -type f -mmin +1440 -exec rm {} \;
 }

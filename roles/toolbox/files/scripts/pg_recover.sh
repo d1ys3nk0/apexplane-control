@@ -235,8 +235,6 @@ validate_backup_input() {
 }
 
 resolve_s3_backup() {
-    validate_s3_backup_input
-
     if is_exact_backup_key "${S3_INPUT}"; then
         S3_KEY="${S3_INPUT}"
     else
