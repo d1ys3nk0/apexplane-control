@@ -98,7 +98,7 @@ hr__docker_run() {
     fi
 }
 
-hr_docker_cmd() {
+hr_docker() {
     hr__docker_run "$HR_DOCKER_TIMEOUT" "$@"
 }
 
@@ -744,7 +744,7 @@ report_postgres() {
     fi
 
     hr_section "Container"
-    hr_docker_cmd inspect postgres --format "Name={{.Name}} Image={{.Config.Image}} State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
+    hr_docker inspect postgres --format "Name={{.Name}} Image={{.Config.Image}} State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
 
     hr_section "Host: postgres-related processes (pgrep -a)"
     pgrep -a postgres 2>/dev/null | hr_indent_stream || printf '%s\n' "(no matching host processes)" | hr_indent_stream
@@ -856,7 +856,7 @@ HREP_PGSQL
     hr__docker_run "$HR_DOCKER_TIMEOUT" docker exec -i postgres psql -U admin -Atc "$psql_snap" 2>&1 | hr_indent_stream
 
     hr_section "Logs (tail 60)"
-    hr_docker_cmd logs --tail 60 --timestamps postgres 2>&1 | hr_indent_stream
+    hr_docker logs --tail 60 --timestamps postgres 2>&1 | hr_indent_stream
 
     hr_report_footer
 }
@@ -872,7 +872,7 @@ report_redis() {
     fi
 
     hr_section "Container"
-    hr_docker_cmd inspect redis --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
+    hr_docker inspect redis --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
 
     hr_section "redis-cli info (server / memory / clients / stats, dbsize)"
     hr__docker_run "$HR_DOCKER_TIMEOUT" bash -o pipefail -c '
@@ -900,7 +900,7 @@ report_elasticsearch() {
     fi
 
     hr_section "Container"
-    hr_docker_cmd inspect elasticsearch --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
+    hr_docker inspect elasticsearch --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
 
     hr_section "Cluster health"
     hr__docker_run "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "docker exec -i elasticsearch curl -sS localhost:9200/_cluster/health?pretty 2>&1" | hr_indent_stream
@@ -909,7 +909,7 @@ report_elasticsearch() {
     hr__docker_run "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "docker exec -i elasticsearch curl -sS 'localhost:9200/_nodes/stats/fs,jvm?pretty' 2>&1 | head -80" | hr_indent_stream
 
     hr_section "Logs (tail 40)"
-    hr_docker_cmd logs --tail 40 --timestamps elasticsearch 2>&1 | hr_indent_stream
+    hr_docker logs --tail 40 --timestamps elasticsearch 2>&1 | hr_indent_stream
 
     hr_report_footer
 }
@@ -925,7 +925,7 @@ report_rabbitmq() {
     fi
 
     hr_section "Container"
-    hr_docker_cmd inspect rabbitmq --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
+    hr_docker inspect rabbitmq --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
 
     hr_section "rabbitmqctl status"
     hr__docker_run "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "docker exec -i rabbitmq rabbitmqctl status 2>&1 | head -60" | hr_indent_stream
@@ -934,7 +934,7 @@ report_rabbitmq() {
     hr__docker_run "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "docker exec -i rabbitmq rabbitmqctl list_queues name messages consumers 2>&1 | head -40" | hr_indent_stream
 
     hr_section "Logs (tail 40)"
-    hr_docker_cmd logs --tail 40 --timestamps rabbitmq 2>&1 | hr_indent_stream
+    hr_docker logs --tail 40 --timestamps rabbitmq 2>&1 | hr_indent_stream
 
     hr_report_footer
 }
@@ -950,10 +950,10 @@ report_haproxy() {
     fi
 
     hr_section "Container"
-    hr_docker_cmd inspect haproxy --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
+    hr_docker inspect haproxy --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
 
     hr_section "Logs (tail 40)"
-    hr_docker_cmd logs --tail 40 --timestamps haproxy 2>&1 | hr_indent_stream
+    hr_docker logs --tail 40 --timestamps haproxy 2>&1 | hr_indent_stream
 
     hr_report_footer
 }
@@ -969,10 +969,10 @@ report_promtail() {
     fi
 
     hr_section "Container"
-    hr_docker_cmd inspect promtail --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
+    hr_docker inspect promtail --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
 
     hr_section "Logs (tail 40)"
-    hr_docker_cmd logs --tail 40 --timestamps promtail 2>&1 | hr_indent_stream
+    hr_docker logs --tail 40 --timestamps promtail 2>&1 | hr_indent_stream
 
     hr_report_footer
 }
@@ -987,9 +987,9 @@ report_monitoring() {
         if hr_docker_has "$svc"; then
             any=1
             hr_section "Service: ${svc}"
-            hr_docker_cmd inspect "$svc" --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
+            hr_docker inspect "$svc" --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
             hr_section "Logs: ${svc} (tail 40)"
-            hr_docker_cmd logs --tail 40 --timestamps "$svc" 2>&1 | hr_indent_stream
+            hr_docker logs --tail 40 --timestamps "$svc" 2>&1 | hr_indent_stream
         fi
     done
 

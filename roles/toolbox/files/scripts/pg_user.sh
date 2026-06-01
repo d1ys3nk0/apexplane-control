@@ -72,7 +72,7 @@ esac
 _require_pg_connection_vars
 _require_vars "PG_BASE" "PG_TARGET_USER"
 
-_pg_psql_cmd -d "${PG_BASE}" \
+_cmd _docker_postgres psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" \
     -v ON_ERROR_STOP=1 \
     -v "grant_mode=${PG_GRANT}" \
     -v "target_user=${PG_TARGET_USER}" \

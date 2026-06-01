@@ -230,7 +230,7 @@ resolve_s3_backup() {
         S3_KEY=$(latest_s3_key "${S3_BUCKET}" "${S3_INPUT}")
     fi
 
-    DOWNLOADED_DIR=$(mktemp -d "/tmp/${PG_BASE}.restore.XXXXXX")
+    DOWNLOADED_DIR=$(mktemp -d "/tmp/pg-recover.${PG_BASE}.XXXXXX")
     DOWNLOADED_FILE="${DOWNLOADED_DIR}/${S3_KEY##*/}"
     _info "Downloading backup s3://${S3_BUCKET}/${S3_KEY}..."
     _cmd aws_env aws --endpoint-url="${PG_RECOVER_S3_ENDPOINT}" s3api get-object --bucket "${S3_BUCKET}" --key "${S3_KEY}" "${DOWNLOADED_FILE}"
@@ -291,9 +291,9 @@ decompress_backup() {
     fi
 
     if [[ "${BACKUP_FILE}" == *.sql.gz ]]; then
-        DECOMPRESSED_FILE=$(mktemp "/tmp/${PG_BASE}.restore.XXXXXX.sql")
+        DECOMPRESSED_FILE=$(mktemp "/tmp/pg-recover.${PG_BASE}.XXXXXX.sql")
     else
-        DECOMPRESSED_FILE=$(mktemp "/tmp/${PG_BASE}.restore.XXXXXX.tar")
+        DECOMPRESSED_FILE=$(mktemp "/tmp/pg-recover.${PG_BASE}.XXXXXX.tar")
     fi
     _info "Decompressing backup ${BACKUP_FILE}..."
     _cmd_output "${DECOMPRESSED_FILE}" gzip -dc "${BACKUP_FILE}"
@@ -312,7 +312,7 @@ extract_backup() {
         return
     fi
 
-    EXTRACTED_DIR=$(mktemp -d "/tmp/${PG_BASE}.restore.XXXXXX.dir")
+    EXTRACTED_DIR=$(mktemp -d "/tmp/pg-recover.${PG_BASE}.XXXXXX.dir")
     _info "Extracting PostgreSQL directory-format archive ${BACKUP_FILE}..."
     _cmd tar -xf "${BACKUP_FILE}" -C "${EXTRACTED_DIR}"
 
@@ -481,7 +481,7 @@ restore_plain_sql_backup() {
 restore_archive_backup_with_filtered_list() {
     local restore_format_flag_value
 
-    RESTORE_LIST_FILE=$(mktemp "/tmp/${PG_BASE}.restore.XXXXXX.list")
+    RESTORE_LIST_FILE=$(mktemp "/tmp/pg-recover.${PG_BASE}.XXXXXX.list")
     restore_format_flag_value=$(restore_format_flag)
 
     _info "Listing ${PG_RECOVER_FORMAT} backup contents..."

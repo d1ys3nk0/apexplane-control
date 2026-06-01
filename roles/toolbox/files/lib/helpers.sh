@@ -146,14 +146,6 @@ _require_pg_connection_vars() {
     _require_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS"
 }
 
-_pg_docker_cmd() {
-    _cmd sudo docker run --rm --network host -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" "$@"
-}
-
-_pg_psql_cmd() {
-    _pg_docker_cmd psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" "$@"
-}
-
-_pg_vacuumdb_cmd() {
-    _pg_docker_cmd vacuumdb -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" "$@"
+_docker_postgres() {
+    sudo docker run --rm --network host -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" "$@"
 }

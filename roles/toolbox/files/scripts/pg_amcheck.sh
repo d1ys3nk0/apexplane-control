@@ -18,13 +18,13 @@ _require_pg_connection_vars
 _require_vars "PG_BASE"
 
 _info "Creating amcheck extension"
-_pg_psql_cmd -d "${PG_BASE}" -c "CREATE EXTENSION IF NOT EXISTS amcheck"
+_cmd _docker_postgres psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c "CREATE EXTENSION IF NOT EXISTS amcheck"
 
 _info "Performing amcheck database ${PG_BASE}"
-_pg_psql_cmd -d "${PG_BASE}" -c "ALTER ROLE ${PG_USER} SET statement_timeout = 300000"
+_cmd _docker_postgres psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c "ALTER ROLE ${PG_USER} SET statement_timeout = 300000"
 
 _info "Performing lightweight B-tree index checks for ${PG_BASE}"
-_pg_psql_cmd -d "${PG_BASE}" -c "
+_cmd _docker_postgres psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c "
 SELECT
     schemaname,
     relname as tablename,
@@ -36,7 +36,7 @@ ORDER BY schemaname, relname, indexrelname;
 "
 
 _info "Performing thorough B-tree index checks with heap verification..."
-_pg_psql_cmd -d "${PG_BASE}" -c "
+_cmd _docker_postgres psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c "
 DO \$\$
 DECLARE
     idx_record RECORD;
@@ -62,7 +62,7 @@ END
 "
 
 _info "Checking for potential duplicate indexes..."
-_pg_psql_cmd -d "${PG_BASE}" -c "
+_cmd _docker_postgres psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c "
 SELECT
     t.schemaname,
     t.tablename,
@@ -86,7 +86,7 @@ HAVING count(*) > 1;
 "
 
 _info "Index usage statistics (low usage indexes may need review)..."
-_pg_psql_cmd -d "${PG_BASE}" -c "
+_cmd _docker_postgres psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c "
 SELECT
     schemaname,
     relname as tablename,
@@ -104,5 +104,5 @@ WHERE schemaname != 'information_schema' AND schemaname NOT LIKE 'pg_%'
 ORDER BY idx_scan ASC, schemaname, relname, indexrelname;
 "
 
-_pg_psql_cmd -d "${PG_BASE}" -c "ALTER ROLE ${PG_USER} RESET statement_timeout"
+_cmd _docker_postgres psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c "ALTER ROLE ${PG_USER} RESET statement_timeout"
 _info "Done!"

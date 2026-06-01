@@ -55,6 +55,19 @@ def test_toolbox_scripts_use_shared_helpers_for_operator_logging() -> None:
         assert "_cmd vi " not in script
 
 
+def test_toolbox_command_helpers_keep_cmd_as_the_entrypoint() -> None:
+    toolbox_files = [
+        REPO_ROOT / "roles" / "toolbox" / "files" / "lib" / "helpers.sh",
+        *sorted(script_path for script_path in TOOLBOX_SCRIPTS_DIR.iterdir() if script_path.is_file()),
+    ]
+
+    for path in toolbox_files:
+        text = path.read_text(encoding="utf-8")
+        assert not re.search(r"\b_[a-z0-9_]+_cmd\b", text), (
+            f"{path.relative_to(REPO_ROOT)} must use `_cmd _operation`, not `_operation_cmd`"
+        )
+
+
 def test_haproxy_alb_no_longer_manages_manual_dns_certbot() -> None:
     role_text = "\n".join(path.read_text(encoding="utf-8") for path in HAPROXY_ALB_DIR.rglob("*") if path.is_file())
     defaults = (HAPROXY_ALB_DIR / "defaults" / "main.yml").read_text(encoding="utf-8")

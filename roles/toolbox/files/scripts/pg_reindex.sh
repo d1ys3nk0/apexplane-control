@@ -18,9 +18,9 @@ _require_pg_connection_vars
 _require_vars "PG_BASE"
 
 _info "Performing reindex database ${PG_BASE}"
-_pg_psql_cmd -d "${PG_BASE}" -c "ALTER ROLE ${PG_USER} SET statement_timeout = 300000"
+_cmd _docker_postgres psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c "ALTER ROLE ${PG_USER} SET statement_timeout = 300000"
 
-_pg_psql_cmd -d "${PG_BASE}" -c "REINDEX DATABASE ${PG_BASE}"
+_cmd _docker_postgres psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c "REINDEX DATABASE ${PG_BASE}"
 
-_pg_psql_cmd -d "${PG_BASE}" -c "ALTER ROLE ${PG_USER} RESET statement_timeout"
+_cmd _docker_postgres psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c "ALTER ROLE ${PG_USER} RESET statement_timeout"
 _info "Done!"
