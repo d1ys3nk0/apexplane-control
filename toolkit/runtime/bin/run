@@ -171,7 +171,7 @@ for VAR_FILE in "${VAR_FILES[@]}"; do
     fi
 done
 EXTRA_VARS_ARRAY+=("-e" "cluster_realm=${TARGET_REALM}" "-e" "cluster_name=${TARGET_CLUSTER}" "-e" "target_hosts=${TARGET_HOSTS}")
-ANSIBLE_SSH_USER="${ANSIBLE_SSH_USER:-cicd}"
+: "${ANSIBLE_SSH_USER:?Error: ANSIBLE_SSH_USER is not set}"
 SSH_ARGS=()
 if [ -n "${ANSIBLE_SSH_KEY_PATH:-}" ]; then
     SSH_ARGS+=(--private-key "${ANSIBLE_SSH_KEY_PATH}")

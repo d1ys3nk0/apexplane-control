@@ -53,7 +53,7 @@ load_env_files() {
 
 load_env_files
 
-ANSIBLE_SSH_USER="${ANSIBLE_SSH_USER:-cicd}"
+: "${ANSIBLE_SSH_USER:?Error: ANSIBLE_SSH_USER is not set}"
 LOG_DIR="log"
 CURRENT_MIGRATION_LOG_PATH=""
 CURRENT_MIGRATION_CHANGED_ARCHIVED=1

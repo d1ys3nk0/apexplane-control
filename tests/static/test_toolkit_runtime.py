@@ -104,6 +104,7 @@ all:
 def runtime_env(tmp_path: Path) -> dict[str, str]:
     env = os.environ.copy()
     env["PATH"] = f"{tmp_path / 'bin'}{os.pathsep}{env['PATH']}"
+    env["ANSIBLE_SSH_USER"] = "operator"
     env["DRY"] = "0"
     return env
 

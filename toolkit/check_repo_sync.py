@@ -342,7 +342,8 @@ def check_ansible_requirements(repo_root: Path) -> list[str]:
         checks = {
             ".gitignore must ignore .env": "\n.env\n" in f"\n{gitignore}",
             ".taskfile/root.yml must create .env from .env.sample": "test -f .env || cp .env.sample .env" in taskfile,
-            ".env.sample must default ANSIBLE_SSH_USER to cicd": "ANSIBLE_SSH_USER=cicd" in sample_text,
+            ".env.sample must require explicit ANSIBLE_SSH_USER": "ANSIBLE_SSH_USER=" in sample_text
+            and "ANSIBLE_SSH_USER=cicd" not in sample_text,
         }
         errors.extend(message for message, passed in checks.items() if not passed)
 
@@ -478,10 +479,8 @@ def check_inventory(repo_root: Path) -> list[str]:
             if not isinstance(vars_node, dict):
                 continue
             vars_data = cast("dict[str, object]", vars_node)
-            has_jump_host = "iv_jmp_host" in vars_data or "iv_jmp_port" in vars_data
-            jump_user = vars_data.get("iv_jmp_user")
-            if has_jump_host and jump_user != "bastion":
-                errors.append(f"{inventory_path.relative_to(repo_root)} group {group_name} iv_jmp_user={jump_user!r}")
+            if "iv_jmp_user" in vars_data:
+                errors.append(f"{inventory_path.relative_to(repo_root)} group {group_name} must not define iv_jmp_user")
 
     return errors
 
