@@ -54,30 +54,42 @@ is_s3_enabled() {
 }
 
 cleanup() {
+    local status="${1:-$?}"
+    local cleanup_status=0
+
+    set +e
+
     if [ "${PREPARE_DB_CREATED:-0}" = "1" ] && [ "${PREPARE_DB_PROMOTED:-0}" != "1" ] && [ -n "${PREPARE_DB_NAME:-}" ]; then
-        _info "Cleaning up prepare database ${PREPARE_DB_NAME}"
-        drop_database "${PREPARE_DB_NAME}" || true
+        _warn "Restore failed before promotion; removing prepare database ${PREPARE_DB_NAME}"
+        drop_database "${PREPARE_DB_NAME}" || cleanup_status=$?
     fi
     if [ -n "${DECRYPTED_FILE:-}" ] && [ -f "${DECRYPTED_FILE}" ]; then
         _info "Cleaning up temporary decrypted file ${DECRYPTED_FILE}"
-        _cmd rm -f "${DECRYPTED_FILE}"
+        _cmd rm -f "${DECRYPTED_FILE}" || cleanup_status=$?
     fi
     if [ -n "${DECOMPRESSED_FILE:-}" ] && [ -f "${DECOMPRESSED_FILE}" ]; then
         _info "Cleaning up temporary decompressed file ${DECOMPRESSED_FILE}"
-        _cmd rm -f "${DECOMPRESSED_FILE}"
+        _cmd rm -f "${DECOMPRESSED_FILE}" || cleanup_status=$?
     fi
     if [ -n "${EXTRACTED_DIR:-}" ] && [ -d "${EXTRACTED_DIR}" ]; then
         _info "Cleaning up temporary extracted directory ${EXTRACTED_DIR}"
-        _cmd rm -rf "${EXTRACTED_DIR}"
+        _cmd rm -rf "${EXTRACTED_DIR}" || cleanup_status=$?
     fi
     if [ -n "${DOWNLOADED_DIR:-}" ] && [ -d "${DOWNLOADED_DIR}" ]; then
         _info "Cleaning up temporary download directory ${DOWNLOADED_DIR}"
-        _cmd rm -rf "${DOWNLOADED_DIR}"
+        _cmd rm -rf "${DOWNLOADED_DIR}" || cleanup_status=$?
     fi
     if [ -n "${RESTORE_LIST_FILE:-}" ] && [ -f "${RESTORE_LIST_FILE}" ]; then
         _info "Cleaning up temporary restore list ${RESTORE_LIST_FILE}"
-        _cmd rm -f "${RESTORE_LIST_FILE}"
+        _cmd rm -f "${RESTORE_LIST_FILE}" || cleanup_status=$?
     fi
+
+    if [ "${status}" -eq 0 ] && [ "${cleanup_status}" -ne 0 ]; then
+        status="${cleanup_status}"
+    fi
+
+    finish "${status}"
+    exit "${status}"
 }
 
 is_exact_backup_key() {
@@ -166,7 +178,7 @@ init_config() {
 }
 
 init_cleanup() {
-    trap cleanup EXIT
+    trap 'cleanup $?' EXIT
 }
 
 validate_s3_backup_input() {
@@ -573,9 +585,19 @@ verify_restore() {
 }
 
 finish() {
+    local status="${1}"
+
     SCRIPT_END=$(date -u '+%s.%3N')
     SCRIPT_ELAPSED=$(echo "scale=3; $SCRIPT_END - $TOOLBOX_SCRIPT_START" | bc)
-    _info "Finished in ${SCRIPT_ELAPSED}s"
+    if [ "${status}" -eq 0 ]; then
+        _info "Restore completed successfully in ${SCRIPT_ELAPSED}s; ${PG_BASE} is active"
+    elif [ "${PREPARE_DB_CREATED:-0}" = "1" ] && [ "${PREPARE_DB_PROMOTED:-0}" != "1" ]; then
+        _warn "Restore failed after ${SCRIPT_ELAPSED}s with exit status ${status}; ${PG_BASE} was not promoted"
+    elif [ "${PREPARE_DB_PROMOTED:-0}" = "1" ]; then
+        _warn "Restore failed after ${SCRIPT_ELAPSED}s with exit status ${status}; ${PG_BASE} may already be promoted"
+    else
+        _warn "Restore failed after ${SCRIPT_ELAPSED}s with exit status ${status}; check previous errors"
+    fi
 }
 
 main() {
@@ -592,7 +614,6 @@ main() {
     vacuum_restored_database
     promote_restored_database
     verify_restore
-    finish
 }
 
 main "$@"

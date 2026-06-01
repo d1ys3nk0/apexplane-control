@@ -272,5 +272,5 @@
     validate: /usr/sbin/visudo -cf %s
   when:
     - app_stack_enabled | bool
-    - app_stack_backups_s3_enabled | bool
+    - app_stack_pg_backup_s3_enabled | bool or app_stack_pg_recover_s3_enabled | bool
     - app_stack_postgres_backup_sudoers_enabled | bool

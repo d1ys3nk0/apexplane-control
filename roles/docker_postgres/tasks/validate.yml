@@ -18,3 +18,34 @@
     that:
       - docker_postgres_walg_enabled | bool == (docker_postgres_walg_version | string | length > 0)
     fail_msg: Set docker_postgres_walg_version to build a WAL-G image from docker_postgres_image_name and docker_postgres_image_tag.
+
+- name: Validate Docker PostgreSQL WAL-G backup settings
+  ansible.builtin.assert:
+    that:
+      - docker_postgres_walg_backup_s3_endpoint | string | length > 0
+      - docker_postgres_walg_backup_s3_region | string | length > 0
+      - docker_postgres_walg_backup_s3_bucket | string | length > 0
+      - docker_postgres_walg_backup_s3_prefix | string | length > 0
+    fail_msg: Define complete docker_postgres_walg_backup_s3_* settings when WAL-G backup credentials are set.
+  when:
+    - docker_postgres_walg_backup_s3_access_key | string | length > 0 or docker_postgres_walg_backup_s3_secret_key | string | length > 0
+
+- name: Validate Docker PostgreSQL WAL-G recovery settings
+  ansible.builtin.assert:
+    that:
+      - docker_postgres_walg_recover_s3_endpoint | string | length > 0
+      - docker_postgres_walg_recover_s3_region | string | length > 0
+      - docker_postgres_walg_recover_s3_bucket | string | length > 0
+      - docker_postgres_walg_recover_s3_prefix | string | length > 0
+    fail_msg: Define complete docker_postgres_walg_recover_s3_* settings when WAL-G recovery credentials are set.
+  when:
+    - docker_postgres_walg_recover_s3_access_key | string | length > 0 or docker_postgres_walg_recover_s3_secret_key | string | length > 0
+
+- name: Validate Docker PostgreSQL WAL-G recovery rename settings
+  ansible.builtin.assert:
+    that:
+      - (docker_postgres_walg_recover_base_rename_before | string | length > 0) == (docker_postgres_walg_recover_base_rename_after | string | length > 0)
+      - (docker_postgres_walg_recover_user_rename_before | string | length > 0) == (docker_postgres_walg_recover_user_rename_after | string | length > 0)
+      - docker_postgres_walg_recover_reassign_users is sequence
+      - docker_postgres_walg_recover_reassign_users is not string
+    fail_msg: Define WAL-G recovery rename pairs together and reassign users as a list.

@@ -112,11 +112,17 @@
       POSTGRES_PASSWORD: '{{ docker_postgres_pg_admin_pass }}'
       PGHOST: /var/run/postgresql
       PGUSER: '{{ docker_postgres_pg_admin_user }}'
-      AWS_ENDPOINT: '{{ docker_postgres_backup_s3_endpoint }}'
-      AWS_REGION: '{{ docker_postgres_backup_s3_region }}'
-      AWS_ACCESS_KEY_ID: '{{ docker_postgres_backup_s3_access_key }}'
-      AWS_SECRET_ACCESS_KEY: '{{ docker_postgres_backup_s3_secret_key }}'
-      WALG_S3_PREFIX: '{{ docker_postgres_backup_s3_prefix }}'
+      AWS_ENDPOINT: '{{ docker_postgres_walg_backup_s3_endpoint }}'
+      AWS_REGION: '{{ docker_postgres_walg_backup_s3_region }}'
+      AWS_ACCESS_KEY_ID: '{{ docker_postgres_walg_backup_s3_access_key }}'
+      AWS_SECRET_ACCESS_KEY: '{{ docker_postgres_walg_backup_s3_secret_key }}'
+      WALG_S3_PREFIX: >-
+        {{
+          ('s3://' ~ docker_postgres_walg_backup_s3_bucket ~ '/' ~ docker_postgres_walg_backup_s3_prefix)
+          if docker_postgres_walg_backup_s3_access_key | string | length > 0
+          and docker_postgres_walg_backup_s3_secret_key | string | length > 0
+          else ''
+        }}
       WALG_COMPRESSION_METHOD: brotli
       WALG_COMPRESSION_LEVEL: '5'
     command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'

@@ -53,11 +53,24 @@ Set these required inputs before applying the role: `docker_postgres_pg_admin_pa
 | `docker_postgres_utility_image_name` | `busybox` |
 | `docker_postgres_utility_image_tag` | `1.37.0` |
 | `docker_postgres_utility_image_full` | `<derived>` |
-| `docker_postgres_backup_s3_endpoint` | `''` |
-| `docker_postgres_backup_s3_region` | `''` |
-| `docker_postgres_backup_s3_access_key` | `''` |
-| `docker_postgres_backup_s3_secret_key` | `''` |
-| `docker_postgres_backup_s3_prefix` | `''` |
+| `docker_postgres_walg_backup_s3_endpoint` | `''` |
+| `docker_postgres_walg_backup_s3_region` | `''` |
+| `docker_postgres_walg_backup_s3_bucket` | `''` |
+| `docker_postgres_walg_backup_s3_prefix` | `''` |
+| `docker_postgres_walg_backup_s3_access_key` | `''` |
+| `docker_postgres_walg_backup_s3_secret_key` | `''` |
+| `docker_postgres_walg_recover_s3_endpoint` | `''` |
+| `docker_postgres_walg_recover_s3_region` | `''` |
+| `docker_postgres_walg_recover_s3_bucket` | `''` |
+| `docker_postgres_walg_recover_s3_prefix` | `''` |
+| `docker_postgres_walg_recover_s3_access_key` | `''` |
+| `docker_postgres_walg_recover_s3_secret_key` | `''` |
+| `docker_postgres_walg_recover_base_rename_before` | `''` |
+| `docker_postgres_walg_recover_base_rename_after` | `''` |
+| `docker_postgres_walg_recover_user_rename_before` | `''` |
+| `docker_postgres_walg_recover_user_rename_after` | `''` |
+| `docker_postgres_walg_recover_user_rename_password` | `''` |
+| `docker_postgres_walg_recover_reassign_users` | `[]` |
 
 ## Usage
 ```yaml
@@ -144,7 +157,7 @@ Recover from another WAL-G prefix:
 sudo /opt/toolbox/bin/dotenv /opt/postgres/postgres.env /opt/postgres/bin/walg_recover s3://<bucket>/<prefix> LATEST
 ```
 
-`walg_recover` is destructive at the PostgreSQL cluster level. It prints a 10-second countdown, stops the local `WALG_CONTAINER`, snapshots `WALG_DATA_VOLUME` into `WALG_SNAPSHOT_DIR`, clears the volume, fetches the requested WAL-G backup, writes a temporary PostgreSQL recovery command for the selected source prefix, starts PostgreSQL, waits for recovery, and removes the temporary recovery command after PostgreSQL leaves recovery.
+`walg_recover` is destructive at the PostgreSQL cluster level. It prints a 10-second countdown, stops the local `WALG_CONTAINER`, snapshots `WALG_DATA_VOLUME` into `WALG_SNAPSHOT_DIR`, clears the volume, fetches the requested WAL-G backup, writes a temporary PostgreSQL recovery command for the selected source prefix, starts PostgreSQL, waits for recovery, and removes the temporary recovery command after PostgreSQL leaves recovery. When `WALG_RECOVER_BASE_RENAME_*`, `WALG_RECOVER_USER_RENAME_*`, and `WALG_RECOVER_REASSIGN_USERS` are set, the script also reconciles the recovered database and role names after recovery.
 
 ## PostgreSQL Replica
 

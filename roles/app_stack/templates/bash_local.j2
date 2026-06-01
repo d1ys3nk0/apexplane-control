@@ -9,7 +9,7 @@ pg_run() {
     local pg_script="$3"
     local pg_status
 
-    sudo /usr/local/bin/dotenv "$HOME/postgres/${pg_env_name}.env" "$pg_script" 2>&1 | tee "$HOME/postgres/${pg_env_name}.${pg_action}.log"
+    sudo /opt/toolbox/bin/dotenv "$HOME/postgres/${pg_env_name}.env" "$pg_script" 2>&1 | tee "$HOME/postgres/${pg_env_name}.${pg_action}.log"
     pg_status="${PIPESTATUS[0]}"
     return "$pg_status"
 }

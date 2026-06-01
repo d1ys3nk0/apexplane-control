@@ -35,16 +35,27 @@
     label: "{{ item.name | default('<missing-name>', true) }}"
   when: app_stack_network_enabled | bool
 
-- name: Validate app stack backup S3 variables
+- name: Validate app stack PostgreSQL backup S3 variables
   ansible.builtin.assert:
     that:
-      - app_stack_backups_s3_bucket | string | length > 0
-      - app_stack_backups_s3_endpoint | string | length > 0
-      - app_stack_backups_s3_region | string | length > 0
-    fail_msg: Define app stack backup S3 bucket, endpoint, and region when S3 keys are set.
+      - app_stack_pg_backup_s3_bucket | string | length > 0
+      - app_stack_pg_backup_s3_endpoint | string | length > 0
+      - app_stack_pg_backup_s3_region | string | length > 0
+    fail_msg: Define app stack PostgreSQL backup S3 bucket, endpoint, and region when backup S3 keys are set.
   when:
     - app_stack_enabled | bool
-    - app_stack_backups_s3_enabled | bool
+    - app_stack_pg_backup_s3_enabled | bool
+
+- name: Validate app stack PostgreSQL recovery S3 variables
+  ansible.builtin.assert:
+    that:
+      - app_stack_pg_recover_s3_bucket | string | length > 0
+      - app_stack_pg_recover_s3_endpoint | string | length > 0
+      - app_stack_pg_recover_s3_region | string | length > 0
+    fail_msg: Define app stack PostgreSQL recovery S3 bucket, endpoint, and region when recovery S3 keys are set.
+  when:
+    - app_stack_enabled | bool
+    - app_stack_pg_recover_s3_enabled | bool
 
 - name: Validate app stack extra PostgreSQL env definitions
   ansible.builtin.assert:

@@ -46,6 +46,7 @@ PostgreSQL container.
 Required environment:
   WALG_BACKUP_S3_ENDPOINT
   WALG_BACKUP_S3_REGION
+  WALG_BACKUP_S3_BUCKET
   WALG_BACKUP_S3_PREFIX
   WALG_BACKUP_S3_ACCESS_KEY
   WALG_BACKUP_S3_SECRET_KEY
@@ -86,9 +87,14 @@ init_config() {
     require_vars \
         "WALG_BACKUP_S3_ENDPOINT" \
         "WALG_BACKUP_S3_REGION" \
+        "WALG_BACKUP_S3_BUCKET" \
         "WALG_BACKUP_S3_PREFIX" \
         "WALG_BACKUP_S3_ACCESS_KEY" \
         "WALG_BACKUP_S3_SECRET_KEY"
+
+    if [[ "${WALG_BACKUP_S3_PREFIX}" != s3://* ]]; then
+        WALG_BACKUP_S3_PREFIX="s3://${WALG_BACKUP_S3_BUCKET}/${WALG_BACKUP_S3_PREFIX#/}"
+    fi
 }
 
 init_timestamps() {

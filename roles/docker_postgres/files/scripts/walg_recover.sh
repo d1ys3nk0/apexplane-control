@@ -66,6 +66,7 @@ single database restore.
 Required environment:
   WALG_RECOVER_S3_ENDPOINT
   WALG_RECOVER_S3_REGION
+  WALG_RECOVER_S3_BUCKET
   WALG_RECOVER_S3_PREFIX
   WALG_RECOVER_S3_ACCESS_KEY
   WALG_RECOVER_S3_SECRET_KEY
@@ -82,6 +83,12 @@ Optional environment:
   WALG_RECOVER_START=true|false
   WALG_RECOVER_WAIT=true|false
   WALG_RECOVER_WAIT_SECONDS=3600
+  WALG_RECOVER_BASE_RENAME_BEFORE=<old-database-name>
+  WALG_RECOVER_BASE_RENAME_AFTER=<new-database-name>
+  WALG_RECOVER_USER_RENAME_BEFORE=<old-role-name>
+  WALG_RECOVER_USER_RENAME_AFTER=<new-role-name>
+  WALG_RECOVER_USER_RENAME_PASSWORD=<new-role-password>
+  WALG_RECOVER_REASSIGN_USERS="<source-role-a> <source-role-b>"
 
 Examples:
   dotenv /opt/postgres/postgres.env /opt/postgres/bin/walg_recover
@@ -105,6 +112,13 @@ init_config() {
     WALG_RECOVER_START="${WALG_RECOVER_START:-true}"
     WALG_RECOVER_WAIT="${WALG_RECOVER_WAIT:-true}"
     WALG_RECOVER_WAIT_SECONDS="${WALG_RECOVER_WAIT_SECONDS:-3600}"
+    WALG_RECOVER_S3_BUCKET="${WALG_RECOVER_S3_BUCKET:-}"
+    WALG_RECOVER_BASE_RENAME_BEFORE="${WALG_RECOVER_BASE_RENAME_BEFORE:-}"
+    WALG_RECOVER_BASE_RENAME_AFTER="${WALG_RECOVER_BASE_RENAME_AFTER:-}"
+    WALG_RECOVER_USER_RENAME_BEFORE="${WALG_RECOVER_USER_RENAME_BEFORE:-}"
+    WALG_RECOVER_USER_RENAME_AFTER="${WALG_RECOVER_USER_RENAME_AFTER:-}"
+    WALG_RECOVER_USER_RENAME_PASSWORD="${WALG_RECOVER_USER_RENAME_PASSWORD:-}"
+    WALG_RECOVER_REASSIGN_USERS="${WALG_RECOVER_REASSIGN_USERS:-}"
 
     if [ "$#" -ge 1 ]; then
         if [[ "$1" == s3://* ]]; then
@@ -120,6 +134,7 @@ init_config() {
     require_vars \
         "WALG_RECOVER_S3_ENDPOINT" \
         "WALG_RECOVER_S3_REGION" \
+        "WALG_RECOVER_S3_BUCKET" \
         "WALG_RECOVER_S3_PREFIX" \
         "WALG_RECOVER_S3_ACCESS_KEY" \
         "WALG_RECOVER_S3_SECRET_KEY"
@@ -127,6 +142,24 @@ init_config() {
     is_true "${WALG_RECOVER_NO_SNAPSHOT}" WALG_RECOVER_NO_SNAPSHOT || true
     is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || true
     is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT || true
+
+    if [[ "${WALG_RECOVER_S3_PREFIX}" != s3://* ]]; then
+        WALG_RECOVER_S3_PREFIX="s3://${WALG_RECOVER_S3_BUCKET}/${WALG_RECOVER_S3_PREFIX#/}"
+    fi
+    if [ -n "${WALG_RECOVER_BASE_RENAME_BEFORE}" ] || [ -n "${WALG_RECOVER_BASE_RENAME_AFTER}" ]; then
+        require_vars "WALG_RECOVER_BASE_RENAME_BEFORE" "WALG_RECOVER_BASE_RENAME_AFTER"
+    fi
+    if [ -n "${WALG_RECOVER_USER_RENAME_BEFORE}" ] || [ -n "${WALG_RECOVER_USER_RENAME_AFTER}" ]; then
+        require_vars "WALG_RECOVER_USER_RENAME_BEFORE" "WALG_RECOVER_USER_RENAME_AFTER"
+    fi
+    if [ -n "${WALG_RECOVER_REASSIGN_USERS}" ]; then
+        require_vars "WALG_RECOVER_USER_RENAME_AFTER" "WALG_RECOVER_BASE_RENAME_AFTER"
+    fi
+    if [ -n "${WALG_RECOVER_BASE_RENAME_BEFORE}${WALG_RECOVER_USER_RENAME_BEFORE}${WALG_RECOVER_REASSIGN_USERS}" ]; then
+        if ! is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || ! is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT; then
+            error "WAL-G recovery rename/reassign requires WALG_RECOVER_START=true and WALG_RECOVER_WAIT=true"
+        fi
+    fi
 
     WALG_IMAGE="${WALG_IMAGE:-$(docker inspect "${WALG_CONTAINER}" --format '{{.Config.Image}}')}"
     RECOVER_SCRIPT="${WALG_CONFIG_DIR}/walg_recover.sh"
@@ -282,6 +315,180 @@ cleanup_recover_config() {
     docker exec "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d postgres -c "SELECT pg_reload_conf()"
 }
 
+psql_postgres() {
+    docker exec -i "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d postgres -v ON_ERROR_STOP=1 "$@"
+}
+
+psql_database() {
+    local database="$1"
+    shift
+
+    docker exec -i "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d "${database}" -v ON_ERROR_STOP=1 "$@"
+}
+
+reconcile_database_name() {
+    if [ -z "${WALG_RECOVER_BASE_RENAME_BEFORE}" ]; then
+        return
+    fi
+
+    info "Reconciling recovered database ${WALG_RECOVER_BASE_RENAME_BEFORE} to ${WALG_RECOVER_BASE_RENAME_AFTER}"
+    psql_postgres \
+        -v "source_db=${WALG_RECOVER_BASE_RENAME_BEFORE}" \
+        -v "target_db=${WALG_RECOVER_BASE_RENAME_AFTER}" <<'SQL'
+SELECT format('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %L AND pid <> pg_backend_pid()', :'source_db')
+WHERE :'source_db' <> :'target_db'
+  AND EXISTS (SELECT 1 FROM pg_database WHERE datname = :'source_db')
+  AND NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'target_db')
+\gexec
+
+SELECT format('ALTER DATABASE %I RENAME TO %I', :'source_db', :'target_db')
+WHERE :'source_db' <> :'target_db'
+  AND EXISTS (SELECT 1 FROM pg_database WHERE datname = :'source_db')
+  AND NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'target_db')
+\gexec
+
+SELECT format(
+    'DO $do$ BEGIN RAISE EXCEPTION %L; END $do$',
+    format('Both source database "%s" and target database "%s" exist', :'source_db', :'target_db')
+)
+WHERE :'source_db' <> :'target_db'
+  AND EXISTS (SELECT 1 FROM pg_database WHERE datname = :'source_db')
+  AND EXISTS (SELECT 1 FROM pg_database WHERE datname = :'target_db')
+\gexec
+
+SELECT format(
+    'DO $do$ BEGIN RAISE EXCEPTION %L; END $do$',
+    format('Neither source database "%s" nor target database "%s" exists', :'source_db', :'target_db')
+)
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname IN (:'source_db', :'target_db'))
+\gexec
+SQL
+}
+
+reconcile_role_name() {
+    local password_b64
+
+    if [ -z "${WALG_RECOVER_USER_RENAME_AFTER}" ]; then
+        return
+    fi
+
+    password_b64="$(printf '%s' "${WALG_RECOVER_USER_RENAME_PASSWORD}" | base64 | tr -d '\n')"
+    info "Reconciling recovered role ${WALG_RECOVER_USER_RENAME_AFTER}"
+    psql_postgres \
+        -v "source_user=${WALG_RECOVER_USER_RENAME_BEFORE}" \
+        -v "target_user=${WALG_RECOVER_USER_RENAME_AFTER}" \
+        -v "target_pass_b64=${password_b64}" <<'SQL'
+SELECT format('ALTER ROLE %I RENAME TO %I', :'source_user', :'target_user')
+WHERE :'source_user' <> ''
+  AND :'source_user' <> :'target_user'
+  AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'source_user')
+  AND NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'target_user')
+\gexec
+
+SELECT format(
+    'DO $do$ BEGIN RAISE EXCEPTION %L; END $do$',
+    format('Both source role "%s" and target role "%s" exist', :'source_user', :'target_user')
+)
+WHERE :'source_user' <> ''
+  AND :'source_user' <> :'target_user'
+  AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'source_user')
+  AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'target_user')
+\gexec
+
+SELECT format('CREATE ROLE %I LOGIN CREATEDB', :'target_user')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'target_user')
+  AND :'target_pass_b64' <> ''
+\gexec
+
+SELECT format(
+    'DO $do$ BEGIN RAISE EXCEPTION %L; END $do$',
+    format('Target role "%s" does not exist and WALG_RECOVER_USER_RENAME_PASSWORD is empty', :'target_user')
+)
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'target_user')
+  AND :'target_pass_b64' = ''
+\gexec
+
+SELECT format(
+    'ALTER ROLE %I LOGIN CREATEDB PASSWORD %L',
+    :'target_user',
+    convert_from(decode(:'target_pass_b64', 'base64'), 'UTF8')
+)
+WHERE :'target_pass_b64' <> ''
+\gexec
+SQL
+}
+
+reassign_database_objects() {
+    local target_db="${WALG_RECOVER_BASE_RENAME_AFTER:-${WALG_RECOVER_BASE_RENAME_BEFORE}}"
+
+    if [ -z "${target_db}" ] || [ -z "${WALG_RECOVER_USER_RENAME_AFTER}" ]; then
+        return
+    fi
+
+    info "Reconciling ownership and grants in database ${target_db}"
+    psql_postgres \
+        -v "target_db=${target_db}" \
+        -v "target_user=${WALG_RECOVER_USER_RENAME_AFTER}" <<'SQL'
+SELECT format('ALTER DATABASE %I OWNER TO %I', :'target_db', :'target_user')
+WHERE EXISTS (SELECT 1 FROM pg_database WHERE datname = :'target_db')
+\gexec
+SQL
+
+    psql_database "${target_db}" \
+        -v "target_user=${WALG_RECOVER_USER_RENAME_AFTER}" \
+        -v "reassign_users=${WALG_RECOVER_REASSIGN_USERS}" <<'SQL'
+SELECT format('REASSIGN OWNED BY %I TO %I', source_user, :'target_user')
+FROM unnest(string_to_array(:'reassign_users', ' ')) AS source_user
+WHERE source_user <> ''
+  AND source_user <> :'target_user'
+  AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = source_user)
+\gexec
+
+SELECT format('ALTER SCHEMA public OWNER TO %I', :'target_user')
+WHERE EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'public')
+\gexec
+
+SELECT format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', current_database(), :'target_user')
+\gexec
+
+WITH user_schemas AS (
+    SELECT nspname
+    FROM pg_namespace
+    WHERE nspname != 'information_schema'
+      AND nspname NOT LIKE 'pg_%'
+)
+SELECT format('GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %I TO %I', nspname, :'target_user')
+FROM user_schemas
+\gexec
+
+WITH user_schemas AS (
+    SELECT nspname
+    FROM pg_namespace
+    WHERE nspname != 'information_schema'
+      AND nspname NOT LIKE 'pg_%'
+)
+SELECT format('GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA %I TO %I', nspname, :'target_user')
+FROM user_schemas
+\gexec
+
+WITH user_schemas AS (
+    SELECT nspname
+    FROM pg_namespace
+    WHERE nspname != 'information_schema'
+      AND nspname NOT LIKE 'pg_%'
+)
+SELECT format('GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA %I TO %I', nspname, :'target_user')
+FROM user_schemas
+\gexec
+SQL
+}
+
+reconcile_recovered_cluster() {
+    reconcile_database_name
+    reconcile_role_name
+    reassign_database_objects
+}
+
 finish() {
     info "Finished in $((SECONDS - SCRIPT_START_SECONDS))s"
 }
@@ -300,6 +507,7 @@ main() {
     start_postgres
     wait_for_recovery
     cleanup_recover_config
+    reconcile_recovered_cluster
     finish
 }
 
