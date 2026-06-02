@@ -7,11 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-ARG WALG_VERSION
+ARG WALG_BINARY_URL
 RUN set -ex \
-    && curl -fsSL "https://github.com/wal-g/wal-g/releases/download/v${WALG_VERSION}/wal-g-pg-ubuntu-24.04-$(dpkg --print-architecture).tar.gz" \
-    | tar xzf - -C /usr/local/bin/ \
-    && mv /usr/local/bin/wal-g-pg-ubuntu-24.04-$(dpkg --print-architecture) /usr/local/bin/wal-g \
+    && curl -fsSL "${WALG_BINARY_URL}" -o /usr/local/bin/wal-g \
     && chmod +x /usr/local/bin/wal-g
 
 ENV WALG_COMPRESSION_METHOD=brotli

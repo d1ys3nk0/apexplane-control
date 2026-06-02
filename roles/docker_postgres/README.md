@@ -4,8 +4,8 @@ This role runs PostgreSQL in a standalone Docker container with optional WAL-G a
 
 ## Features
 - Run standalone PostgreSQL DR action.
-- Set up vanilla PostgreSQL when `docker_postgres_walg_version` is empty.
-- Set up PostgreSQL with WAL-G when `docker_postgres_walg_version` is set.
+- Set up vanilla PostgreSQL when `docker_postgres_walg_binary_url` is empty.
+- Set up PostgreSQL with WAL-G when `docker_postgres_walg_binary_url` is set.
 - Install shared PostgreSQL directories, configs, dotenv, history, and Docker volume.
 - Install WAL-G executables and build the WAL-G image only for the WAL-G setup path.
 - Restore PostgreSQL replica from active leader.
@@ -32,7 +32,7 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_nolog` | `<derived>` |
 | `docker_postgres_dr_action` | `none` |
 | `docker_postgres_dr_mode` | `false` |
-| `docker_postgres_max_wal_size` | `8GB` |
+| `docker_postgres_max_wal_size` | `4GB` |
 | `docker_postgres_mem_res` | `1000M` |
 | `docker_postgres_mem_lim` | `1500M` |
 | `docker_postgres_mem_swp` | `2000M` |
@@ -50,7 +50,7 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_utility_image_name` | `busybox` |
 | `docker_postgres_utility_image_tag` | `1.37.0` |
 | `docker_postgres_utility_image_full` | `<derived>` |
-| `docker_postgres_walg_version` | `''` |
+| `docker_postgres_walg_binary_url` | `''` |
 | `docker_postgres_walg_enabled` | `<derived>` |
 | `docker_postgres_walg_backup_s3_endpoint` | `''` |
 | `docker_postgres_walg_backup_s3_region` | `''` |

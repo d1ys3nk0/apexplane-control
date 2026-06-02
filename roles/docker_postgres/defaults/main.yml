@@ -35,8 +35,8 @@ docker_postgres_utility_image_tag: 1.37.0
 docker_postgres_utility_image_full: '{{ docker_postgres_utility_image_name }}:{{ docker_postgres_utility_image_tag }}'
 
 # WAL-G
-docker_postgres_walg_version: ''
-docker_postgres_walg_enabled: "{{ docker_postgres_walg_version | string | length > 0 }}"
+docker_postgres_walg_binary_url: ''
+docker_postgres_walg_enabled: "{{ docker_postgres_walg_binary_url | string | length > 0 }}"
 
 # WAL-G Backup
 docker_postgres_walg_backup_s3_endpoint: ''

@@ -41,7 +41,7 @@
       dockerfile: Dockerfile
       args:
         POSTGRES_IMAGE: '{{ docker_postgres_image_full }}'
-        WALG_VERSION: '{{ docker_postgres_walg_version }}'
+        WALG_BINARY_URL: '{{ docker_postgres_walg_binary_url }}'
 
 - name: Start PostgreSQL WAL-G container
   community.docker.docker_container:
