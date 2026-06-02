@@ -36,21 +36,18 @@ require_vars() {
     done
 }
 
-inspect_container_env() {
-    local format
-
-    format='{''{range .Config.Env}''}''{''{println .}''}''{''{end}''}'
-    docker inspect "${WALG_CONTAINER}" --format "${format}" | awk -F= -v key="$1" '$1 == key {print substr($0, length(key) + 2); exit}'
-}
-
 usage() {
     cat >&2 <<'USAGE'
 Usage: walg_backup
 
-Creates a physical PostgreSQL cluster backup with WAL-G from the local Docker
-PostgreSQL container.
+Creates a physical PostgreSQL cluster backup with WAL-G from a standalone
+Docker container that mounts the configured PostgreSQL data volume.
 
 Required environment:
+  WALG_IMAGE
+  WALG_DATA_VOLUME
+  WALG_DATA_ROOT
+  WALG_DATA_DIR
   WALG_BACKUP_S3_ENDPOINT
   WALG_BACKUP_S3_REGION
   WALG_BACKUP_S3_BUCKET
@@ -59,10 +56,14 @@ Required environment:
   WALG_BACKUP_S3_SECRET_KEY
 
 Optional environment:
-  WALG_CONTAINER=postgres
-  WALG_DATA_DIR=<container PGDATA>
-  WALG_PGHOST=/var/run/postgresql
-  WALG_PGUSER=admin
+  PG_HOST=127.0.0.1
+  PG_PORT=5432
+  PG_USER=admin
+  PG_PASS=<postgres-password>
+  WALG_PGHOST=<PG_HOST>
+  WALG_PGPORT=<PG_PORT>
+  WALG_PGUSER=<PG_USER>
+  WALG_PGPASSWORD=<PG_PASS>
   WALG_DELTA_ORIGIN=LATEST
   WALG_DELTA_MAX_STEPS=24
   WALG_COMPRESSION_METHOD=brotli
@@ -80,13 +81,14 @@ init_config() {
         usage_error "Expected 0 arguments, got $#"
     fi
 
-    WALG_CONTAINER="${WALG_CONTAINER:-postgres}"
-    WALG_DATA_DIR="${WALG_DATA_DIR:-$(inspect_container_env PGDATA)}"
-    if [ -z "${WALG_DATA_DIR}" ]; then
-        error "Cannot determine PostgreSQL data directory from WALG_DATA_DIR or container ${WALG_CONTAINER} PGDATA"
-    fi
-    WALG_PGHOST="${WALG_PGHOST:-/var/run/postgresql}"
-    WALG_PGUSER="${WALG_PGUSER:-admin}"
+    PG_HOST="${PG_HOST:-127.0.0.1}"
+    PG_PORT="${PG_PORT:-5432}"
+    PG_USER="${PG_USER:-admin}"
+    PG_PASS="${PG_PASS:-}"
+    WALG_PGHOST="${WALG_PGHOST:-${PG_HOST}}"
+    WALG_PGPORT="${WALG_PGPORT:-${PG_PORT}}"
+    WALG_PGUSER="${WALG_PGUSER:-${PG_USER}}"
+    WALG_PGPASSWORD="${WALG_PGPASSWORD:-${PG_PASS}}"
     WALG_DELTA_ORIGIN="${WALG_DELTA_ORIGIN:-LATEST}"
     WALG_DELTA_MAX_STEPS="${WALG_DELTA_MAX_STEPS:-24}"
     WALG_COMPRESSION_METHOD="${WALG_COMPRESSION_METHOD:-brotli}"
@@ -95,6 +97,10 @@ init_config() {
     WALG_UPLOAD_DISK_CONCURRENCY="${WALG_UPLOAD_DISK_CONCURRENCY:-1}"
 
     require_vars \
+        "WALG_IMAGE" \
+        "WALG_DATA_VOLUME" \
+        "WALG_DATA_ROOT" \
+        "WALG_DATA_DIR" \
         "WALG_BACKUP_S3_ENDPOINT" \
         "WALG_BACKUP_S3_REGION" \
         "WALG_BACKUP_S3_BUCKET" \
@@ -113,10 +119,15 @@ init_timestamps() {
 }
 
 create_backup() {
-    info "Creating WAL-G backup from ${WALG_CONTAINER}:${WALG_DATA_DIR} to ${WALG_BACKUP_S3_PREFIX}"
-    docker exec \
+    info "Creating WAL-G backup from Docker volume ${WALG_DATA_VOLUME}:${WALG_DATA_DIR} to ${WALG_BACKUP_S3_PREFIX}"
+    docker run --rm \
+        --network host \
+        --user postgres \
+        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}:ro" \
         -e "PGHOST=${WALG_PGHOST}" \
+        -e "PGPORT=${WALG_PGPORT}" \
         -e "PGUSER=${WALG_PGUSER}" \
+        -e "PGPASSWORD=${WALG_PGPASSWORD}" \
         -e "AWS_ENDPOINT=${WALG_BACKUP_S3_ENDPOINT}" \
         -e "AWS_REGION=${WALG_BACKUP_S3_REGION}" \
         -e "AWS_ACCESS_KEY_ID=${WALG_BACKUP_S3_ACCESS_KEY}" \
@@ -128,7 +139,7 @@ create_backup() {
         -e "WALG_COMPRESSION_LEVEL=${WALG_COMPRESSION_LEVEL}" \
         -e "WALG_DISK_RATE_LIMIT=${WALG_DISK_RATE_LIMIT}" \
         -e "WALG_UPLOAD_DISK_CONCURRENCY=${WALG_UPLOAD_DISK_CONCURRENCY}" \
-        "${WALG_CONTAINER}" \
+        "${WALG_IMAGE}" \
         /usr/local/bin/wal-g backup-push "${WALG_DATA_DIR}"
 }
 
