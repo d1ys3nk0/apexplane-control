@@ -18,7 +18,6 @@
       - runtime_pg_recover_exclude_extensions is string
       - runtime_pg_recover_no_prepare is boolean
       - runtime_pg_recover_no_recreate is boolean
-      - runtime_postgres_backup_sudoers_enabled is boolean
     fail_msg: Define runtime app, realm, and PostgreSQL variables.
   when: runtime_enabled | bool or runtime_network_enabled | bool
 
@@ -79,7 +78,7 @@
       - item.recover_s3_prefix_template is not defined or item.recover_s3_prefix_template | length > 0
       - item.backup is not defined or item.backup is boolean
       - item.provision is not defined or item.provision is boolean
-    fail_msg: Each enabled runtime PostgreSQL base must define app, base, user, and pass.
+    fail_msg: Each runtime PostgreSQL base must define app, base, user, and pass.
   loop: '{{ runtime_pg_base_items }}'
   loop_control:
     label: "{{ item.base | default('<missing-base>', true) }}"

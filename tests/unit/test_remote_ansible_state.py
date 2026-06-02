@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_PATH = REPO_ROOT / "toolkit" / "runtime" / "scripts" / "remote_ansible_state.py"
+SCRIPT_PATH = REPO_ROOT / "toolkit" / "scripts" / "remote_ansible_state.py"
 FILE_MODE_MASK = 0o777
 STATE_FILE_MODE = 0o600
 

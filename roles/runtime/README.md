@@ -8,8 +8,6 @@ This role prepares application runtime host resources, secret JSON files, and ap
 - Render resolved service secret mappings to `/home/<app>/secrets/<realm>_<env>_<service>.json`.
 - Render resolved PostgreSQL base mappings to `/home/<app>/postgres/<base>.env`.
 - Create PostgreSQL users and databases from resolved PostgreSQL base mappings when admin credentials are available.
-- Create app-owned PostgreSQL backup and recovery shell shortcuts.
-- Optionally install PostgreSQL backup and recovery sudoers rules.
 
 ## Configuration
 Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_bases`, `runtime_cluster_realm`, and `runtime_pg_host`.
@@ -45,10 +43,8 @@ Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_
 | `runtime_pg_recover_s3_prefix_template` | `'postgres/{pg_base}'` |
 | `runtime_pg_recover_s3_access_key` | `''` |
 | `runtime_pg_recover_s3_secret_key` | `''` |
-| `runtime_postgres_backup_sudoers_enabled` | `false` |
-| `runtime_postgres_backup_sudoers_path` | `''` |
 
-`runtime_apps` entries define app accounts, environments, and resolved per-service secret mappings. `runtime_pg_bases` entries define resolved application PostgreSQL env files and optional provisioning inputs; enabled entries must define `app`, `base`, `user`, and `pass`.
+`runtime_apps` entries define app accounts, environments, and resolved per-service secret mappings. `runtime_pg_bases` entries define resolved application PostgreSQL env files and optional provisioning inputs; each entry must define `app`, `base`, `user`, and `pass`.
 
 ## Usage
 

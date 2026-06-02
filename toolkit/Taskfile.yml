@@ -9,27 +9,27 @@ tasks:
   run:
     desc: Run an Ansible playbook or command through the ApexPlane Control wrapper
     cmds:
-      - bash '{{.APEXPLANE_TOOLKIT_DIR}}/runtime/bin/run' {{.CLI_ARGS}}
+      - bash '{{.APEXPLANE_TOOLKIT_DIR}}/bin/run' {{.CLI_ARGS}}
 
   migrate:
     desc: Run the ApexPlane Control migration wrapper
     cmds:
-      - bash '{{.APEXPLANE_TOOLKIT_DIR}}/runtime/bin/migrate' {{.CLI_ARGS}}
+      - bash '{{.APEXPLANE_TOOLKIT_DIR}}/bin/migrate' {{.CLI_ARGS}}
 
   bootstrap:
     desc: Run the ApexPlane Control bootstrap helper
     cmds:
-      - bash '{{.APEXPLANE_TOOLKIT_DIR}}/runtime/scripts/bootstrap.sh' {{.CLI_ARGS}}
+      - bash '{{.APEXPLANE_TOOLKIT_DIR}}/scripts/bootstrap.sh' {{.CLI_ARGS}}
 
   vault:check:
     desc: Check that vault files are encrypted
     cmds:
-      - sh '{{.APEXPLANE_TOOLKIT_DIR}}/runtime/scripts/ansible-vlint.sh' --check {{.CLI_ARGS}}
+      - sh '{{.APEXPLANE_TOOLKIT_DIR}}/scripts/ansible-vlint.sh' --check {{.CLI_ARGS}}
 
   vault:fix:
     desc: Encrypt unencrypted vault files
     cmds:
-      - sh '{{.APEXPLANE_TOOLKIT_DIR}}/runtime/scripts/ansible-vlint.sh' --fix {{.CLI_ARGS}}
+      - sh '{{.APEXPLANE_TOOLKIT_DIR}}/scripts/ansible-vlint.sh' --fix {{.CLI_ARGS}}
 
   structure:check:
     desc: Check repository structure and shared conventions expected by ApexPlane Control

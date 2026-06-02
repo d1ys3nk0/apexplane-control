@@ -8,7 +8,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOLKIT_ROOT = REPO_ROOT / "toolkit"
-RUNTIME_ROOT = TOOLKIT_ROOT / "runtime"
+BIN_ROOT = TOOLKIT_ROOT / "bin"
+SCRIPTS_ROOT = TOOLKIT_ROOT / "scripts"
 
 
 def bash_executable() -> str:
@@ -27,8 +28,8 @@ def write_runtime_fixture(tmp_path: Path, script_name: str) -> None:
     scripts_dir = tmp_path / "scripts"
     bin_dir.mkdir(parents=True)
     scripts_dir.mkdir(parents=True)
-    shutil.copy(RUNTIME_ROOT / "bin" / script_name, bin_dir / script_name)
-    shutil.copy(RUNTIME_ROOT / "scripts/remote_ansible_state.py", scripts_dir / "remote_ansible_state.py")
+    shutil.copy(BIN_ROOT / script_name, bin_dir / script_name)
+    shutil.copy(SCRIPTS_ROOT / "remote_ansible_state.py", scripts_dir / "remote_ansible_state.py")
 
 
 def write_fake_uv(tmp_path: Path) -> None:
@@ -129,10 +130,10 @@ def test_toolkit_taskfile_exposes_runtime_tasks() -> None:
     for task_name in ("run:", "migrate:", "bootstrap:", "vault:check:", "vault:fix:", "structure:check:"):
         assert f"  {task_name}" in taskfile
 
-    assert "runtime/bin/run" in taskfile
-    assert "runtime/bin/migrate" in taskfile
-    assert "runtime/scripts/bootstrap.sh" in taskfile
-    assert "runtime/scripts/ansible-vlint.sh" in taskfile
+    assert "bin/run" in taskfile
+    assert "bin/migrate" in taskfile
+    assert "scripts/bootstrap.sh" in taskfile
+    assert "scripts/ansible-vlint.sh" in taskfile
     assert "check_repo_sync.py' structure-check" in taskfile
 
 
@@ -414,7 +415,7 @@ def test_runtime_migrate_dry_mode_runs_pending_migrations_in_check_mode(tmp_path
 
 
 def test_bootstrap_uses_target_working_directory_for_inventory() -> None:
-    bootstrap_script = (RUNTIME_ROOT / "scripts/bootstrap.sh").read_text(encoding="utf-8")
+    bootstrap_script = (SCRIPTS_ROOT / "bootstrap.sh").read_text(encoding="utf-8")
 
     assert 'PROJECT_ROOT="${PWD}"' in bootstrap_script
     assert 'prompt "SSH User" "root"' in bootstrap_script

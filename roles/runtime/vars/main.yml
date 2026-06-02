@@ -9,7 +9,7 @@ runtime_pg_provision_enabled: "{{ runtime_pg_admin_user | string | length > 0 an
 runtime_pg_backup_s3_enabled: "{{ runtime_pg_backup_s3_access_key | string | length > 0 and runtime_pg_backup_s3_secret_key | string | length > 0 }}"
 runtime_pg_recover_s3_enabled: "{{ runtime_pg_recover_s3_access_key | string | length > 0 and runtime_pg_recover_s3_secret_key | string | length > 0 }}"
 runtime_selected_apps: "{{ runtime_apps | default([], true) | selectattr('enabled', 'undefined') | list + runtime_apps | default([], true) | selectattr('enabled', 'defined') | selectattr('enabled') | list }}"
-runtime_pg_base_items: "{{ runtime_pg_bases | default([], true) | selectattr('enabled', 'undefined') | list + runtime_pg_bases | default([], true) | selectattr('enabled', 'defined') | selectattr('enabled') | list }}"
+runtime_pg_base_items: "{{ runtime_pg_bases | default([], true) }}"
 runtime_secret_items: >-
   {%- set items = [] -%}
   {%- for app in runtime_selected_apps -%}

@@ -1,0 +1,37 @@
+---
+
+- name: Create runtime PostgreSQL env directory
+  become: true
+  ansible.builtin.file:
+    path: /home/{{ item.name }}/postgres
+    state: directory
+    mode: '0750'
+    owner: '{{ item.name }}'
+    group: '{{ item.name }}'
+  loop: '{{ runtime_selected_apps }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: runtime_enabled | bool
+
+- name: Create runtime PostgreSQL client env files
+  become: true
+  vars:
+    pg_base: '{{ item.base }}'
+    pg_user: '{{ item.user }}'
+    pg_pass: '{{ item.pass }}'
+    pg_host: "{{ item.host | default(runtime_pg_host, true) }}"
+    pg_port: "{{ item.port | default(runtime_pg_port, true) }}"
+    pg_sslmode: "{{ item.sslmode | default(runtime_pg_sslmode, true) }}"
+    pg_base_suffix: "{{ item.base_suffix | default(item.base, true) }}"
+    pg_recover_s3_prefix_template: "{{ item.recover_s3_prefix_template | default(runtime_pg_recover_s3_prefix_template, true) }}"
+  ansible.builtin.template:
+    src: postgres.env.j2
+    dest: /home/{{ item.app }}/postgres/{{ pg_base }}.env
+    mode: '0600'
+    owner: '{{ item.app }}'
+    group: '{{ item.app }}'
+  no_log: '{{ runtime_nolog }}'
+  loop: '{{ runtime_pg_base_items }}'
+  loop_control:
+    label: "{{ item.base | default('<missing-base>', true) }}"
+  when: runtime_enabled | bool

@@ -11,7 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def test_main_task_includes_use_setup_prefix() -> None:
     errors: list[str] = []
     allowed_lifecycle_files = {"dr.yml", "validate.yml", "verify.yml", "{{ role_path }}/tasks/validate.yml"}
-    allowed_feature_files = {"docker.yml", "postgres.yml", "secrets.yml"}
+    allowed_feature_files = {"docker.yml", "postgres.yml", "postgres_env.yml", "postgres_provision.yml", "secrets.yml"}
 
     for main_path in sorted((REPO_ROOT / "roles").glob("*/tasks/main.yml")):
         tasks = yaml.safe_load(main_path.read_text(encoding="utf-8")) or []
