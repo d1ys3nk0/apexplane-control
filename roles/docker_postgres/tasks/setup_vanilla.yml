@@ -9,11 +9,11 @@
     env:
       POSTGRES_USER: '{{ docker_postgres_pg_admin_user }}'
       POSTGRES_PASSWORD: '{{ docker_postgres_pg_admin_pass }}'
-      PGDATABASE: postgres
       PGDATA: '{{ docker_postgres_data_dir }}'
+      PGDATABASE: postgres
+      PGUSER: '{{ docker_postgres_pg_admin_user }}'
       PGHOST: /var/run/postgresql
       PGPORT: '{{ docker_postgres_port | string }}'
-      PGUSER: '{{ docker_postgres_pg_admin_user }}'
     command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     restart_policy: unless-stopped
     shm_size: '{{ ((docker_postgres_mem_lim[:-1] | int) * 0.3) | int }}M'
@@ -30,7 +30,7 @@
       - '{{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }}'
     healthcheck:
       test: [CMD, pg_isready]
-      timeout: 2s
-      interval: 10s
-      start_period: 5s
+      timeout: 3s
+      interval: 30s
+      start_period: 30s
   no_log: '{{ docker_postgres_nolog }}'

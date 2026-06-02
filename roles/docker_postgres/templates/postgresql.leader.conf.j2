@@ -4,5 +4,5 @@
 # WAL-G
 archive_mode = on
 archive_timeout = 300s
-archive_command = '/usr/local/bin/wal-g wal-push "%p" 2>&1 | tee -a {{ docker_postgres_data_dir }}/walg_archive.log'
+archive_command = '/usr/local/bin/wal-g wal-push "%p" 2>&1 | tee -a /var/log/postgresql/walg_archive.log'
 {% endif %}
