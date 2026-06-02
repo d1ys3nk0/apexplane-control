@@ -51,8 +51,10 @@
     that:
       - app_stack_pg_recover_s3_bucket | string | length > 0
       - app_stack_pg_recover_s3_endpoint | string | length > 0
+      - app_stack_pg_recover_s3_prefix_template is string
+      - app_stack_pg_recover_s3_prefix_template | length > 0
       - app_stack_pg_recover_s3_region | string | length > 0
-    fail_msg: Define app stack PostgreSQL recovery S3 bucket, endpoint, and region when recovery S3 keys are set.
+    fail_msg: Define app stack PostgreSQL recovery S3 bucket, endpoint, prefix template, and region when recovery S3 keys are set.
   when:
     - app_stack_enabled | bool
     - app_stack_pg_recover_s3_enabled | bool

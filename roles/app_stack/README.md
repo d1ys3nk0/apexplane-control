@@ -47,6 +47,7 @@ Set these required inputs before applying the role: `app_stack_app_name`, `app_s
 | `app_stack_pg_recover_s3_endpoint` | `''` |
 | `app_stack_pg_recover_s3_region` | `''` |
 | `app_stack_pg_recover_s3_bucket` | `''` |
+| `app_stack_pg_recover_s3_prefix_template` | `'postgres/{pg_base}'` |
 | `app_stack_pg_recover_s3_access_key` | `''` |
 | `app_stack_pg_recover_s3_secret_key` | `''` |
 | `app_stack_extra_pg_envs` | `[]` |
