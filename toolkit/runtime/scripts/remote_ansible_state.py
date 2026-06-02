@@ -35,6 +35,11 @@ def read_state(state_path: Path) -> dict[str, Any]:
         value = state.get(key)
         if value is not None and not isinstance(value, str):
             raise SystemExit(f"Invalid remote Ansible state key {key}: expected string")
+    migrate_tags = state.get("migrate_tags")
+    if migrate_tags is not None and (
+        not isinstance(migrate_tags, list) or not all(isinstance(tag, str) for tag in migrate_tags)
+    ):
+        raise SystemExit("Invalid remote Ansible state key migrate_tags: expected list of strings")
     return state
 
 
@@ -54,10 +59,9 @@ def with_lock(lock_path: Path) -> TextIO:
 
 
 def emit(state: dict[str, Any]) -> None:
-    sys.stdout.write(
-        json.dumps({key: state.get(key, "") for key in ("migrate_tag", "locked_at", "locked_by")}, sort_keys=True)
-        + "\n"
-    )
+    payload = {key: state.get(key, "") for key in ("migrate_tag", "locked_at", "locked_by")}
+    payload["migrate_tags"] = state.get("migrate_tags", [])
+    sys.stdout.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
 def acquire(state_path: Path, lock_path: Path, locked_by: str) -> None:
@@ -98,9 +102,13 @@ def mark(state_path: Path, lock_path: Path, migrate_tag: str) -> None:
         current = state.get("migrate_tag", "")
         if not isinstance(current, str):
             raise SystemExit("Invalid remote Ansible state key migrate_tag: expected string")
-        if current < migrate_tag:
-            state["migrate_tag"] = migrate_tag
-            write_state(state_path, state)
+        migrate_tags = state.get("migrate_tags", [])
+        if not isinstance(migrate_tags, list) or not all(isinstance(tag, str) for tag in migrate_tags):
+            raise SystemExit("Invalid remote Ansible state key migrate_tags: expected list of strings")
+        next_tags = sorted({*migrate_tags, migrate_tag})
+        state["migrate_tags"] = next_tags
+        state["migrate_tag"] = max([current, *next_tags])
+        write_state(state_path, state)
         emit(state)
 
 

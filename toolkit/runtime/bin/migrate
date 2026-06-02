@@ -304,10 +304,46 @@ for host in hosts:
     state = states.get(host, {})
     if not isinstance(state, dict):
         raise SystemExit(f"Invalid remote Ansible state for {host}: expected object")
-    applied = state.get("migrate_tag", "")
-    if not isinstance(applied, str):
+    migrate_tags = state.get("migrate_tags")
+    if migrate_tags is not None:
+        if not isinstance(migrate_tags, list) or not all(isinstance(tag, str) for tag in migrate_tags):
+            raise SystemExit(f"Invalid remote Ansible migrate_tags for {host}: expected list of strings")
+        if migration_tag not in migrate_tags:
+            print(host)
+        continue
+    legacy_tag = state.get("migrate_tag", "")
+    if not isinstance(legacy_tag, str):
         raise SystemExit(f"Invalid remote Ansible migrate_tag for {host}: expected string")
-    if applied < migration_tag:
+    if legacy_tag < migration_tag:
+        print(host)
+' "${migration_tag}" "$@"
+}
+
+remote_migration_legacy_hosts() {
+    local migration_tag="$1"
+    shift
+
+    uv run python -c '
+import json
+import sys
+
+migration_tag = sys.argv[1]
+hosts = sys.argv[2:]
+states = json.loads(sys.stdin.read())
+
+for host in hosts:
+    state = states.get(host, {})
+    if not isinstance(state, dict):
+        raise SystemExit(f"Invalid remote Ansible state for {host}: expected object")
+    migrate_tags = state.get("migrate_tags")
+    if migrate_tags is not None:
+        if not isinstance(migrate_tags, list) or not all(isinstance(tag, str) for tag in migrate_tags):
+            raise SystemExit(f"Invalid remote Ansible migrate_tags for {host}: expected list of strings")
+        continue
+    legacy_tag = state.get("migrate_tag", "")
+    if not isinstance(legacy_tag, str):
+        raise SystemExit(f"Invalid remote Ansible migrate_tag for {host}: expected string")
+    if legacy_tag >= migration_tag:
         print(host)
 ' "${migration_tag}" "$@"
 }
@@ -325,6 +361,7 @@ apply_scope() {
     local migration_path
     local migration_name
     local migration_tag
+    local legacy_hosts=()
     local pending_hosts=()
     local pending_limit
     local remote_state_targets
@@ -384,6 +421,18 @@ apply_scope() {
             exit 1
         fi
         migration_tag="${BASH_REMATCH[1]}"
+
+        if [[ "${DRY:-1}" =~ ^(0|false)$ ]]; then
+            legacy_hosts=()
+            while IFS= read -r host; do
+                legacy_hosts+=("${host}")
+            done < <(printf '%s\n' "${remote_states_json}" | remote_migration_legacy_hosts "${migration_tag}" "${target_host_list[@]}")
+            if [ "${#legacy_hosts[@]}" -gt 0 ]; then
+                printf -v pending_limit '%s,' "${legacy_hosts[@]}"
+                migration_mark_applied "${migration_tag}" "${pending_limit}"
+                remote_states_json="$(remote_state_json "${REMOTE_LOCK_TARGETS}")"
+            fi
+        fi
 
         pending_hosts=()
         while IFS= read -r host; do
@@ -494,6 +543,20 @@ for host, value in remote_states.items():
     migrate_tag = value.get("migrate_tag", "")
     if not isinstance(migrate_tag, str):
         raise SystemExit(f"Invalid remote Ansible migrate_tag for {host}: expected string")
+    migrate_tags = value.get("migrate_tags")
+    if migrate_tags is not None:
+        if not isinstance(migrate_tags, list) or not all(isinstance(tag, str) for tag in migrate_tags):
+            raise SystemExit(f"Invalid remote Ansible migrate_tags for {host}: expected list of strings")
+
+
+def migration_is_applied(state: object, migration_tag: str) -> bool:
+    if not isinstance(state, dict):
+        return False
+    migrate_tags = state.get("migrate_tags")
+    if migrate_tags is not None:
+        return isinstance(migrate_tags, list) and migration_tag in migrate_tags
+    migrate_tag = state.get("migrate_tag", "")
+    return isinstance(migrate_tag, str) and migrate_tag >= migration_tag
 
 
 def walk_groups(group: object, groups: dict[str, object]) -> None:
@@ -555,7 +618,7 @@ for migration_path in sorted(Path("playbooks").glob("*/_*.yml")):
         raise SystemExit(f"Invalid migration playbook name: {migration_path}")
     migration_tag = match.group(1)
     hosts = hosts_by_cluster.get(cluster, set())
-    if hosts and all(remote_states.get(host, {}).get("migrate_tag", "") >= migration_tag for host in hosts):
+    if hosts and all(migration_is_applied(remote_states.get(host, {}), migration_tag) for host in hosts):
         print(migration_path)
 PY
     )

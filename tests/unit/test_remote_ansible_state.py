@@ -5,7 +5,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -33,7 +33,7 @@ def load_remote_state_module() -> ModuleType:
 remote_state = load_remote_state_module()
 
 
-def emitted_state(callable_: Callable[..., None], *args: object) -> dict[str, str]:
+def emitted_state(callable_: Callable[..., None], *args: object) -> dict[str, Any]:
     stdout = io.StringIO()
     with contextlib.redirect_stdout(stdout):
         callable_(*args)
@@ -41,7 +41,7 @@ def emitted_state(callable_: Callable[..., None], *args: object) -> dict[str, st
     assert output.endswith("\n")
     data = json.loads(output)
     assert isinstance(data, dict)
-    assert all(isinstance(key, str) and isinstance(value, str) for key, value in data.items())
+    assert all(isinstance(key, str) for key in data)
     return data
 
 
@@ -73,6 +73,21 @@ def test_read_state_rejects_invalid_key_type(tmp_path: Path) -> None:
         remote_state.read_state(state_path)
 
 
+def test_read_state_rejects_invalid_migration_tag_list(tmp_path: Path) -> None:
+    state_path = tmp_path / "state.json"
+    state_path.write_text('{"migrate_tags": "260601120000"}', encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="Invalid remote Ansible state key migrate_tags"):
+        remote_state.read_state(state_path)
+
+
+def test_read_state_accepts_legacy_migration_tag_only(tmp_path: Path) -> None:
+    state_path = tmp_path / "state.json"
+    state_path.write_text('{"migrate_tag": "260601120000"}', encoding="utf-8")
+
+    assert remote_state.read_state(state_path) == {"migrate_tag": "260601120000"}
+
+
 def test_acquire_writes_utc_lock_and_release_clears_it(tmp_path: Path) -> None:
     state_path = tmp_path / "state/state.json"
     lock_path = tmp_path / "lock/state.lock"
@@ -91,18 +106,25 @@ def test_acquire_writes_utc_lock_and_release_clears_it(tmp_path: Path) -> None:
     assert released["locked_by"] == ""
 
 
-def test_mark_only_advances_migration_tag(tmp_path: Path) -> None:
+def test_mark_tracks_applied_migration_tags(tmp_path: Path) -> None:
     state_path = tmp_path / "state/state.json"
     lock_path = tmp_path / "lock/state.lock"
 
     first = emitted_state(remote_state.mark, state_path, lock_path, "260601120000")
     assert first["migrate_tag"] == "260601120000"
+    assert first["migrate_tags"] == ["260601120000"]
 
     older = emitted_state(remote_state.mark, state_path, lock_path, "260101120000")
     assert older["migrate_tag"] == "260601120000"
+    assert older["migrate_tags"] == ["260101120000", "260601120000"]
 
     newer = emitted_state(remote_state.mark, state_path, lock_path, "260701120000")
     assert newer["migrate_tag"] == "260701120000"
+    assert newer["migrate_tags"] == ["260101120000", "260601120000", "260701120000"]
+
+    repeated = emitted_state(remote_state.mark, state_path, lock_path, "260601120000")
+    assert repeated["migrate_tag"] == "260701120000"
+    assert repeated["migrate_tags"] == ["260101120000", "260601120000", "260701120000"]
 
 
 def test_remote_state_uses_python_310_compatible_utc_constant() -> None:

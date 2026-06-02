@@ -54,7 +54,12 @@ if [[ "${args}" == *"remote_ansible_state.py"* ]]; then
     printf '%s\n' "${args}" >> tmp/remote_state_calls
     target="$3"
     printf '%s\n' "${target%,} | CHANGED | rc=0 >>"
-    printf '{"locked_at": "", "locked_by": "", "migrate_tag": "%s"}\n' "${REMOTE_MIGRATE_TAG:-}"
+    if [ "${REMOTE_MIGRATE_TAGS+x}" = "x" ]; then
+        printf '{"locked_at": "", "locked_by": "", "migrate_tag": "%s", "migrate_tags": %s}\n' \
+            "${REMOTE_MIGRATE_TAG:-}" "${REMOTE_MIGRATE_TAGS}"
+    else
+        printf '{"locked_at": "", "locked_by": "", "migrate_tag": "%s"}\n' "${REMOTE_MIGRATE_TAG:-}"
+    fi
     exit 0
 fi
 
@@ -169,6 +174,7 @@ def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: 
     assert str(tmp_path / "scripts/remote_ansible_state.py") in remote_state_calls
     assert " acquire " in remote_state_calls
     assert r":task\ apc:migrate:" in remote_state_calls
+    assert " mark --migrate-tag 260601120000" in remote_state_calls
     assert " release " in remote_state_calls
     assert (tmp_path / "log/prd-app-migrate.log").is_file()
     assert not (tmp_path / "log/prd-app-migration.log").exists()
@@ -176,6 +182,33 @@ def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: 
 
 
 def test_runtime_migrate_dry_mode_skips_applied_migrations(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "migrate")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+    migration_path = tmp_path / "playbooks/app/_260601120000_runtime_test.yml"
+    migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
+    env = runtime_env(tmp_path)
+    env["DRY"] = "1"
+    env["REMOTE_MIGRATE_TAGS"] = '["260601120000"]'
+
+    result = subprocess.run(  # noqa: S603
+        [BASH, "bin/migrate", "apply", "prd", "ycl", "app"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    remote_state_calls = (tmp_path / "tmp/remote_state_calls").read_text(encoding="utf-8")
+    assert " get\n" in remote_state_calls
+    assert " acquire " not in remote_state_calls
+    assert " mark " not in remote_state_calls
+    assert not (tmp_path / "log/prd-app-migrate.log").exists()
+
+
+def test_runtime_migrate_dry_mode_skips_legacy_applied_migrations(tmp_path: Path) -> None:
     write_runtime_fixture(tmp_path, "migrate")
     write_fake_uv(tmp_path)
     write_target_repo_fixture(tmp_path)
@@ -200,6 +233,87 @@ def test_runtime_migrate_dry_mode_skips_applied_migrations(tmp_path: Path) -> No
     assert " acquire " not in remote_state_calls
     assert " mark " not in remote_state_calls
     assert not (tmp_path / "log/prd-app-migrate.log").exists()
+
+
+def test_runtime_migrate_dry_mode_runs_missing_older_migration_with_newer_tag_applied(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "migrate")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+    older_migration_path = tmp_path / "playbooks/app/_260601120000_runtime_test.yml"
+    newer_migration_path = tmp_path / "playbooks/app/_260701120000_runtime_test.yml"
+    older_migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
+    newer_migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
+    env = runtime_env(tmp_path)
+    env["DRY"] = "1"
+    env["REMOTE_MIGRATE_TAGS"] = '["260701120000"]'
+
+    result = subprocess.run(  # noqa: S603
+        [BASH, "bin/migrate", "apply", "prd", "ycl", "app"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "> Running migration _260601120000_runtime_test.yml" in result.stdout
+    assert "> Running migration _260701120000_runtime_test.yml" not in result.stdout
+    assert "--check" in result.stdout
+
+
+def test_runtime_migrate_apply_materializes_legacy_applied_migrations(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "migrate")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+    older_migration_path = tmp_path / "playbooks/app/_260601120000_runtime_test.yml"
+    newer_migration_path = tmp_path / "playbooks/app/_260701120000_runtime_test.yml"
+    older_migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
+    newer_migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
+    env = runtime_env(tmp_path)
+    env["REMOTE_MIGRATE_TAG"] = "260701120000"
+
+    result = subprocess.run(  # noqa: S603
+        [BASH, "bin/migrate", "apply", "prd", "ycl", "app"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    remote_state_calls = (tmp_path / "tmp/remote_state_calls").read_text(encoding="utf-8")
+    assert " mark --migrate-tag 260601120000" in remote_state_calls
+    assert " mark --migrate-tag 260701120000" in remote_state_calls
+    assert "> Running migration _260601120000_runtime_test.yml" not in result.stdout
+    assert "> Running migration _260701120000_runtime_test.yml" not in result.stdout
+    assert not (tmp_path / "log/prd-app-migrate.log").exists()
+
+
+def test_runtime_migrate_clean_uses_exact_applied_migration_tags(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "migrate")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+    older_migration_path = tmp_path / "playbooks/app/_260601120000_runtime_test.yml"
+    newer_migration_path = tmp_path / "playbooks/app/_260701120000_runtime_test.yml"
+    older_migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
+    newer_migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
+    env = runtime_env(tmp_path)
+    env["REMOTE_MIGRATE_TAGS"] = '["260701120000"]'
+
+    result = subprocess.run(  # noqa: S603
+        [BASH, "bin/migrate", "clean", "prd", "ycl", "app"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert older_migration_path.is_file()
+    assert not newer_migration_path.exists()
 
 
 def test_runtime_migrate_dry_mode_runs_pending_migrations_in_check_mode(tmp_path: Path) -> None:

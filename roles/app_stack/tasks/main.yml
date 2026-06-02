@@ -142,7 +142,7 @@
   when:
     - app_stack_enabled | bool
     - app_stack_pg_provision_enabled | bool
-    - (app_stack_selected_apps | first | default({})).pg_users | default([], true) | length == 0
+    - ((app_stack_selected_apps | first | default({})).pg_users | default([], true) | length) == 0
 
 - name: Create app stack PostgreSQL databases for services
   vars:
