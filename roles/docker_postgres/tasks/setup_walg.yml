@@ -1,0 +1,71 @@
+---
+
+- name: Prepare common PostgreSQL setup
+  ansible.builtin.include_tasks: setup_common.yml
+
+- name: Install PostgreSQL WAL-G executables
+  become: true
+  ansible.builtin.copy:
+    src: scripts/{{ item }}.sh
+    dest: /opt/postgres/bin/{{ item }}
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - walg_backup
+    - walg_recover
+
+- name: Build custom PostgreSQL image with WAL-G support
+  ansible.builtin.include_tasks: setup_docker_build.yml
+
+- name: Restore PostgreSQL WAL-G replica from active leader
+  ansible.builtin.include_tasks: setup_dr.yml
+  when: docker_postgres_replica_restore | bool
+
+- name: Start PostgreSQL WAL-G container
+  community.docker.docker_container:
+    hostname: postgres.{{ inventory_hostname }}
+    name: '{{ docker_postgres_container_name }}'
+    image: '{{ docker_postgres_runtime_image_full }}'
+    pull: false
+    env:
+      POSTGRES_USER: '{{ docker_postgres_pg_admin_user }}'
+      POSTGRES_PASSWORD: '{{ docker_postgres_pg_admin_pass }}'
+      PGHOST: /var/run/postgresql
+      PGUSER: '{{ docker_postgres_pg_admin_user }}'
+      AWS_ENDPOINT: '{{ docker_postgres_walg_backup_s3_endpoint }}'
+      AWS_REGION: '{{ docker_postgres_walg_backup_s3_region }}'
+      AWS_ACCESS_KEY_ID: '{{ docker_postgres_walg_backup_s3_access_key }}'
+      AWS_SECRET_ACCESS_KEY: '{{ docker_postgres_walg_backup_s3_secret_key }}'
+      WALG_S3_PREFIX: >-
+        {{
+          ('s3://' ~ docker_postgres_walg_backup_s3_bucket ~ '/' ~ docker_postgres_walg_backup_s3_prefix)
+          if docker_postgres_walg_backup_s3_access_key | string | length > 0
+          and docker_postgres_walg_backup_s3_secret_key | string | length > 0
+          else ''
+        }}
+      WALG_COMPRESSION_METHOD: brotli
+      WALG_COMPRESSION_LEVEL: '5'
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    restart_policy: unless-stopped
+    shm_size: '{{ ((docker_postgres_mem_lim[:-1] | int) * 0.3) | int }}M'
+    memory_reservation: '{{ docker_postgres_mem_res }}'
+    memory: '{{ docker_postgres_mem_lim }}'
+    memory_swap: '{{ docker_postgres_mem_swp }}'
+    network_mode: host
+    volumes:
+      - /opt/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - /opt/postgres/pg_hba.conf:/var/lib/postgresql/pg_hba.conf:ro
+      - /opt/postgres/config:/opt/config:ro
+      - /opt/postgres/log:/var/log/postgresql
+      - /opt/postgres/psql_history:/var/lib/postgresql/.psql_history
+      - '{{ docker_postgres_data_volume }}:/var/lib/postgresql/data'
+    healthcheck:
+      test: [CMD, pg_isready, -d, postgres, -U, '{{ docker_postgres_pg_admin_user }}']
+      timeout: 2s
+      interval: 10s
+      start_period: 5s
+  no_log: '{{ docker_postgres_nolog }}'
+
+- name: Verify PostgreSQL WAL-G setup
+  ansible.builtin.include_tasks: setup_verify.yml

@@ -1,0 +1,30 @@
+---
+
+- name: Verify PostgreSQL container is running
+  community.docker.docker_container_info:
+    name: '{{ docker_postgres_container_name }}'
+  register: docker_postgres_container_info
+  until:
+    - docker_postgres_container_info.exists
+    - docker_postgres_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for PostgreSQL to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_postgres_port }}'
+    delay: 1
+    timeout: 60
+    state: started
+  when: not ansible_check_mode
+
+- name: Reload PostgreSQL config
+  ansible.builtin.command: docker exec {{ docker_postgres_container_name }} psql -U {{ docker_postgres_pg_admin_user }} -c "SELECT pg_reload_conf()"
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Promote PostgreSQL leader during DR
+  ansible.builtin.include_tasks: setup_dr.yml
+  when: docker_postgres_dr_action == 'promote'

@@ -380,11 +380,11 @@ def test_dbs_service_roles_expose_data_volume_defaults() -> None:
     for role_name, (volume_var, default_volume) in role_volume_pairs.items():
         role_dir = REPO_ROOT / "roles" / role_name
         defaults = role_defaults(role_dir)
-        main_tasks = (role_dir / "tasks" / "main.yml").read_text(encoding="utf-8")
+        tasks_text = "\n".join(path.read_text(encoding="utf-8") for path in sorted((role_dir / "tasks").glob("*.yml")))
 
         assert defaults[volume_var] == default_volume
-        assert f"name: '{{{{ {volume_var} }}}}'" in main_tasks
-        assert f"{{{{ {volume_var} }}}}:" in main_tasks
+        assert f"name: '{{{{ {volume_var} }}}}'" in tasks_text
+        assert f"{{{{ {volume_var} }}}}:" in tasks_text
 
 
 def test_redis_and_valkey_default_image_tags_are_separate() -> None:

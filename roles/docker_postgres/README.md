@@ -4,20 +4,17 @@ This role runs PostgreSQL in a standalone Docker container with optional WAL-G a
 
 ## Features
 - Run standalone PostgreSQL DR action.
-- Create host directories.
-- Install PostgreSQL config.
-- Install templated PostgreSQL configs.
-- Install PostgreSQL WAL-G executables.
-- Build custom PostgreSQL image with WAL-G support.
-- Create Docker volume.
+- Set up vanilla PostgreSQL when `docker_postgres_walg_version` is empty.
+- Set up PostgreSQL with WAL-G when `docker_postgres_walg_version` is set.
+- Install shared PostgreSQL directories, configs, dotenv, history, and Docker volume.
+- Install WAL-G executables and build the WAL-G image only for the WAL-G setup path.
 - Restore PostgreSQL replica from active leader.
 - Start PostgreSQL container.
 - Promote PostgreSQL leader during DR.
 - Configure WAL-G.
-- Additional focused setup tasks for the same role-owned desired state.
 
 ## Configuration
-Set these required inputs before applying the role: `docker_postgres_pg_admin_pass`, `docker_postgres_pg_admin_user`, `docker_postgres_mode`.
+Set these required inputs before applying the role: `docker_postgres_pg_admin_pass`, `docker_postgres_pg_admin_user`, `docker_postgres_mode`. The PostgreSQL listener/readiness port defaults to `docker_postgres_port: 5432` and can be overridden.
 
 | Variable | Default |
 | --- | --- |

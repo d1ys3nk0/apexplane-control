@@ -1,0 +1,43 @@
+---
+
+- name: Prepare common PostgreSQL setup
+  ansible.builtin.include_tasks: setup_common.yml
+
+- name: Restore vanilla PostgreSQL replica from active leader
+  ansible.builtin.include_tasks: setup_dr.yml
+  when: docker_postgres_replica_restore | bool
+
+- name: Start vanilla PostgreSQL container
+  community.docker.docker_container:
+    hostname: postgres.{{ inventory_hostname }}
+    name: '{{ docker_postgres_container_name }}'
+    image: '{{ docker_postgres_image_full }}'
+    pull: false
+    env:
+      POSTGRES_USER: '{{ docker_postgres_pg_admin_user }}'
+      POSTGRES_PASSWORD: '{{ docker_postgres_pg_admin_pass }}'
+      PGHOST: /var/run/postgresql
+      PGUSER: '{{ docker_postgres_pg_admin_user }}'
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    restart_policy: unless-stopped
+    shm_size: '{{ ((docker_postgres_mem_lim[:-1] | int) * 0.3) | int }}M'
+    memory_reservation: '{{ docker_postgres_mem_res }}'
+    memory: '{{ docker_postgres_mem_lim }}'
+    memory_swap: '{{ docker_postgres_mem_swp }}'
+    network_mode: host
+    volumes:
+      - /opt/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - /opt/postgres/pg_hba.conf:/var/lib/postgresql/pg_hba.conf:ro
+      - /opt/postgres/config:/opt/config:ro
+      - /opt/postgres/log:/var/log/postgresql
+      - /opt/postgres/psql_history:/var/lib/postgresql/.psql_history
+      - '{{ docker_postgres_data_volume }}:/var/lib/postgresql/data'
+    healthcheck:
+      test: [CMD, pg_isready, -d, postgres, -U, '{{ docker_postgres_pg_admin_user }}']
+      timeout: 2s
+      interval: 10s
+      start_period: 5s
+  no_log: '{{ docker_postgres_nolog }}'
+
+- name: Verify vanilla PostgreSQL setup
+  ansible.builtin.include_tasks: setup_verify.yml

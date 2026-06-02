@@ -1,0 +1,62 @@
+---
+
+- name: Create host directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - /opt/postgres
+    - /opt/postgres/bin
+    - /opt/postgres/log
+    - /opt/postgres/config
+    - /opt/postgres/snapshots
+
+- name: Install PostgreSQL config
+  become: true
+  ansible.builtin.template:
+    src: postgresql.{{ docker_postgres_mode }}.conf.j2
+    dest: /opt/postgres/postgresql.conf
+    mode: '0644'
+    owner: root
+    group: root
+  no_log: '{{ docker_postgres_nolog }}'
+
+- name: Install templated PostgreSQL configs
+  become: true
+  ansible.builtin.template:
+    src: '{{ item.src }}'
+    dest: /opt/postgres/{{ item.dest }}
+    mode: '0644'
+    owner: root
+    group: root
+  loop:
+    - src: pg_hba.conf.j2
+      dest: pg_hba.conf
+
+- name: Install PostgreSQL dotenv
+  become: true
+  ansible.builtin.template:
+    src: postgres.env.j2
+    dest: /opt/postgres/postgres.env
+    mode: '0600'
+    owner: root
+    group: root
+  no_log: '{{ docker_postgres_nolog }}'
+
+- name: Make sure psql_history is created
+  become: true
+  ansible.builtin.copy:
+    content: ''
+    dest: /opt/postgres/psql_history
+    mode: '0644'
+    owner: root
+    group: root
+    force: false
+
+- name: Create Docker volume
+  community.docker.docker_volume:
+    name: '{{ docker_postgres_data_volume }}'
