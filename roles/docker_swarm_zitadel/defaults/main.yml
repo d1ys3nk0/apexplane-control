@@ -8,9 +8,14 @@ docker_swarm_zitadel_http_public_port: 18080
 docker_swarm_zitadel_image_name: ghcr.io/zitadel/zitadel
 docker_swarm_zitadel_image_tag: v4.15.0
 docker_swarm_zitadel_image_full: '{{ docker_swarm_zitadel_image_name }}:{{ docker_swarm_zitadel_image_tag }}'
+docker_swarm_zitadel_command: ''
 docker_swarm_zitadel_masterkey: ~
 docker_swarm_zitadel_mem_res: 500M
 docker_swarm_zitadel_mem_lim: 750M
+docker_swarm_zitadel_init_org_name: ''
+docker_swarm_zitadel_init_org_human_username: ''
+docker_swarm_zitadel_init_org_human_password: ''
+docker_swarm_zitadel_init_org_human_password_change_required: false
 docker_swarm_zitadel_pg_admin_pass: ''
 docker_swarm_zitadel_pg_admin_user: ''
 docker_swarm_zitadel_pg_base: ~

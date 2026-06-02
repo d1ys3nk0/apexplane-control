@@ -8,6 +8,7 @@ This role deploys ZITADEL as a Docker Swarm service and can provision PostgreSQL
 - Ensure Zitadel swarm service is started.
 - Create Zitadel user.
 - Create Zitadel database.
+- Select the Zitadel runtime command from explicit input or first-instance org bootstrap data.
 
 ## Configuration
 Set these required inputs before applying the role: `docker_swarm_zitadel_domain`, `docker_swarm_zitadel_masterkey`, `docker_swarm_zitadel_pg_base`, `docker_swarm_zitadel_pg_user`, `docker_swarm_zitadel_pg_pass`, `docker_swarm_zitadel_pg_host`.
@@ -22,9 +23,14 @@ Set these required inputs before applying the role: `docker_swarm_zitadel_domain
 | `docker_swarm_zitadel_image_name` | `ghcr.io/zitadel/zitadel` |
 | `docker_swarm_zitadel_image_tag` | `v4.15.0` |
 | `docker_swarm_zitadel_image_full` | `<derived>` |
+| `docker_swarm_zitadel_command` | `''` (derive from first-instance org inputs) |
 | `docker_swarm_zitadel_masterkey` | `~` |
 | `docker_swarm_zitadel_mem_res` | `500M` |
 | `docker_swarm_zitadel_mem_lim` | `750M` |
+| `docker_swarm_zitadel_init_org_name` | `''` |
+| `docker_swarm_zitadel_init_org_human_username` | `''` |
+| `docker_swarm_zitadel_init_org_human_password` | `''` |
+| `docker_swarm_zitadel_init_org_human_password_change_required` | `false` |
 | `docker_swarm_zitadel_pg_admin_pass` | `''` |
 | `docker_swarm_zitadel_pg_admin_user` | `''` |
 | `docker_swarm_zitadel_pg_base` | `~` |
@@ -70,42 +76,17 @@ Set these required inputs before applying the role: `docker_swarm_zitadel_domain
 ```
 
 ## Operations
-The `docker_swarm_zitadel` role manages the long-running Docker Swarm runtime service and root-owned PostgreSQL helper dotenv file at `/opt/zitadel/postgres/<database>.env`. It expects the configured PostgreSQL database to already be initialized and set up before the service starts.
+The `docker_swarm_zitadel` role manages the Docker Swarm service and root-owned PostgreSQL helper dotenv file at `/opt/zitadel/postgres/<database>.env`.
 
-For a new empty database, run ZITADEL initialization manually from a Swarm manager before applying the runtime service. If the PostgreSQL role inputs already provisioned the database and service user, bootstrap the ZITADEL schemas with the service credentials:
+By default the service command is dynamic: when `docker_swarm_zitadel_command` is empty and all first-instance org credential variables are set, the role runs `zitadel start-from-init`; otherwise it runs `zitadel start`. Set `docker_swarm_zitadel_command` to `start`, `start-from-setup`, or `start-from-init` only when an explicit override is needed.
 
-```sh
-docker run --rm \
-  -e ZITADEL_DATABASE_POSTGRES_HOST='<postgres-host>' \
-  -e ZITADEL_DATABASE_POSTGRES_PORT='<postgres-port>' \
-  -e ZITADEL_DATABASE_POSTGRES_DATABASE='<postgres-database>' \
-  -e ZITADEL_DATABASE_POSTGRES_USER_USERNAME='<postgres-user>' \
-  -e ZITADEL_DATABASE_POSTGRES_USER_PASSWORD='<postgres-password>' \
-  -e ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE='<postgres-ssl-mode>' \
-  ghcr.io/zitadel/zitadel:<zitadel-version> \
-  init schema
+ZITADEL documents `start-from-init` as running init, setup, and then the runtime server; see the [ZITADEL CLI command overview](https://zitadel.com/docs/self-hosting/manage/cli/overview). Use it only for first bootstrap of an empty database. If the database user and database are manually provisioned without PostgreSQL admin access, ZITADEL still requires schema bootstrapping with `zitadel init schema` before `start-from-setup` or `start`; see the [ZITADEL database guide](https://zitadel.com/docs/self-hosting/manage/database).
+
+Example first-instance bootstrap inputs:
+
+```yaml
+docker_swarm_zitadel_init_org_name: <org-name>
+docker_swarm_zitadel_init_org_human_username: <admin-email>
+docker_swarm_zitadel_init_org_human_password: <admin-password>
+docker_swarm_zitadel_init_org_human_password_change_required: false
 ```
-
-Then run setup once before the first runtime start. Run setup again before deploying a new ZITADEL version:
-
-```sh
-docker run --rm \
-  -e ZITADEL_DATABASE_POSTGRES_HOST='<postgres-host>' \
-  -e ZITADEL_DATABASE_POSTGRES_PORT='<postgres-port>' \
-  -e ZITADEL_DATABASE_POSTGRES_DATABASE='<postgres-database>' \
-  -e ZITADEL_DATABASE_POSTGRES_USER_USERNAME='<postgres-user>' \
-  -e ZITADEL_DATABASE_POSTGRES_USER_PASSWORD='<postgres-password>' \
-  -e ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE='<postgres-ssl-mode>' \
-  -e ZITADEL_EXTERNALDOMAIN='<external-domain>' \
-  -e ZITADEL_EXTERNALPORT='443' \
-  -e ZITADEL_EXTERNALSECURE='true' \
-  -e ZITADEL_TLS_ENABLED='false' \
-  -e ZITADEL_FIRSTINSTANCE_ORG_NAME='<org-name>' \
-  -e ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME='<admin-email>' \
-  -e ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD='<admin-password>' \
-  -e ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED='false' \
-  ghcr.io/zitadel/zitadel:<zitadel-version> \
-  setup --masterkey '<masterkey>' --init-projections=true
-```
-
-Do not add `init`, `setup`, or `start-from-init` to the Swarm service. The runtime service uses `start` so it fails fast when the database is not ready instead of silently performing bootstrap work during normal deploys.

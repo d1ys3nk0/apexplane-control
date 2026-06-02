@@ -6,6 +6,14 @@
       - docker_swarm_zitadel_enabled is boolean
     fail_msg: docker_swarm_zitadel_enabled must be boolean.
 
+- name: Validate Docker Swarm Zitadel command variables
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_zitadel_command | string in ['', 'start', 'start-from-setup', 'start-from-init']
+      - docker_swarm_zitadel_init_org_human_password_change_required is boolean
+    fail_msg: Define a valid Docker Swarm Zitadel command and first-instance password-change flag.
+  no_log: '{{ docker_swarm_zitadel_nolog }}'
+
 - name: Assert Docker Swarm Zitadel required variables are set
   ansible.builtin.assert:
     that:
@@ -36,6 +44,16 @@
     fail_msg: Define Docker Swarm Zitadel service, domain, master key, and PostgreSQL variables.
   no_log: '{{ docker_swarm_zitadel_nolog }}'
   when: docker_swarm_zitadel_enabled | bool
+
+- name: Validate Docker Swarm Zitadel first-instance org variables
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_zitadel_init_org_enabled | bool
+    fail_msg: Define Zitadel first-instance org name, human username, and human password together.
+  no_log: '{{ docker_swarm_zitadel_nolog }}'
+  when:
+    - docker_swarm_zitadel_enabled | bool
+    - docker_swarm_zitadel_init_org_requested | bool
 
 - name: Validate Docker Swarm Zitadel PostgreSQL backup S3 variables
   ansible.builtin.assert:
