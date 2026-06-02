@@ -41,7 +41,7 @@
   become: true
   ansible.builtin.template:
     src: postgres.env.j2
-    dest: /opt/postgres/postgres.env
+    dest: /opt/postgres/admin.env
     mode: '0600'
     owner: root
     group: root

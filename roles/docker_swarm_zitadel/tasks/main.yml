@@ -8,6 +8,23 @@
   run_once: true
   when: docker_swarm_zitadel_enabled | bool
   block:
+    - name: Create Zitadel PostgreSQL env directory
+      ansible.builtin.file:
+        path: /opt/zitadel/postgres
+        state: directory
+        mode: '0750'
+        owner: root
+        group: root
+
+    - name: Create Zitadel PostgreSQL client env file
+      ansible.builtin.template:
+        src: pg.env.j2
+        dest: /opt/zitadel/postgres/{{ docker_swarm_zitadel_pg_base }}.env
+        mode: '0600'
+        owner: root
+        group: root
+      no_log: '{{ docker_swarm_zitadel_nolog }}'
+
     - name: Configure Zitadel PostgreSQL resources
       ansible.builtin.include_tasks: setup_postgresql.yml
       when: docker_swarm_zitadel_pg_provision_enabled | bool

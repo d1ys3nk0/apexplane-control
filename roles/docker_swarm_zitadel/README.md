@@ -33,6 +33,25 @@ Set these required inputs before applying the role: `docker_swarm_zitadel_domain
 | `docker_swarm_zitadel_pg_host` | `~` |
 | `docker_swarm_zitadel_pg_port` | `5432` |
 | `docker_swarm_zitadel_pg_ssl` | `disable` |
+| `docker_swarm_zitadel_pg_image` | `postgres:18-alpine` |
+| `docker_swarm_zitadel_pg_backup_concurrency` | `1` |
+| `docker_swarm_zitadel_pg_recover_concurrency` | `1` |
+| `docker_swarm_zitadel_pg_recover_exclude_extensions` | `''` |
+| `docker_swarm_zitadel_pg_recover_no_prepare` | `false` |
+| `docker_swarm_zitadel_pg_recover_no_recreate` | `false` |
+| `docker_swarm_zitadel_pg_backup_secret` | `''` |
+| `docker_swarm_zitadel_pg_backup_s3_endpoint` | `''` |
+| `docker_swarm_zitadel_pg_backup_s3_region` | `''` |
+| `docker_swarm_zitadel_pg_backup_s3_bucket` | `''` |
+| `docker_swarm_zitadel_pg_backup_s3_access_key` | `''` |
+| `docker_swarm_zitadel_pg_backup_s3_secret_key` | `''` |
+| `docker_swarm_zitadel_pg_recover_secret` | `''` |
+| `docker_swarm_zitadel_pg_recover_s3_endpoint` | `''` |
+| `docker_swarm_zitadel_pg_recover_s3_region` | `''` |
+| `docker_swarm_zitadel_pg_recover_s3_bucket` | `''` |
+| `docker_swarm_zitadel_pg_recover_s3_prefix` | `'postgres/{pg_base}'` |
+| `docker_swarm_zitadel_pg_recover_s3_access_key` | `''` |
+| `docker_swarm_zitadel_pg_recover_s3_secret_key` | `''` |
 
 ## Usage
 ```yaml
@@ -51,7 +70,7 @@ Set these required inputs before applying the role: `docker_swarm_zitadel_domain
 ```
 
 ## Operations
-The `docker_swarm_zitadel` role manages only the long-running Docker Swarm runtime service. It expects the configured PostgreSQL database to already be initialized and set up before the service starts.
+The `docker_swarm_zitadel` role manages the long-running Docker Swarm runtime service and root-owned PostgreSQL helper dotenv file at `/opt/zitadel/postgres/<database>.env`. It expects the configured PostgreSQL database to already be initialized and set up before the service starts.
 
 For a new empty database, run ZITADEL initialization manually from a Swarm manager before applying the runtime service. If the PostgreSQL role inputs already provisioned the database and service user, bootstrap the ZITADEL schemas with the service credentials:
 

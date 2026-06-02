@@ -71,7 +71,7 @@ Optional environment:
   WALG_UPLOAD_DISK_CONCURRENCY=1
 
 Example:
-  dotenv /opt/postgres/postgres.env /opt/postgres/bin/walg_backup
+  dotenv /opt/postgres/admin.env /opt/postgres/bin/walg_backup
 USAGE
 }
 

@@ -123,8 +123,8 @@ Optional environment:
   WALG_RECOVER_ORIGIN_USERS="<source-role-a> <source-role-b>"
 
 Examples:
-  dotenv /opt/postgres/postgres.env /opt/postgres/bin/walg_recover
-  dotenv /opt/postgres/postgres.env /opt/postgres/bin/walg_recover s3://<bucket>/<prefix> LATEST
+  dotenv /opt/postgres/admin.env /opt/postgres/bin/walg_recover
+  dotenv /opt/postgres/admin.env /opt/postgres/bin/walg_recover s3://<bucket>/<prefix> LATEST
 USAGE
 }
 

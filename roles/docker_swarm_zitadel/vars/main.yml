@@ -3,8 +3,10 @@
 docker_swarm_zitadel_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
 docker_swarm_zitadel_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
 docker_swarm_zitadel_nolog: '{{ (docker_swarm_zitadel_ci_mode | bool) and not (docker_swarm_zitadel_debug_mode | bool) }}'
+docker_swarm_zitadel_pg_backup_s3_enabled: "{{ docker_swarm_zitadel_pg_backup_s3_access_key | string | length > 0 and docker_swarm_zitadel_pg_backup_s3_secret_key | string | length > 0 }}"
 docker_swarm_zitadel_pg_provision_enabled: >-
   {{
     docker_swarm_zitadel_pg_admin_user | string | length > 0
     and docker_swarm_zitadel_pg_admin_pass | string | length > 0
   }}
+docker_swarm_zitadel_pg_recover_s3_enabled: "{{ docker_swarm_zitadel_pg_recover_s3_access_key | string | length > 0 and docker_swarm_zitadel_pg_recover_s3_secret_key | string | length > 0 }}"

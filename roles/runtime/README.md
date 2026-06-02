@@ -1,6 +1,6 @@
 # runtime
 
-This role prepares application runtime host resources, secret JSON files, and PostgreSQL client environment files.
+This role prepares application runtime host resources, secret JSON files, and application PostgreSQL client environment files.
 
 ## Features
 - Create Docker overlay networks for each runtime environment.
@@ -48,7 +48,7 @@ Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_
 | `runtime_postgres_backup_sudoers_enabled` | `false` |
 | `runtime_postgres_backup_sudoers_path` | `''` |
 
-`runtime_apps` entries define app accounts, environments, and resolved per-service secret mappings. `runtime_pg_bases` entries define resolved PostgreSQL env files and optional provisioning inputs; enabled entries must define `app`, `base`, `user`, and `pass`.
+`runtime_apps` entries define app accounts, environments, and resolved per-service secret mappings. `runtime_pg_bases` entries define resolved application PostgreSQL env files and optional provisioning inputs; enabled entries must define `app`, `base`, `user`, and `pass`.
 
 ## Usage
 
