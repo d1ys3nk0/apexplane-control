@@ -38,8 +38,8 @@
 Prefer these role task files when relevant:
 
 - `main.yml`: entrypoint.
-- `validate.yml`: input and pre-install validation.
-- `setup_*.yml`: task files included directly from `tasks/main.yml`, for example `setup_install.yml`, `setup_config.yml`, or `setup_postgresql.yml`.
+- `validate.yml`: the single role task file for configuration and user-input validation.
+- `setup_*.yml`: setup task files included directly from `tasks/main.yml`, for example `setup_install.yml`, `setup_config.yml`, or `setup_postgresql.yml`; focused feature entrypoints such as `docker.yml`, `postgres.yml`, and `secrets.yml` are also allowed when they keep a role entrypoint readable.
 
 ## Variables
 

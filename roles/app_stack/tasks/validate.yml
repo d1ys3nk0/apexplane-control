@@ -125,9 +125,11 @@
   when: app_stack_enabled | bool
 
 - name: Validate app stack PostgreSQL environment user override names
-  ansible.builtin.include_tasks: validate_postgresql_env_user.yml
-  vars:
-    app_stack_pg_service: '{{ item.1 }}'
+  ansible.builtin.assert:
+    that:
+      - item.1.postgres.envs | default({}, true) | dict2items | selectattr('value.user_name', 'defined') | selectattr('value.user_suffix', 'defined') | selectattr('value.user_suffix', 'ne', none) | list | length == 0
+      - item.1.postgres.envs | default({}, true) | dict2items | selectattr('value.base_name', 'defined') | selectattr('value.base_suffix', 'defined') | selectattr('value.base_suffix', 'ne', none) | list | length == 0
+    fail_msg: App stack PostgreSQL environment names must use either *_name or *_suffix, not both.
   with_subelements:
     - '{{ app_stack_selected_apps }}'
     - services

@@ -16,7 +16,8 @@ def _rel_path(path: Path, repo_root: Path) -> str:
 
 
 def _main_includes_postgresql(main_path: Path) -> bool:
-    return "include_tasks: setup_postgresql.yml" in main_path.read_text(encoding="utf-8")
+    main_text = main_path.read_text(encoding="utf-8")
+    return "include_tasks: setup_postgresql.yml" in main_text or "include_tasks: postgres.yml" in main_text
 
 
 def _is_postgresql_role(role_dir: Path) -> bool:
@@ -42,21 +43,24 @@ def run(*, repo_root: Path, **_kwargs: object) -> list[str]:
         tasks_dir = role_dir / "tasks"
         main_path = tasks_dir / "main.yml"
         postgresql_path = tasks_dir / "setup_postgresql.yml"
-        legacy_postgres_path = tasks_dir / "postgres.yml"
+        postgres_path = tasks_dir / "postgres.yml"
         legacy_postgresql_path = tasks_dir / "postgresql.yml"
 
-        if legacy_postgres_path.exists():
-            errors.append(f"{_rel_path(legacy_postgres_path, repo_root)}: use tasks/setup_postgresql.yml")
-
         if legacy_postgresql_path.exists():
-            errors.append(f"{_rel_path(legacy_postgresql_path, repo_root)}: use tasks/setup_postgresql.yml")
+            errors.append(
+                f"{_rel_path(legacy_postgresql_path, repo_root)}: use tasks/postgres.yml or tasks/setup_postgresql.yml"
+            )
 
-        if not postgresql_path.is_file():
-            errors.append(f"{_rel_path(postgresql_path, repo_root)}: expected PostgreSQL task file")
+        if not postgresql_path.is_file() and not postgres_path.is_file():
+            errors.append(
+                f"{_rel_path(postgresql_path, repo_root)} or {_rel_path(postgres_path, repo_root)}: expected PostgreSQL task file"
+            )
 
         if not main_path.is_file():
             errors.append(f"{_rel_path(main_path, repo_root)}: expected role main task file")
         elif not _main_includes_postgresql(main_path):
-            errors.append(f"{_rel_path(main_path, repo_root)}: must include tasks/setup_postgresql.yml")
+            errors.append(
+                f"{_rel_path(main_path, repo_root)}: must include tasks/postgres.yml or tasks/setup_postgresql.yml"
+            )
 
     return errors
