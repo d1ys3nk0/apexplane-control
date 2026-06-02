@@ -13,6 +13,8 @@ This role provisions application stack host configuration and PostgreSQL environ
 - Create app stack PostgreSQL databases for services.
 - Create app stack service PostgreSQL env files.
 - Create app stack admin PostgreSQL client env file.
+- Create app stack extra PostgreSQL users and databases when admin credentials are available.
+- Create app stack extra PostgreSQL client env files.
 - Additional focused setup tasks for the same role-owned desired state.
 
 ## Configuration
@@ -57,7 +59,7 @@ Set these required inputs before applying the role: `app_stack_app_name`, `app_s
 
 ## Usage
 
-Extra PostgreSQL env entries can set `recover_s3_prefix_template` to override `app_stack_pg_recover_s3_prefix_template` for that env file.
+Extra PostgreSQL env entries create the matching user and database when admin credentials are available. They can set `pg_role_attr_flags` to override the default `CREATEDB` role flags, and can set `recover_s3_prefix_template` to override `app_stack_pg_recover_s3_prefix_template` for that env file.
 
 ```yaml
 ---

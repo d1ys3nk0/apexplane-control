@@ -172,6 +172,53 @@
     - app_stack_enabled | bool
     - app_stack_pg_provision_enabled | bool
 
+- name: Create app stack extra PostgreSQL users
+  vars:
+    pg_user: '{{ item.pg_user }}'
+    pg_pass: '{{ item.pg_pass }}'
+  community.postgresql.postgresql_user:
+    name: '{{ pg_user }}'
+    password: '{{ pg_pass }}'
+    role_attr_flags: "{{ item.pg_role_attr_flags | default('CREATEDB', true) }}"
+    login_user: '{{ app_stack_pg_admin_user }}'
+    login_password: '{{ app_stack_pg_admin_pass }}'
+    login_host: "{{ item.pg_host | default(app_stack_pg_host, true) }}"
+    login_port: "{{ item.pg_port | default(app_stack_pg_port, true) }}"
+    ssl_mode: "{{ item.pg_sslmode | default(app_stack_pg_sslmode, true) }}"
+  run_once: true
+  no_log: '{{ app_stack_nolog }}'
+  loop: '{{ app_stack_extra_pg_envs }}'
+  loop_control:
+    label: "{{ item.pg_user | default('<missing-user>', true) }}"
+  when:
+    - app_stack_enabled | bool
+    - app_stack_pg_provision_enabled | bool
+    - item.enabled | default(true, true) | bool
+
+- name: Create app stack extra PostgreSQL databases
+  vars:
+    pg_base: '{{ item.pg_base }}'
+    pg_user: '{{ item.pg_user }}'
+  community.postgresql.postgresql_db:
+    name: '{{ pg_base }}'
+    owner: '{{ pg_user }}'
+    encoding: UTF-8
+    template: template0
+    login_user: '{{ app_stack_pg_admin_user }}'
+    login_password: '{{ app_stack_pg_admin_pass }}'
+    login_host: "{{ item.pg_host | default(app_stack_pg_host, true) }}"
+    login_port: "{{ item.pg_port | default(app_stack_pg_port, true) }}"
+    ssl_mode: "{{ item.pg_sslmode | default(app_stack_pg_sslmode, true) }}"
+  run_once: true
+  no_log: '{{ app_stack_nolog }}'
+  loop: '{{ app_stack_extra_pg_envs }}'
+  loop_control:
+    label: "{{ item.pg_base | default('<missing-base>', true) }}"
+  when:
+    - app_stack_enabled | bool
+    - app_stack_pg_provision_enabled | bool
+    - item.enabled | default(true, true) | bool
+
 - name: Create app stack extra PostgreSQL client env files
   become: true
   vars:

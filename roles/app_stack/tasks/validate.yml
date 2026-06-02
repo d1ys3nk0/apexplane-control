@@ -69,6 +69,7 @@
       - item.pg_user | string | length > 0
       - item.pg_pass is defined
       - item.pg_pass | string | length > 0
+      - item.pg_role_attr_flags is not defined or item.pg_role_attr_flags is string
       - item.recover_s3_prefix_template is not defined or item.recover_s3_prefix_template is string
       - item.recover_s3_prefix_template is not defined or item.recover_s3_prefix_template | length > 0
     fail_msg: Each enabled app stack extra PostgreSQL env must define pg_base, pg_user, and pg_pass.
