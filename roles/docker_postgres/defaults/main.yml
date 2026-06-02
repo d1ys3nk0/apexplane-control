@@ -9,6 +9,8 @@ docker_postgres_runtime_image_full: "{{ (docker_postgres_image_name ~ '-walg:' ~
 docker_postgres_connections: 100
 docker_postgres_container: postgres
 docker_postgres_data_volume: postgres-data
+docker_postgres_data_root: /var/lib/postgresql
+docker_postgres_data_dir: ~
 docker_postgres_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
 docker_postgres_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
 docker_postgres_nolog: '{{ (docker_postgres_ci_mode | bool) and not (docker_postgres_debug_mode | bool) }}'

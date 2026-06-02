@@ -40,6 +40,37 @@ require_vars() {
     done
 }
 
+inspect_container_env() {
+    local format
+
+    format='{''{range .Config.Env}''}''{''{println .}''}''{''{end}''}'
+    docker inspect "${WALG_CONTAINER}" --format "${format}" | awk -F= -v key="$1" '$1 == key {print substr($0, length(key) + 2); exit}'
+}
+
+inspect_container_mounts() {
+    local format
+
+    format='{''{range .Mounts}''}''{''{println .Name "\t" .Destination}''}''{''{end}''}'
+    docker inspect "${WALG_CONTAINER}" --format "${format}"
+}
+
+inspect_data_volume_mount_path() {
+    inspect_container_mounts | awk -F '\t' -v data_dir="${WALG_DATA_DIR}" '
+        data_dir == $2 || index(data_dir, $2 "/") == 1 {
+            if (length($2) > length(best)) {
+                best = $2
+            }
+        }
+        END {
+            print best
+        }
+    '
+}
+
+inspect_data_volume() {
+    inspect_container_mounts | awk -F '\t' -v mount_path="${WALG_DATA_ROOT}" '$2 == mount_path {print $1; exit}'
+}
+
 require_positive_integer() {
     if [[ ! "${1}" =~ ^[1-9][0-9]*$ ]]; then
         usage_error "${2} must be a positive integer"
@@ -74,7 +105,8 @@ Required environment:
 Optional environment:
   PG_PORT=5432
   WALG_CONTAINER=postgres
-  WALG_DATA_DIR=/var/lib/postgresql/data
+  WALG_DATA_ROOT=<container data volume mount path>
+  WALG_DATA_DIR=<container PGDATA>
   WALG_CONFIG_DIR=/opt/postgres/config
   WALG_SNAPSHOT_DIR=/opt/postgres/snapshots
   WALG_RECOVER_BACKUP_NAME=LATEST
@@ -103,8 +135,15 @@ init_config() {
 
     WALG_CONTAINER="${WALG_CONTAINER:-postgres}"
     PG_PORT="${PG_PORT:-5432}"
-    WALG_DATA_DIR="${WALG_DATA_DIR:-/var/lib/postgresql/data}"
-    WALG_DATA_VOLUME="$(docker inspect "${WALG_CONTAINER}" --format '{{range .Mounts}}{{if eq .Destination "'"${WALG_DATA_DIR}"'"}}{{.Name}}{{end}}{{end}}')"
+    WALG_DATA_DIR="${WALG_DATA_DIR:-$(inspect_container_env PGDATA)}"
+    if [ -z "${WALG_DATA_DIR}" ]; then
+        error "Cannot determine PostgreSQL data directory from WALG_DATA_DIR or container ${WALG_CONTAINER} PGDATA"
+    fi
+    WALG_DATA_ROOT="${WALG_DATA_ROOT:-$(inspect_data_volume_mount_path)}"
+    if [ -z "${WALG_DATA_ROOT}" ]; then
+        error "Cannot determine data root from WALG_DATA_ROOT or container ${WALG_CONTAINER} mounts"
+    fi
+    WALG_DATA_VOLUME="$(inspect_data_volume)"
     if [ -z "${WALG_DATA_VOLUME}" ]; then
         error "Cannot determine data volume from container ${WALG_CONTAINER}"
     fi
@@ -228,7 +267,7 @@ snapshot_data() {
     info "Creating pre-restore snapshot in ${WALG_SNAPSHOT_DIR}"
     mkdir -p "${WALG_SNAPSHOT_DIR}"
     docker run --rm \
-        -v "${WALG_DATA_VOLUME}:${WALG_DATA_DIR}:ro" \
+        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}:ro" \
         -v "${WALG_SNAPSHOT_DIR}:/mnt/snapshots" \
         busybox:latest \
         tar czf "/mnt/snapshots/walg-recover-before-${TIME_TAG}.tar.gz" -C "${WALG_DATA_DIR}" .
@@ -237,7 +276,7 @@ snapshot_data() {
 clear_data() {
     info "Clearing PostgreSQL data volume ${WALG_DATA_VOLUME}"
     docker run --rm \
-        -v "${WALG_DATA_VOLUME}:${WALG_DATA_DIR}" \
+        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}" \
         busybox:latest \
         find "${WALG_DATA_DIR}" -mindepth 1 -delete
 }
@@ -246,7 +285,7 @@ fetch_backup() {
     info "Fetching WAL-G backup ${WALG_RECOVER_BACKUP_NAME} from ${WALG_RECOVER_S3_PREFIX}"
     docker run --rm \
         --user postgres \
-        -v "${WALG_DATA_VOLUME}:${WALG_DATA_DIR}" \
+        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}" \
         -e "AWS_ENDPOINT=${WALG_RECOVER_S3_ENDPOINT}" \
         -e "AWS_REGION=${WALG_RECOVER_S3_REGION}" \
         -e "AWS_ACCESS_KEY_ID=${WALG_RECOVER_S3_ACCESS_KEY}" \
@@ -278,8 +317,8 @@ enable_recovery() {
     info "Enabling PostgreSQL archive recovery"
     # shellcheck disable=SC2016
     docker run --rm \
-        -v "${WALG_DATA_VOLUME}:${WALG_DATA_DIR}" \
-        -e "RESTORE_COMMAND=restore_command = '/opt/config/walg_recover.sh wal-fetch \"%f\" \"%p\" 2>&1 | tee -a /var/lib/postgresql/data/walg_restore.log'" \
+        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}" \
+        -e "RESTORE_COMMAND=restore_command = '/opt/config/walg_recover.sh wal-fetch \"%f\" \"%p\" 2>&1 | tee -a ${WALG_DATA_DIR}/walg_restore.log'" \
         busybox:latest \
         sh -c 'printf "%s\n" "$RESTORE_COMMAND" >> "$1/postgresql.auto.conf" && touch "$1/recovery.signal"' sh "${WALG_DATA_DIR}"
 }

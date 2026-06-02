@@ -27,7 +27,7 @@
   when: docker_postgres_dr_action == 'stop'
 
 - name: Promote PostgreSQL to leader
-  ansible.builtin.command: docker run --rm -v {{ docker_postgres_data_volume }}:/var/lib/postgresql/data -u postgres {{ docker_postgres_runtime_image_full }} pg_ctl promote -t 300 -D /var/lib/postgresql/data
+  ansible.builtin.command: docker run --rm -v {{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }} -u postgres {{ docker_postgres_runtime_image_full }} pg_ctl promote -t 300 -D {{ docker_postgres_data_dir }}
   changed_when: true
   when:
     - docker_postgres_dr_action == 'promote'
@@ -59,9 +59,9 @@
     name: pg-basebackup-snapshot
     hostname: pg-basebackup-snapshot.{{ inventory_hostname }}
     image: '{{ docker_postgres_utility_image_full }}'
-    command: tar czf /mnt/snapshots/snapshot_{{ ansible_date_time.iso8601_basic_short }}.tar.gz /var/lib/postgresql/data
+    command: tar czf /mnt/snapshots/snapshot_{{ ansible_date_time.iso8601_basic_short }}.tar.gz {{ docker_postgres_data_dir }}
     volumes:
-      - '{{ docker_postgres_data_volume }}:/var/lib/postgresql/data'
+      - '{{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }}'
       - /opt/postgres/snapshots:/mnt/snapshots
     detach: false
     cleanup: true
@@ -74,9 +74,9 @@
     name: pg-basebackup-clear
     hostname: pg-basebackup-clear.{{ inventory_hostname }}
     image: '{{ docker_postgres_utility_image_full }}'
-    command: find /var/lib/postgresql/data -mindepth 1 -delete
+    command: find {{ docker_postgres_data_dir }} -mindepth 1 -delete
     volumes:
-      - '{{ docker_postgres_data_volume }}:/var/lib/postgresql/data'
+      - '{{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }}'
     detach: false
     cleanup: true
   when:
@@ -88,11 +88,11 @@
     name: pg-basebackup
     hostname: pg-basebackup.{{ inventory_hostname }}
     image: '{{ docker_postgres_runtime_image_full }}'
-    command: pg_basebackup -vPR -X stream -c fast -h {{ docker_postgres_pg_fallback_host }} -p {{ docker_postgres_pg_fallback_port }} -U {{ docker_postgres_pg_replicator_user }} -D /var/lib/postgresql/data
+    command: pg_basebackup -vPR -X stream -c fast -h {{ docker_postgres_pg_fallback_host }} -p {{ docker_postgres_pg_fallback_port }} -U {{ docker_postgres_pg_replicator_user }} -D {{ docker_postgres_data_dir }}
     env:
       PGPASSWORD: '{{ docker_postgres_pg_replicator_pass }}'
     volumes:
-      - '{{ docker_postgres_data_volume }}:/var/lib/postgresql/data'
+      - '{{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }}'
     detach: false
     cleanup: true
   no_log: '{{ docker_postgres_nolog }}'

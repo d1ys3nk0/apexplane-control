@@ -14,7 +14,7 @@ This role runs PostgreSQL in a standalone Docker container with optional WAL-G a
 - Configure WAL-G.
 
 ## Configuration
-Set these required inputs before applying the role: `docker_postgres_pg_admin_pass`, `docker_postgres_pg_admin_user`, `docker_postgres_mode`. The PostgreSQL container defaults to `docker_postgres_container: postgres`, and the listener/readiness port defaults to `docker_postgres_port: 5432`.
+Set these required inputs before applying the role: `docker_postgres_data_dir`, `docker_postgres_pg_admin_pass`, `docker_postgres_pg_admin_user`, `docker_postgres_mode`. The PostgreSQL container defaults to `docker_postgres_container: postgres`, and the listener/readiness port defaults to `docker_postgres_port: 5432`.
 
 | Variable | Default |
 | --- | --- |
@@ -27,6 +27,8 @@ Set these required inputs before applying the role: `docker_postgres_pg_admin_pa
 | `docker_postgres_connections` | `100` |
 | `docker_postgres_container` | `postgres` |
 | `docker_postgres_data_volume` | `postgres-data` |
+| `docker_postgres_data_root` | `/var/lib/postgresql` |
+| `docker_postgres_data_dir` | `~` |
 | `docker_postgres_ci_mode` | `<derived>` |
 | `docker_postgres_debug_mode` | `<derived>` |
 | `docker_postgres_nolog` | `<derived>` |
@@ -181,7 +183,7 @@ Replace placeholders before running.
 
 ```sh
 sudo docker stop <container>
-sudo docker run --rm -v <data-volume>:/var/lib/postgresql/data <utility-image> find /var/lib/postgresql/data -mindepth 1 -delete
-sudo docker run --rm -e PGPASSWORD='<REPLICATOR_PASSWORD>' -v <data-volume>:/var/lib/postgresql/data <postgres-image> pg_basebackup -vPR -X stream -c fast -h <leader-host> -p <leader-port> -U replicator -D /var/lib/postgresql/data -C -S <slot-name>
+sudo docker run --rm -v <data-volume>:<data-root> <utility-image> find <data-dir> -mindepth 1 -delete
+sudo docker run --rm -e PGPASSWORD='<REPLICATOR_PASSWORD>' -v <data-volume>:<data-root> <postgres-image> pg_basebackup -vPR -X stream -c fast -h <leader-host> -p <leader-port> -U replicator -D <data-dir> -C -S <slot-name>
 sudo docker start <container>
 ```

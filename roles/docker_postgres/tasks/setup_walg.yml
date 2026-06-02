@@ -53,6 +53,7 @@
       POSTGRES_USER: '{{ docker_postgres_pg_admin_user }}'
       POSTGRES_PASSWORD: '{{ docker_postgres_pg_admin_pass }}'
       PGDATABASE: postgres
+      PGDATA: '{{ docker_postgres_data_dir }}'
       PGHOST: /var/run/postgresql
       PGPORT: '{{ docker_postgres_port | string }}'
       PGUSER: '{{ docker_postgres_pg_admin_user }}'
@@ -82,7 +83,7 @@
       - /opt/postgres/config:/opt/config:ro
       - /opt/postgres/log:/var/log/postgresql
       - /opt/postgres/psql_history:/var/lib/postgresql/.psql_history
-      - '{{ docker_postgres_data_volume }}:/var/lib/postgresql/data'
+      - '{{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }}'
     healthcheck:
       test: [CMD, pg_isready]
       timeout: 2s

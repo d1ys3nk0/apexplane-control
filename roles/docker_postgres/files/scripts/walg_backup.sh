@@ -36,6 +36,13 @@ require_vars() {
     done
 }
 
+inspect_container_env() {
+    local format
+
+    format='{''{range .Config.Env}''}''{''{println .}''}''{''{end}''}'
+    docker inspect "${WALG_CONTAINER}" --format "${format}" | awk -F= -v key="$1" '$1 == key {print substr($0, length(key) + 2); exit}'
+}
+
 usage() {
     cat >&2 <<'USAGE'
 Usage: walg_backup
@@ -53,7 +60,7 @@ Required environment:
 
 Optional environment:
   WALG_CONTAINER=postgres
-  WALG_DATA_DIR=/var/lib/postgresql/data
+  WALG_DATA_DIR=<container PGDATA>
   WALG_PGHOST=/var/run/postgresql
   WALG_PGUSER=admin
   WALG_DELTA_ORIGIN=LATEST
@@ -74,7 +81,10 @@ init_config() {
     fi
 
     WALG_CONTAINER="${WALG_CONTAINER:-postgres}"
-    WALG_DATA_DIR="${WALG_DATA_DIR:-/var/lib/postgresql/data}"
+    WALG_DATA_DIR="${WALG_DATA_DIR:-$(inspect_container_env PGDATA)}"
+    if [ -z "${WALG_DATA_DIR}" ]; then
+        error "Cannot determine PostgreSQL data directory from WALG_DATA_DIR or container ${WALG_CONTAINER} PGDATA"
+    fi
     WALG_PGHOST="${WALG_PGHOST:-/var/run/postgresql}"
     WALG_PGUSER="${WALG_PGUSER:-admin}"
     WALG_DELTA_ORIGIN="${WALG_DELTA_ORIGIN:-LATEST}"
