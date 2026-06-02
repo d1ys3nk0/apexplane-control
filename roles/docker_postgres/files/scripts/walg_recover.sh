@@ -92,6 +92,7 @@ Optional environment:
   WALG_RECOVER_START=true|false
   WALG_RECOVER_WAIT=true|false
   WALG_RECOVER_WAIT_SECONDS=3600
+  WALG_RECOVER_PROGRESS_SECONDS=30
   WALG_RECOVER_ORIGIN_BASE=<old-database-name>
   WALG_RECOVER_TARGET_BASE=<new-database-name>
   WALG_RECOVER_ORIGIN_OWNER=<old-role-name>
@@ -124,6 +125,7 @@ init_config() {
     WALG_RECOVER_START="${WALG_RECOVER_START:-true}"
     WALG_RECOVER_WAIT="${WALG_RECOVER_WAIT:-true}"
     WALG_RECOVER_WAIT_SECONDS="${WALG_RECOVER_WAIT_SECONDS:-3600}"
+    WALG_RECOVER_PROGRESS_SECONDS="${WALG_RECOVER_PROGRESS_SECONDS:-30}"
     WALG_RECOVER_S3_BUCKET="${WALG_RECOVER_S3_BUCKET:-}"
     WALG_RECOVER_ORIGIN_BASE="${WALG_RECOVER_ORIGIN_BASE:-}"
     WALG_RECOVER_TARGET_BASE="${WALG_RECOVER_TARGET_BASE:-}"
@@ -151,6 +153,7 @@ init_config() {
         "WALG_RECOVER_S3_ACCESS_KEY" \
         "WALG_RECOVER_S3_SECRET_KEY"
     require_positive_integer "${WALG_RECOVER_WAIT_SECONDS}" WALG_RECOVER_WAIT_SECONDS
+    require_positive_integer "${WALG_RECOVER_PROGRESS_SECONDS}" WALG_RECOVER_PROGRESS_SECONDS
     require_positive_integer "${PG_PORT}" PG_PORT
     is_true "${WALG_RECOVER_KEEP_CONTAINER}" WALG_RECOVER_KEEP_CONTAINER || true
     is_true "${WALG_RECOVER_NO_SNAPSHOT}" WALG_RECOVER_NO_SNAPSHOT || true
@@ -315,9 +318,32 @@ start_recover_container() {
     RECOVER_CONTAINER_STARTED=1
 }
 
+recovery_volume_metrics() {
+    docker run --rm \
+        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}:ro" \
+        "${WALG_UTILITY_IMAGE}" \
+        sh -c '
+            data_kib=unknown
+            restore_log_bytes=missing
+            if du_output=$(du -sk "$1" 2>/dev/null); then
+                data_kib="${du_output%%[!0-9]*}"
+            fi
+            if [ -f "$2" ]; then
+                restore_log_bytes=$(wc -c <"$2" | tr -d " ")
+            fi
+            printf "data_kib=%s restore_log_bytes=%s" "${data_kib}" "${restore_log_bytes}"
+        ' sh "${WALG_DATA_DIR}" "${WALG_DATA_DIR}/walg_restore.log" 2>/dev/null || printf 'data_kib=unknown restore_log_bytes=unknown'
+}
+
 wait_for_recovery() {
+    local container_state
+    local database_metrics
     local deadline
+    local elapsed
+    local next_progress
+    local ready_state
     local recovery_state
+    local remaining
 
     if ! is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || ! is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT; then
         return
@@ -325,14 +351,36 @@ wait_for_recovery() {
 
     info "Waiting up to ${WALG_RECOVER_WAIT_SECONDS}s for PostgreSQL to finish recovery"
     deadline=$((SECONDS + WALG_RECOVER_WAIT_SECONDS))
+    next_progress=${SECONDS}
     while [ "${SECONDS}" -lt "${deadline}" ]; do
+        container_state=$(docker inspect "${WALG_RECOVER_CONTAINER}" --format '{{.State.Status}}' 2>/dev/null || true)
+        if [ "${container_state}" != "running" ]; then
+            error "PostgreSQL recovery container ${WALG_RECOVER_CONTAINER} is ${container_state:-missing}"
+        fi
+
+        ready_state=not-ready
+        database_metrics="replay_lsn=unknown"
+        recovery_state=unknown
         if docker exec "${WALG_RECOVER_CONTAINER}" pg_isready -d postgres -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" >/dev/null 2>&1; then
+            ready_state=ready
             recovery_state=$(docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" || true)
+            database_metrics=$(docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT 'replay_lsn=' || COALESCE(pg_last_wal_replay_lsn()::text, 'unknown')" || true)
             if [ "${recovery_state}" = "f" ]; then
                 info "PostgreSQL recovery completed"
                 return
             fi
         fi
+
+        if [ "${SECONDS}" -ge "${next_progress}" ]; then
+            elapsed=$((SECONDS - SCRIPT_START_SECONDS))
+            remaining=$((deadline - SECONDS))
+            if [ "${remaining}" -lt 0 ]; then
+                remaining=0
+            fi
+            info "Recovery in progress after ${elapsed}s; ${remaining}s until timeout; container=${container_state}; postgres=${ready_state}; pg_is_in_recovery=${recovery_state}; $(recovery_volume_metrics); ${database_metrics:-replay_lsn=unknown}"
+            next_progress=$((SECONDS + WALG_RECOVER_PROGRESS_SECONDS))
+        fi
+
         sleep 5
     done
 
