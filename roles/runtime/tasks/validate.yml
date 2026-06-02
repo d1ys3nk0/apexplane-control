@@ -1,0 +1,110 @@
+---
+
+- name: Validate runtime variables
+  ansible.builtin.assert:
+    that:
+      - runtime_apps is sequence
+      - runtime_apps is not string
+      - runtime_pg_bases is sequence
+      - runtime_pg_bases is not string
+      - runtime_cluster_realm is not none
+      - runtime_cluster_realm | string | length > 0
+      - runtime_network_enabled is boolean
+      - runtime_pg_host is not none
+      - runtime_pg_host | string | length > 0
+      - runtime_pg_port is number or runtime_pg_port | string | length > 0
+      - runtime_pg_backup_concurrency | string is match('^[1-9][0-9]*$')
+      - runtime_pg_recover_concurrency | string is match('^[1-9][0-9]*$')
+      - runtime_pg_recover_exclude_extensions is string
+      - runtime_pg_recover_no_prepare is boolean
+      - runtime_pg_recover_no_recreate is boolean
+      - runtime_postgres_backup_sudoers_enabled is boolean
+    fail_msg: Define runtime app, realm, and PostgreSQL variables.
+  when: runtime_enabled | bool or runtime_network_enabled | bool
+
+- name: Validate runtime app definitions
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.name | string | length > 0
+      - item.envs | default([], true) is sequence
+      - item.envs | default([], true) is not string
+    fail_msg: Each runtime app must define a name and an envs list.
+  loop: '{{ runtime_selected_apps }}'
+  loop_control:
+    label: "{{ item.name | default('<missing-name>', true) }}"
+  when: runtime_enabled | bool or runtime_network_enabled | bool
+
+- name: Validate runtime app environment definitions
+  ansible.builtin.assert:
+    that:
+      - item.1.slug is defined
+      - item.1.slug | string | length > 0
+      - item.1.services | default([], true) is sequence
+      - item.1.services | default([], true) is not string
+    fail_msg: Each runtime app environment must define a slug and a services list.
+  loop: "{{ runtime_selected_apps | selectattr('envs', 'defined') | list | subelements('envs') }}"
+  loop_control:
+    label: "{{ item.0.name | default('<missing-app>', true) }}:{{ item.1.slug | default('<missing-env>', true) }}"
+  when: runtime_enabled | bool or runtime_network_enabled | bool
+
+- name: Validate runtime service definitions
+  ansible.builtin.assert:
+    that:
+      - item.service is defined
+      - item.service | string | length > 0
+      - item.secrets is mapping
+    fail_msg: Each runtime secret service must define a name and secrets mapping.
+  loop: '{{ runtime_secret_items }}'
+  loop_control:
+    label: "{{ item.service | default('<missing-service>', true) }}"
+  when: runtime_enabled | bool
+
+- name: Validate runtime PostgreSQL base definitions
+  ansible.builtin.assert:
+    that:
+      - item.app is defined
+      - item.app | string | length > 0
+      - item.base is defined
+      - item.base | string | length > 0
+      - item.user is defined
+      - item.user | string | length > 0
+      - item.pass is defined
+      - item.pass | string | length > 0
+      - item.host is not defined or item.host | string | length > 0
+      - item.port is not defined or item.port is number or item.port | string | length > 0
+      - item.sslmode is not defined or item.sslmode is string
+      - item.role_attr_flags is not defined or item.role_attr_flags is string
+      - item.recover_s3_prefix_template is not defined or item.recover_s3_prefix_template is string
+      - item.recover_s3_prefix_template is not defined or item.recover_s3_prefix_template | length > 0
+      - item.backup is not defined or item.backup is boolean
+      - item.provision is not defined or item.provision is boolean
+    fail_msg: Each enabled runtime PostgreSQL base must define app, base, user, and pass.
+  loop: '{{ runtime_pg_base_items }}'
+  loop_control:
+    label: "{{ item.base | default('<missing-base>', true) }}"
+  when: runtime_enabled | bool
+
+- name: Validate runtime PostgreSQL backup S3 variables
+  ansible.builtin.assert:
+    that:
+      - runtime_pg_backup_s3_bucket | string | length > 0
+      - runtime_pg_backup_s3_endpoint | string | length > 0
+      - runtime_pg_backup_s3_region | string | length > 0
+    fail_msg: Define runtime PostgreSQL backup S3 bucket, endpoint, and region when backup S3 keys are set.
+  when:
+    - runtime_enabled | bool
+    - runtime_pg_backup_s3_enabled | bool
+
+- name: Validate runtime PostgreSQL recovery S3 variables
+  ansible.builtin.assert:
+    that:
+      - runtime_pg_recover_s3_bucket | string | length > 0
+      - runtime_pg_recover_s3_endpoint | string | length > 0
+      - runtime_pg_recover_s3_prefix_template is string
+      - runtime_pg_recover_s3_prefix_template | length > 0
+      - runtime_pg_recover_s3_region | string | length > 0
+    fail_msg: Define runtime PostgreSQL recovery S3 bucket, endpoint, prefix template, and region when recovery S3 keys are set.
+  when:
+    - runtime_enabled | bool
+    - runtime_pg_recover_s3_enabled | bool

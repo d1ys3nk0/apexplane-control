@@ -1,0 +1,13 @@
+---
+
+- name: Create runtime docker overlay networks for each environment
+  become: true
+  community.docker.docker_network:
+    name: '{{ item.0.name }}_{{ runtime_cluster_realm }}_{{ item.1.slug }}'
+    driver: overlay
+    attachable: true
+    state: present
+  loop: "{{ runtime_selected_apps | selectattr('envs', 'defined') | list | subelements('envs') }}"
+  loop_control:
+    label: '{{ item.0.name }}_{{ runtime_cluster_realm }}_{{ item.1.slug }}'
+  when: runtime_network_enabled | bool

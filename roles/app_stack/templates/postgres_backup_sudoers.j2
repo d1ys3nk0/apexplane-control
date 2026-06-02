@@ -1,7 +1,0 @@
-# Ansible managed
-{% if app_stack_pg_backup_s3_enabled | bool %}
-{{ app_stack_app_name }} ALL=(root) NOPASSWD: /opt/toolbox/bin/dotenv /home/{{ app_stack_app_name }}/postgres/*.env /opt/toolbox/bin/pg_backup
-{% endif %}
-{% if app_stack_pg_recover_s3_enabled | bool %}
-{{ app_stack_app_name }} ALL=(root) NOPASSWD: /opt/toolbox/bin/dotenv /home/{{ app_stack_app_name }}/postgres/*.env /opt/toolbox/bin/pg_recover
-{% endif %}

@@ -1,15 +1,15 @@
 ---
 
-- name: Validate app stack configuration
+- name: Validate runtime configuration
   ansible.builtin.include_tasks: validate.yml
   tags:
     - always
 
-- name: Configure app stack Docker resources
+- name: Configure runtime Docker resources
   ansible.builtin.include_tasks: docker.yml
 
-- name: Configure app stack secrets
+- name: Configure runtime secrets
   ansible.builtin.include_tasks: secrets.yml
 
-- name: Configure app stack PostgreSQL resources
+- name: Configure runtime PostgreSQL resources
   ansible.builtin.include_tasks: postgres.yml
