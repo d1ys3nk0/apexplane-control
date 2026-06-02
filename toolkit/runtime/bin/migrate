@@ -257,26 +257,87 @@ import re
 import sys
 
 host = ""
+json_buffer: list[str] = []
 states: dict[str, object] = {}
-header_pattern = re.compile(r"^([^ |]+)\s+[|].*>>$")
+compact_header_pattern = re.compile(r"^([^ |]+)\s+[|].*>>$")
+json_header_pattern = re.compile(r"^([^ |]+)\s+[|].*=>\s+([{].*)$")
+
+
+def state_from_payload(payload: object) -> dict[str, object]:
+    if not isinstance(payload, dict):
+        raise SystemExit("Invalid remote Ansible state output: expected object")
+    stdout_lines = payload.get("stdout_lines")
+    if isinstance(stdout_lines, list):
+        for stdout_line in stdout_lines:
+            if not isinstance(stdout_line, str) or not stdout_line.startswith("{"):
+                continue
+            try:
+                state = json.loads(stdout_line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(state, dict):
+                return state
+    stdout = payload.get("stdout")
+    if isinstance(stdout, str):
+        for stdout_line in stdout.splitlines():
+            if not stdout_line.startswith("{"):
+                continue
+            try:
+                state = json.loads(stdout_line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(state, dict):
+                return state
+    return payload
+
+
+def store_state(output_host: str, payload: object) -> None:
+    state = state_from_payload(payload)
+    state_host = str(state.pop("host", output_host))
+    if not state_host:
+        raise SystemExit("Invalid remote Ansible state output: missing host")
+    states[state_host] = state
+
+
+def flush_json_buffer() -> bool:
+    global json_buffer
+    if not json_buffer:
+        return False
+    try:
+        payload = json.loads("\n".join(json_buffer))
+    except json.JSONDecodeError:
+        return False
+    store_state(host, payload)
+    json_buffer = []
+    return True
+
+
 for line in sys.stdin:
     line = line.rstrip("\n")
-    match = header_pattern.match(line)
-    if match is not None:
-        host = match.group(1)
+    if json_buffer:
+        json_buffer.append(line)
+        flush_json_buffer()
+        continue
+    compact_match = compact_header_pattern.match(line)
+    if compact_match is not None:
+        host = compact_match.group(1)
+        continue
+    json_match = json_header_pattern.match(line)
+    if json_match is not None:
+        host = json_match.group(1)
+        json_buffer = [json_match.group(2)]
+        flush_json_buffer()
         continue
     if not line.startswith("{"):
         continue
     try:
-        state = json.loads(line)
+        payload = json.loads(line)
     except json.JSONDecodeError as exc:
         raise SystemExit(f"Invalid remote Ansible state output: {exc}: {line}") from exc
-    if not isinstance(state, dict):
-        raise SystemExit("Invalid remote Ansible state output: expected object")
-    output_host = str(state.pop("host", host))
-    if not output_host:
-        raise SystemExit("Invalid remote Ansible state output: missing host")
-    states[output_host] = state
+    store_state(host, payload)
+
+if json_buffer:
+    raise SystemExit(f"Invalid remote Ansible state output: incomplete JSON for {host}")
 
 print(json.dumps(states, sort_keys=True))
 '

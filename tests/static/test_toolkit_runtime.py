@@ -53,12 +53,21 @@ if [[ "${args}" == *"remote_ansible_state.py"* ]]; then
     mkdir -p tmp
     printf '%s\n' "${args}" >> tmp/remote_state_calls
     target="$3"
-    printf '%s\n' "${target%,} | CHANGED | rc=0 >>"
     if [ "${REMOTE_MIGRATE_TAGS+x}" = "x" ]; then
-        printf '{"locked_at": "", "locked_by": "", "migrate_tag": "%s", "migrate_tags": %s}\n' \
-            "${REMOTE_MIGRATE_TAG:-}" "${REMOTE_MIGRATE_TAGS}"
+        state="$(printf '{"locked_at": "", "locked_by": "", "migrate_tag": "%s", "migrate_tags": %s}' \
+            "${REMOTE_MIGRATE_TAG:-}" "${REMOTE_MIGRATE_TAGS}")"
     else
-        printf '{"locked_at": "", "locked_by": "", "migrate_tag": "%s"}\n' "${REMOTE_MIGRATE_TAG:-}"
+        state="$(printf '{"locked_at": "", "locked_by": "", "migrate_tag": "%s"}' "${REMOTE_MIGRATE_TAG:-}")"
+    fi
+    if [ "${REMOTE_STATE_OUTPUT:-compact}" = "json" ]; then
+        printf '%s\n' "${target%,} | CHANGED => {"
+        printf '    "changed": true,\n'
+        printf '    "stdout": %s,\n' "$(python -c 'import json, sys; print(json.dumps(sys.argv[1] + "\\n"))' "${state}")"
+        printf '    "stdout_lines": [%s]\n' "$(python -c 'import json, sys; print(json.dumps(sys.argv[1]))' "${state}")"
+        printf '%s\n' "}"
+    else
+        printf '%s\n' "${target%,} | CHANGED | rc=0 >>"
+        printf '%s\n' "${state}"
     fi
     exit 0
 fi
@@ -200,6 +209,34 @@ def test_runtime_migrate_dry_mode_skips_applied_migrations(tmp_path: Path) -> No
     env = runtime_env(tmp_path)
     env["DRY"] = "1"
     env["REMOTE_MIGRATE_TAGS"] = '["260601120000"]'
+
+    result = subprocess.run(  # noqa: S603
+        [BASH, "bin/migrate", "apply", "prd", "ycl", "app"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    remote_state_calls = (tmp_path / "tmp/remote_state_calls").read_text(encoding="utf-8")
+    assert " get\n" in remote_state_calls
+    assert " acquire " not in remote_state_calls
+    assert " mark " not in remote_state_calls
+    assert not (tmp_path / "log/prd-app-migrate.log").exists()
+
+
+def test_runtime_migrate_parses_json_script_output_for_applied_migrations(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "migrate")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+    migration_path = tmp_path / "playbooks/app/_260601120000_runtime_test.yml"
+    migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
+    env = runtime_env(tmp_path)
+    env["DRY"] = "1"
+    env["REMOTE_MIGRATE_TAGS"] = '["260601120000"]'
+    env["REMOTE_STATE_OUTPUT"] = "json"
 
     result = subprocess.run(  # noqa: S603
         [BASH, "bin/migrate", "apply", "prd", "ycl", "app"],
