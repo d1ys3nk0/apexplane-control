@@ -185,6 +185,7 @@
     pg_base_suffix: "{{ pg_env_overrides.base_suffix | default(item.1.postgres.base_suffix | default(service_name, true), true) }}"
     pg_user: "{{ pg_env_overrides.user_name | default(item.1.postgres.user_name | default(pg_name_prefix ~ '_' ~ pg_user_suffix, true), true) }}"
     pg_base: "{{ pg_env_overrides.base_name | default(item.1.postgres.base_name | default(pg_name_prefix ~ '_' ~ pg_base_suffix, true), true) }}"
+    pg_recover_s3_prefix_template: "{{ pg_env_overrides.recover_s3_prefix_template | default(item.1.postgres.recover_s3_prefix_template | default(app_stack_pg_recover_s3_prefix_template, true), true) }}"
     pg_service_secrets: "{{ (((app_stack_secrets[app_stack_app_name] | default({}, true))[env_slug] | default({}, true))[service_name] | default({}, true)) }}"
     pg_pass: "{{ pg_env_overrides.pass | default(item.1.postgres.pass | default(pg_service_secrets.pg_pass | default(pg_service_secrets.PG_PASS | default('', true), true), true), true) }}"
     pg_host: '{{ app_stack_pg_host }}'
@@ -231,6 +232,7 @@
     pg_host: "{{ item.pg_host | default(app_stack_pg_host, true) }}"
     pg_port: "{{ item.pg_port | default(app_stack_pg_port, true) }}"
     pg_sslmode: "{{ item.pg_sslmode | default(app_stack_pg_sslmode, true) }}"
+    pg_recover_s3_prefix_template: "{{ item.recover_s3_prefix_template | default(app_stack_pg_recover_s3_prefix_template, true) }}"
   ansible.builtin.template:
     src: pg.env.j2
     dest: /home/{{ app_stack_app_name }}/postgres/{{ pg_base }}.env

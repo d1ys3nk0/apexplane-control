@@ -55,6 +55,9 @@ Set these required inputs before applying the role: `app_stack_app_name`, `app_s
 | `app_stack_postgres_backup_sudoers_path` | `''` |
 
 ## Usage
+
+Extra PostgreSQL env entries can set `recover_s3_prefix_template` to override `app_stack_pg_recover_s3_prefix_template` for that env file.
+
 ```yaml
 ---
 
