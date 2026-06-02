@@ -84,16 +84,22 @@ def test_docker_postgres_admin_credentials_are_required() -> None:
     assert "docker_postgres_pg_admin_pass | string | length > 0" in validate_text
 
 
-def test_runtime_postgresql_provisioning_requires_admin_credentials() -> None:
+def test_runtime_postgresql_provisioning_requires_admin_and_target_credentials() -> None:
     vars_text = (REPO_ROOT / "roles/runtime/vars/main.yml").read_text(encoding="utf-8")
     validate_text = (REPO_ROOT / "roles/runtime/tasks/validate.yml").read_text(encoding="utf-8")
+    provision_text = (REPO_ROOT / "roles/runtime/tasks/postgres_provision.yml").read_text(encoding="utf-8")
 
+    assert "runtime_pg_provision_items" in vars_text
     assert "runtime_pg_provision_requested" in vars_text
     assert "selectattr('provision', 'undefined')" in vars_text
     assert "selectattr('provision', 'defined')" in vars_text
     assert "runtime_pg_admin_user | string | length > 0" in validate_text
     assert "runtime_pg_admin_pass | string | length > 0" in validate_text
+    assert "item.user | string | length > 0" in validate_text
+    assert "item.pass | string | length > 0" in validate_text
+    assert "runtime_pg_provision_items" in validate_text
     assert "runtime_pg_provision_requested | bool" in validate_text
+    assert "runtime_pg_provision_items" in provision_text
 
 
 def test_postgresql_resource_tasks_are_gated_by_admin_credentials() -> None:

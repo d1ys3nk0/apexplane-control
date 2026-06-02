@@ -94,6 +94,23 @@
     - runtime_enabled | bool
     - runtime_pg_provision_requested | bool
 
+- name: Validate runtime PostgreSQL provision target credentials
+  ansible.builtin.assert:
+    that:
+      - item.app is defined
+      - item.app | string | length > 0
+      - item.base is defined
+      - item.base | string | length > 0
+      - item.user is defined
+      - item.user | string | length > 0
+      - item.pass is defined
+      - item.pass | string | length > 0
+    fail_msg: Each runtime PostgreSQL provision target must define app, base, user, and pass.
+  loop: '{{ runtime_pg_provision_items }}'
+  loop_control:
+    label: "{{ item.base | default('<missing-base>', true) }}"
+  when: runtime_enabled | bool
+
 - name: Validate runtime PostgreSQL backup S3 variables
   ansible.builtin.assert:
     that:
