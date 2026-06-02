@@ -33,6 +33,7 @@ Set these required inputs before applying the role: `app_stack_app_name`, `app_s
 | `app_stack_pg_sslmode` | `disable` |
 | `app_stack_pg_backup_concurrency` | `1` |
 | `app_stack_pg_recover_concurrency` | `1` |
+| `app_stack_pg_recover_exclude_extensions` | `''` |
 | `app_stack_pg_recover_no_prepare` | `false` |
 | `app_stack_pg_recover_no_recreate` | `false` |
 | `app_stack_secrets` | `{}` |

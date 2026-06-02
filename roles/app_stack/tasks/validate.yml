@@ -15,6 +15,7 @@
       - app_stack_pg_port is number or app_stack_pg_port | string | length > 0
       - app_stack_pg_backup_concurrency | string is match('^[1-9][0-9]*$')
       - app_stack_pg_recover_concurrency | string is match('^[1-9][0-9]*$')
+      - app_stack_pg_recover_exclude_extensions is string
       - app_stack_pg_recover_no_prepare is boolean
       - app_stack_pg_recover_no_recreate is boolean
       - app_stack_extra_pg_envs is sequence
