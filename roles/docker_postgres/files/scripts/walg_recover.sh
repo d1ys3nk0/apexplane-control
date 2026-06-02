@@ -63,8 +63,8 @@ Replaces the local Docker PostgreSQL data volume with a physical WAL-G backup
 and starts PostgreSQL archive recovery. This is a whole-cluster restore, not a
 single database restore.
 
-Stop any PostgreSQL process or container using WALG_DATA_VOLUME before running
-this script.
+Stop application writers before running this script. The script stops and starts
+the configured PostgreSQL container during recovery.
 
 Required environment:
   WALG_IMAGE
@@ -79,14 +79,11 @@ Required environment:
   WALG_RECOVER_S3_SECRET_KEY
 
 Optional environment:
+  PG_CONTAINER=postgres
   PG_PORT=5432
   WALG_UTILITY_IMAGE=busybox:1.37.0
-  WALG_RECOVER_CONTAINER=postgres-walg-recover
-  WALG_CONFIG_DIR=/opt/postgres/config
   WALG_SNAPSHOT_DIR=/opt/postgres/snapshots
-  WALG_RECOVER_PG_HOST_DIR=/opt/postgres
   WALG_RECOVER_BACKUP_NAME=LATEST
-  WALG_RECOVER_KEEP_CONTAINER=true|false
   WALG_RECOVER_PGUSER=admin
   WALG_RECOVER_NO_SNAPSHOT=true|false
   WALG_RECOVER_START=true|false
@@ -111,15 +108,12 @@ init_config() {
         usage_error "Expected 0, 1, or 2 arguments, got $#"
     fi
 
+    PG_CONTAINER="${PG_CONTAINER:-postgres}"
     PG_PORT="${PG_PORT:-5432}"
     require_vars "WALG_IMAGE" "WALG_DATA_VOLUME" "WALG_DATA_ROOT" "WALG_DATA_DIR"
     WALG_UTILITY_IMAGE="${WALG_UTILITY_IMAGE:-busybox:1.37.0}"
-    WALG_RECOVER_CONTAINER="${WALG_RECOVER_CONTAINER:-postgres-walg-recover}"
-    WALG_CONFIG_DIR="${WALG_CONFIG_DIR:-/opt/postgres/config}"
     WALG_SNAPSHOT_DIR="${WALG_SNAPSHOT_DIR:-/opt/postgres/snapshots}"
-    WALG_RECOVER_PG_HOST_DIR="${WALG_RECOVER_PG_HOST_DIR:-/opt/postgres}"
     WALG_RECOVER_BACKUP_NAME="${WALG_RECOVER_BACKUP_NAME:-LATEST}"
-    WALG_RECOVER_KEEP_CONTAINER="${WALG_RECOVER_KEEP_CONTAINER:-false}"
     WALG_RECOVER_PGUSER="${WALG_RECOVER_PGUSER:-admin}"
     WALG_RECOVER_NO_SNAPSHOT="${WALG_RECOVER_NO_SNAPSHOT:-false}"
     WALG_RECOVER_START="${WALG_RECOVER_START:-true}"
@@ -155,7 +149,6 @@ init_config() {
     require_positive_integer "${WALG_RECOVER_WAIT_SECONDS}" WALG_RECOVER_WAIT_SECONDS
     require_positive_integer "${WALG_RECOVER_PROGRESS_SECONDS}" WALG_RECOVER_PROGRESS_SECONDS
     require_positive_integer "${PG_PORT}" PG_PORT
-    is_true "${WALG_RECOVER_KEEP_CONTAINER}" WALG_RECOVER_KEEP_CONTAINER || true
     is_true "${WALG_RECOVER_NO_SNAPSHOT}" WALG_RECOVER_NO_SNAPSHOT || true
     is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || true
     is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT || true
@@ -178,36 +171,31 @@ init_config() {
         fi
     fi
 
-    RECOVER_SCRIPT="${WALG_CONFIG_DIR}/walg_recover.sh"
-    RECOVER_CONTAINER_STARTED=0
+    RESTORE_SCRIPT="${WALG_DATA_ROOT}/walg_restore_command.sh"
+    POSTGRES_UID=""
+    POSTGRES_GID=""
 }
 
 cleanup() {
-    if [ -z "${RECOVER_SCRIPT:-}" ] || [ ! -f "${RECOVER_SCRIPT}" ]; then
+    if [ -z "${RESTORE_SCRIPT:-}" ]; then
         return
     fi
 
-    if [ "${RECOVER_CONTAINER_STARTED:-0}" != "1" ]; then
-        info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
-        rm -f "${RECOVER_SCRIPT}"
-        return
-    fi
-
-    if ! docker inspect "${WALG_RECOVER_CONTAINER}" --format '{{.State.Running}}' >/dev/null 2>&1; then
-        info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
-        rm -f "${RECOVER_SCRIPT}"
+    if ! docker inspect "${PG_CONTAINER}" --format '{{.State.Running}}' >/dev/null 2>&1; then
+        info "Removing temporary WAL-G recovery config ${RESTORE_SCRIPT}"
+        remove_restore_command
         return
     fi
 
     local recovery_state
-    recovery_state=$(docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
+    recovery_state=$(docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
     if [ "${recovery_state}" != "t" ]; then
-        info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
-        rm -f "${RECOVER_SCRIPT}"
+        info "Removing temporary WAL-G recovery config ${RESTORE_SCRIPT}"
+        remove_restore_command
         return
     fi
 
-    warn "Leaving ${RECOVER_SCRIPT} in place because PostgreSQL may still need it for recovery"
+    warn "Leaving ${RESTORE_SCRIPT} in place because PostgreSQL may still need it for recovery"
 }
 
 init_cleanup() {
@@ -230,6 +218,51 @@ wait_before_recovery() {
     done
 }
 
+load_postgres_identity() {
+    POSTGRES_UID=$(docker run --rm --entrypoint id "${WALG_IMAGE}" -u postgres)
+    POSTGRES_GID=$(docker run --rm --entrypoint id "${WALG_IMAGE}" -g postgres)
+}
+
+validate_postgres_container() {
+    local container_image
+    local data_mount
+    local pgdata
+
+    info "Validating PostgreSQL container ${PG_CONTAINER}"
+    if ! docker inspect "${PG_CONTAINER}" >/dev/null 2>&1; then
+        error "PostgreSQL container ${PG_CONTAINER} does not exist"
+    fi
+
+    container_image=$(docker inspect "${PG_CONTAINER}" --format '{{.Config.Image}}')
+    if [ "${container_image}" != "${WALG_IMAGE}" ]; then
+        error "PostgreSQL container ${PG_CONTAINER} uses image ${container_image}, expected ${WALG_IMAGE}"
+    fi
+
+    pgdata=$(docker inspect "${PG_CONTAINER}" --format '{{range .Config.Env}}{{printf "%s\n" .}}{{end}}' | awk -F= '$1 == "PGDATA" { print substr($0, 8); exit }')
+    if [ "${pgdata}" != "${WALG_DATA_DIR}" ]; then
+        error "PostgreSQL container ${PG_CONTAINER} uses PGDATA=${pgdata:-unset}, expected ${WALG_DATA_DIR}"
+    fi
+
+    data_mount=$(docker inspect "${PG_CONTAINER}" --format '{{range .Mounts}}{{printf "%s %s %s\n" .Type .Name .Destination}}{{end}}' |
+        awk -v volume="${WALG_DATA_VOLUME}" -v destination="${WALG_DATA_ROOT}" '$1 == "volume" && $2 == volume && $3 == destination { print $0; exit }')
+    if [ -z "${data_mount}" ]; then
+        error "PostgreSQL container ${PG_CONTAINER} does not mount ${WALG_DATA_VOLUME} at ${WALG_DATA_ROOT}"
+    fi
+}
+
+stop_postgres_container() {
+    local container_state
+
+    container_state=$(docker inspect "${PG_CONTAINER}" --format '{{.State.Status}}')
+    if [ "${container_state}" = "running" ]; then
+        info "Stopping PostgreSQL container ${PG_CONTAINER}"
+        docker stop "${PG_CONTAINER}" >/dev/null
+        return
+    fi
+
+    warn "PostgreSQL container ${PG_CONTAINER} is ${container_state}; continuing with offline recovery"
+}
+
 snapshot_data() {
     if is_true "${WALG_RECOVER_NO_SNAPSHOT}" WALG_RECOVER_NO_SNAPSHOT; then
         warn "Skipping pre-restore data snapshot because WALG_RECOVER_NO_SNAPSHOT=${WALG_RECOVER_NO_SNAPSHOT}"
@@ -239,7 +272,7 @@ snapshot_data() {
     info "Creating pre-restore snapshot in ${WALG_SNAPSHOT_DIR}"
     mkdir -p "${WALG_SNAPSHOT_DIR}"
     docker run --rm \
-        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}:ro" \
+        --volumes-from "${PG_CONTAINER}:ro" \
         -v "${WALG_SNAPSHOT_DIR}:/mnt/snapshots" \
         "${WALG_UTILITY_IMAGE}" \
         tar czf "/mnt/snapshots/walg-recover-before-${TIME_TAG}.tar.gz" -C "${WALG_DATA_DIR}" .
@@ -248,7 +281,7 @@ snapshot_data() {
 clear_data() {
     info "Clearing PostgreSQL data volume ${WALG_DATA_VOLUME}"
     docker run --rm \
-        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}" \
+        --volumes-from "${PG_CONTAINER}" \
         "${WALG_UTILITY_IMAGE}" \
         find "${WALG_DATA_DIR}" -mindepth 1 -delete
 }
@@ -256,8 +289,8 @@ clear_data() {
 fetch_backup() {
     info "Fetching WAL-G backup ${WALG_RECOVER_BACKUP_NAME} from ${WALG_RECOVER_S3_PREFIX}"
     docker run --rm \
-        --user postgres \
-        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}" \
+        --user "${POSTGRES_UID}:${POSTGRES_GID}" \
+        --volumes-from "${PG_CONTAINER}" \
         -e "AWS_ENDPOINT=${WALG_RECOVER_S3_ENDPOINT}" \
         -e "AWS_REGION=${WALG_RECOVER_S3_REGION}" \
         -e "AWS_ACCESS_KEY_ID=${WALG_RECOVER_S3_ACCESS_KEY}" \
@@ -267,60 +300,74 @@ fetch_backup() {
         /usr/local/bin/wal-g backup-fetch "${WALG_DATA_DIR}" "${WALG_RECOVER_BACKUP_NAME}"
 }
 
-install_recover_config() {
-    info "Installing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
-    mkdir -p "${WALG_CONFIG_DIR}"
-    umask 077
-    {
-        printf '%s\n' '#!/bin/sh'
-        printf '%s\n' 'export PGHOST="/var/run/postgresql"'
-        printf 'export PGUSER=%q\n' "${WALG_RECOVER_PGUSER}"
-        printf 'export AWS_ENDPOINT=%q\n' "${WALG_RECOVER_S3_ENDPOINT}"
-        printf 'export AWS_REGION=%q\n' "${WALG_RECOVER_S3_REGION}"
-        printf 'export AWS_ACCESS_KEY_ID=%q\n' "${WALG_RECOVER_S3_ACCESS_KEY}"
-        printf 'export AWS_SECRET_ACCESS_KEY=%q\n' "${WALG_RECOVER_S3_SECRET_KEY}"
-        printf 'export WALG_S3_PREFIX=%q\n' "${WALG_RECOVER_S3_PREFIX}"
-        printf '%s\n' 'exec /usr/local/bin/wal-g "$@"'
-    } >"${RECOVER_SCRIPT}"
-    chmod 0700 "${RECOVER_SCRIPT}"
+install_restore_command() {
+    info "Installing temporary WAL-G restore command ${RESTORE_SCRIPT}"
+    docker run --rm \
+        --user "${POSTGRES_UID}:${POSTGRES_GID}" \
+        --volumes-from "${PG_CONTAINER}" \
+        -e "RESTORE_SCRIPT=${RESTORE_SCRIPT}" \
+        -e "WALG_RECOVER_PGUSER=${WALG_RECOVER_PGUSER}" \
+        -e "WALG_RECOVER_S3_ENDPOINT=${WALG_RECOVER_S3_ENDPOINT}" \
+        -e "WALG_RECOVER_S3_REGION=${WALG_RECOVER_S3_REGION}" \
+        -e "WALG_RECOVER_S3_ACCESS_KEY=${WALG_RECOVER_S3_ACCESS_KEY}" \
+        -e "WALG_RECOVER_S3_SECRET_KEY=${WALG_RECOVER_S3_SECRET_KEY}" \
+        -e "WALG_RECOVER_S3_PREFIX=${WALG_RECOVER_S3_PREFIX}" \
+        "${WALG_UTILITY_IMAGE}" \
+        sh -c '
+            quote_env() {
+                sq=$(printf "\047")
+                printf "%s" "${sq}"
+                printf "%s" "$1" | sed "s/${sq}/${sq}\\\\${sq}${sq}/g"
+                printf "%s" "${sq}"
+            }
+
+            umask 077
+            {
+                printf "%s\n" "#!/bin/sh"
+                printf "%s\n" "export PGHOST=\"/var/run/postgresql\""
+                printf "export PGUSER=%s\n" "$(quote_env "${WALG_RECOVER_PGUSER}")"
+                printf "export AWS_ENDPOINT=%s\n" "$(quote_env "${WALG_RECOVER_S3_ENDPOINT}")"
+                printf "export AWS_REGION=%s\n" "$(quote_env "${WALG_RECOVER_S3_REGION}")"
+                printf "export AWS_ACCESS_KEY_ID=%s\n" "$(quote_env "${WALG_RECOVER_S3_ACCESS_KEY}")"
+                printf "export AWS_SECRET_ACCESS_KEY=%s\n" "$(quote_env "${WALG_RECOVER_S3_SECRET_KEY}")"
+                printf "export WALG_S3_PREFIX=%s\n" "$(quote_env "${WALG_RECOVER_S3_PREFIX}")"
+                printf "%s\n" "exec /usr/local/bin/wal-g \"\$@\""
+            } >"${RESTORE_SCRIPT}"
+            chmod 0700 "${RESTORE_SCRIPT}"
+        '
+}
+
+remove_restore_command() {
+    docker run --rm \
+        --volumes-from "${PG_CONTAINER}" \
+        "${WALG_UTILITY_IMAGE}" \
+        rm -f "${RESTORE_SCRIPT}" >/dev/null 2>&1 || true
 }
 
 enable_recovery() {
     info "Enabling PostgreSQL archive recovery"
     # shellcheck disable=SC2016
     docker run --rm \
-        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}" \
-        -e "RESTORE_COMMAND=restore_command = '/opt/config/walg_recover.sh wal-fetch \"%f\" \"%p\" 2>&1 | tee -a ${WALG_DATA_DIR}/walg_restore.log'" \
+        --user "${POSTGRES_UID}:${POSTGRES_GID}" \
+        --volumes-from "${PG_CONTAINER}" \
+        -e "RESTORE_COMMAND=restore_command = '${RESTORE_SCRIPT} wal-fetch \"%f\" \"%p\" >> ${WALG_DATA_DIR}/walg_restore.log 2>&1'" \
         "${WALG_UTILITY_IMAGE}" \
-        sh -c 'printf "%s\n" "$RESTORE_COMMAND" >> "$1/postgresql.auto.conf" && touch "$1/recovery.signal"' sh "${WALG_DATA_DIR}"
+        sh -c 'printf "%s\n" "$RESTORE_COMMAND" >> "$1/postgresql.auto.conf" && touch "$1/recovery.signal" && : > "$1/walg_restore.log"' sh "${WALG_DATA_DIR}"
 }
 
-start_recover_container() {
+start_postgres_container() {
     if ! is_true "${WALG_RECOVER_START}" WALG_RECOVER_START; then
-        warn "PostgreSQL recovery container is not started because WALG_RECOVER_START=${WALG_RECOVER_START}"
+        warn "PostgreSQL container is not started because WALG_RECOVER_START=${WALG_RECOVER_START}"
         return
     fi
 
-    info "Starting temporary PostgreSQL recovery container ${WALG_RECOVER_CONTAINER}"
-    docker rm -f "${WALG_RECOVER_CONTAINER}" >/dev/null 2>&1 || true
-    docker run -d \
-        --name "${WALG_RECOVER_CONTAINER}" \
-        --network host \
-        -e "PGDATA=${WALG_DATA_DIR}" \
-        -v "${WALG_RECOVER_PG_HOST_DIR}/postgresql.conf:/etc/postgresql/postgresql.conf:ro" \
-        -v "${WALG_RECOVER_PG_HOST_DIR}/pg_hba.conf:/var/lib/postgresql/pg_hba.conf:ro" \
-        -v "${WALG_RECOVER_PG_HOST_DIR}/config:/opt/config:ro" \
-        -v "${WALG_RECOVER_PG_HOST_DIR}/log:/var/log/postgresql" \
-        -v "${WALG_RECOVER_PG_HOST_DIR}/psql_history:/var/lib/postgresql/.psql_history" \
-        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}" \
-        "${WALG_IMAGE}" \
-        postgres -c 'config_file=/etc/postgresql/postgresql.conf'
-    RECOVER_CONTAINER_STARTED=1
+    info "Starting PostgreSQL container ${PG_CONTAINER}"
+    docker start "${PG_CONTAINER}" >/dev/null
 }
 
 recovery_volume_metrics() {
     docker run --rm \
-        -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}:ro" \
+        --volumes-from "${PG_CONTAINER}:ro" \
         "${WALG_UTILITY_IMAGE}" \
         sh -c '
             data_kib=unknown
@@ -353,18 +400,18 @@ wait_for_recovery() {
     deadline=$((SECONDS + WALG_RECOVER_WAIT_SECONDS))
     next_progress=${SECONDS}
     while [ "${SECONDS}" -lt "${deadline}" ]; do
-        container_state=$(docker inspect "${WALG_RECOVER_CONTAINER}" --format '{{.State.Status}}' 2>/dev/null || true)
+        container_state=$(docker inspect "${PG_CONTAINER}" --format '{{.State.Status}}' 2>/dev/null || true)
         if [ "${container_state}" != "running" ]; then
-            error "PostgreSQL recovery container ${WALG_RECOVER_CONTAINER} is ${container_state:-missing}"
+            error "PostgreSQL container ${PG_CONTAINER} is ${container_state:-missing}"
         fi
 
         ready_state=not-ready
         database_metrics="replay_lsn=unknown"
         recovery_state=unknown
-        if docker exec "${WALG_RECOVER_CONTAINER}" pg_isready -d postgres -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" >/dev/null 2>&1; then
+        if docker exec "${PG_CONTAINER}" pg_isready -d postgres -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" >/dev/null 2>&1; then
             ready_state=ready
-            recovery_state=$(docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" || true)
-            database_metrics=$(docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT 'replay_lsn=' || COALESCE(pg_last_wal_replay_lsn()::text, 'unknown')" || true)
+            recovery_state=$(docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" || true)
+            database_metrics=$(docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT 'replay_lsn=' || COALESCE(pg_last_wal_replay_lsn()::text, 'unknown')" || true)
             if [ "${recovery_state}" = "f" ]; then
                 info "PostgreSQL recovery completed"
                 return
@@ -393,31 +440,31 @@ cleanup_recover_config() {
     fi
 
     local recovery_state
-    recovery_state=$(docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
+    recovery_state=$(docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
     if [ "${recovery_state}" = "t" ]; then
         warn "PostgreSQL is still in recovery; leaving restore_command in place"
         return
     fi
 
     info "Resetting temporary restore_command override"
-    docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "ALTER SYSTEM RESET restore_command"
-    docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "SELECT pg_reload_conf()"
+    docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "ALTER SYSTEM RESET restore_command"
+    docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "SELECT pg_reload_conf()"
 
-    if [ -n "${RECOVER_SCRIPT:-}" ] && [ -f "${RECOVER_SCRIPT}" ]; then
-        info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
-        rm -f "${RECOVER_SCRIPT}"
+    if [ -n "${RESTORE_SCRIPT:-}" ]; then
+        info "Removing temporary WAL-G recovery config ${RESTORE_SCRIPT}"
+        remove_restore_command
     fi
 }
 
 psql_postgres() {
-    docker exec -i "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -v ON_ERROR_STOP=1 "$@"
+    docker exec -i "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -v ON_ERROR_STOP=1 "$@"
 }
 
 psql_database() {
     local database="$1"
     shift
 
-    docker exec -i "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d "${database}" -v ON_ERROR_STOP=1 "$@"
+    docker exec -i "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d "${database}" -v ON_ERROR_STOP=1 "$@"
 }
 
 reconcile_database_name() {
@@ -583,16 +630,6 @@ reconcile_recovered_cluster() {
     reassign_database_objects
 }
 
-stop_recover_container() {
-    if [ "${RECOVER_CONTAINER_STARTED:-0}" != "1" ] || is_true "${WALG_RECOVER_KEEP_CONTAINER}" WALG_RECOVER_KEEP_CONTAINER; then
-        return
-    fi
-
-    info "Removing temporary PostgreSQL recovery container ${WALG_RECOVER_CONTAINER}"
-    docker rm -f "${WALG_RECOVER_CONTAINER}" >/dev/null
-    RECOVER_CONTAINER_STARTED=0
-}
-
 finish() {
     info "Finished in $((SECONDS - SCRIPT_START_SECONDS))s"
 }
@@ -601,17 +638,19 @@ main() {
     init_config "$@"
     init_timestamps
     init_cleanup
+    load_postgres_identity
+    validate_postgres_container
     wait_before_recovery
+    stop_postgres_container
     snapshot_data
     clear_data
     fetch_backup
-    install_recover_config
+    install_restore_command
     enable_recovery
-    start_recover_container
+    start_postgres_container
     wait_for_recovery
     cleanup_recover_config
     reconcile_recovered_cluster
-    stop_recover_container
     finish
 }
 
