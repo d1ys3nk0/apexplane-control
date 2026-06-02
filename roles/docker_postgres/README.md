@@ -141,19 +141,19 @@ Keep deployment-specific database names, users, backup locations, and restore ta
 Create a physical PostgreSQL cluster backup with a standalone WAL-G container that mounts the configured data volume:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /opt/postgres/admin.env /opt/postgres/bin/walg_backup
+sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_backup
 ```
 
 Recover the local PostgreSQL Docker data volume from the default `WALG_RECOVER_S3_PREFIX`:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /opt/postgres/admin.env /opt/postgres/bin/walg_recover
+sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_recover
 ```
 
 Recover from another WAL-G prefix:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /opt/postgres/admin.env /opt/postgres/bin/walg_recover s3://<bucket>/<prefix> LATEST
+sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_recover s3://<bucket>/<prefix> LATEST
 ```
 
 `walg_recover` is destructive at the PostgreSQL cluster level. It prints a 10-second countdown, snapshots `WALG_DATA_VOLUME` into `WALG_SNAPSHOT_DIR`, clears the volume, fetches the requested WAL-G backup, writes a temporary PostgreSQL recovery command for the selected source prefix, starts a temporary `WALG_RECOVER_CONTAINER` from `WALG_IMAGE` with the recovered volume mounted, waits for recovery, removes the temporary recovery command after PostgreSQL leaves recovery, and removes the temporary recovery container unless `WALG_RECOVER_KEEP_CONTAINER=true`. When `WALG_RECOVER_ORIGIN_BASE`, `WALG_RECOVER_ORIGIN_OWNER`, `WALG_RECOVER_ORIGIN_USERS`, and `WALG_RECOVER_TARGET_*` are set, the script also reconciles the recovered database and role names after recovery.
