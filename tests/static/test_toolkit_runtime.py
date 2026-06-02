@@ -200,6 +200,28 @@ def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: 
     assert not list((tmp_path / "log").glob("prd-app-*-migrate.log"))
 
 
+def test_runtime_migrate_env_flag_skips_without_ansible_env(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "migrate")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+    env = runtime_env(tmp_path)
+    env["MIGRATE"] = "0"
+    env.pop("ANSIBLE_SSH_USER")
+
+    result = subprocess.run(  # noqa: S603
+        [BASH, "bin/migrate", "apply", "prd", "ycl", "app"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert not (tmp_path / "tmp/remote_state_calls").exists()
+    assert not (tmp_path / "log/prd-app-migrate.log").exists()
+
+
 def test_runtime_migrate_dry_mode_skips_applied_migrations(tmp_path: Path) -> None:
     write_runtime_fixture(tmp_path, "migrate")
     write_fake_uv(tmp_path)

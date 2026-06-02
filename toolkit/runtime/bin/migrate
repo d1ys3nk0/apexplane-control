@@ -53,6 +53,10 @@ load_env_files() {
 
 load_env_files
 
+if [[ "${MIGRATE:-1}" =~ ^(0|false)$ ]]; then
+    exit 0
+fi
+
 : "${ANSIBLE_SSH_USER:?Error: ANSIBLE_SSH_USER is not set}"
 LOG_DIR="log"
 CURRENT_MIGRATION_LOG_PATH=""
