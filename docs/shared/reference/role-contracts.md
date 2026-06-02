@@ -8,6 +8,7 @@ Shared roles must be reusable across playbook repositories with different invent
 - Required inputs get `~` defaults and validation in `tasks/validate.yml`.
 - Role tasks, templates, and handlers must not reference consuming-repository `gv_`, `iv_`, or `vv_` variables directly.
 - Optional topology policy must be passed as explicit booleans such as `<role_name>_enabled`; service roles must not expose consumer inventory enums such as `<role_name>_swarm_mode`.
+- Grouped optional feature inputs must derive `<feature>_requested` and `<feature>_enabled` in `vars/main.yml`, validate that the booleans are equal in `tasks/validate.yml`, and gate feature behavior on `<feature>_enabled`.
 - Sensitive inputs must be protected with `no_log: '{{ <role_name>_nolog }}'`.
 
 ## Side Effects

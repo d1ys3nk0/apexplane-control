@@ -80,9 +80,11 @@ Required environment:
 
 Optional environment:
   PG_PORT=5432
+  WALG_UTILITY_IMAGE=busybox:1.37.0
   WALG_RECOVER_CONTAINER=postgres-walg-recover
   WALG_CONFIG_DIR=/opt/postgres/config
   WALG_SNAPSHOT_DIR=/opt/postgres/snapshots
+  WALG_RECOVER_PG_HOST_DIR=/opt/postgres
   WALG_RECOVER_BACKUP_NAME=LATEST
   WALG_RECOVER_KEEP_CONTAINER=true|false
   WALG_RECOVER_PGUSER=admin
@@ -110,9 +112,11 @@ init_config() {
 
     PG_PORT="${PG_PORT:-5432}"
     require_vars "WALG_IMAGE" "WALG_DATA_VOLUME" "WALG_DATA_ROOT" "WALG_DATA_DIR"
+    WALG_UTILITY_IMAGE="${WALG_UTILITY_IMAGE:-busybox:1.37.0}"
     WALG_RECOVER_CONTAINER="${WALG_RECOVER_CONTAINER:-postgres-walg-recover}"
     WALG_CONFIG_DIR="${WALG_CONFIG_DIR:-/opt/postgres/config}"
     WALG_SNAPSHOT_DIR="${WALG_SNAPSHOT_DIR:-/opt/postgres/snapshots}"
+    WALG_RECOVER_PG_HOST_DIR="${WALG_RECOVER_PG_HOST_DIR:-/opt/postgres}"
     WALG_RECOVER_BACKUP_NAME="${WALG_RECOVER_BACKUP_NAME:-LATEST}"
     WALG_RECOVER_KEEP_CONTAINER="${WALG_RECOVER_KEEP_CONTAINER:-false}"
     WALG_RECOVER_PGUSER="${WALG_RECOVER_PGUSER:-admin}"
@@ -173,29 +177,34 @@ init_config() {
 
     RECOVER_SCRIPT="${WALG_CONFIG_DIR}/walg_recover.sh"
     RECOVER_CONTAINER_STARTED=0
-    RECOVERY_COMPLETED=0
 }
 
 cleanup() {
-    if [ "${RECOVERY_COMPLETED:-0}" = "1" ] || [ "${RECOVER_CONTAINER_STARTED:-0}" != "1" ]; then
-        if [ -n "${RECOVER_SCRIPT:-}" ] && [ -f "${RECOVER_SCRIPT}" ]; then
-            info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
-            rm -f "${RECOVER_SCRIPT}"
-        fi
+    if [ -z "${RECOVER_SCRIPT:-}" ] || [ ! -f "${RECOVER_SCRIPT}" ]; then
+        return
+    fi
+
+    if [ "${RECOVER_CONTAINER_STARTED:-0}" != "1" ]; then
+        info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
+        rm -f "${RECOVER_SCRIPT}"
+        return
+    fi
+
+    if ! docker inspect "${WALG_RECOVER_CONTAINER}" --format '{{.State.Running}}' >/dev/null 2>&1; then
+        info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
+        rm -f "${RECOVER_SCRIPT}"
         return
     fi
 
     local recovery_state
     recovery_state=$(docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
-    if [ "${recovery_state}" = "f" ]; then
-        if [ -n "${RECOVER_SCRIPT:-}" ] && [ -f "${RECOVER_SCRIPT}" ]; then
-            info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
-            rm -f "${RECOVER_SCRIPT}"
-        fi
+    if [ "${recovery_state}" != "t" ]; then
+        info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
+        rm -f "${RECOVER_SCRIPT}"
         return
     fi
 
-    warn "Leaving ${RECOVER_SCRIPT} in place because PostgreSQL was started and may still need it for recovery"
+    warn "Leaving ${RECOVER_SCRIPT} in place because PostgreSQL may still need it for recovery"
 }
 
 init_cleanup() {
@@ -229,7 +238,7 @@ snapshot_data() {
     docker run --rm \
         -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}:ro" \
         -v "${WALG_SNAPSHOT_DIR}:/mnt/snapshots" \
-        busybox:latest \
+        "${WALG_UTILITY_IMAGE}" \
         tar czf "/mnt/snapshots/walg-recover-before-${TIME_TAG}.tar.gz" -C "${WALG_DATA_DIR}" .
 }
 
@@ -237,7 +246,7 @@ clear_data() {
     info "Clearing PostgreSQL data volume ${WALG_DATA_VOLUME}"
     docker run --rm \
         -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}" \
-        busybox:latest \
+        "${WALG_UTILITY_IMAGE}" \
         find "${WALG_DATA_DIR}" -mindepth 1 -delete
 }
 
@@ -279,7 +288,7 @@ enable_recovery() {
     docker run --rm \
         -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}" \
         -e "RESTORE_COMMAND=restore_command = '/opt/config/walg_recover.sh wal-fetch \"%f\" \"%p\" 2>&1 | tee -a ${WALG_DATA_DIR}/walg_restore.log'" \
-        busybox:latest \
+        "${WALG_UTILITY_IMAGE}" \
         sh -c 'printf "%s\n" "$RESTORE_COMMAND" >> "$1/postgresql.auto.conf" && touch "$1/recovery.signal"' sh "${WALG_DATA_DIR}"
 }
 
@@ -295,11 +304,11 @@ start_recover_container() {
         --name "${WALG_RECOVER_CONTAINER}" \
         --network host \
         -e "PGDATA=${WALG_DATA_DIR}" \
-        -v /opt/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro \
-        -v /opt/postgres/pg_hba.conf:/var/lib/postgresql/pg_hba.conf:ro \
-        -v /opt/postgres/config:/opt/config:ro \
-        -v /opt/postgres/log:/var/log/postgresql \
-        -v /opt/postgres/psql_history:/var/lib/postgresql/.psql_history \
+        -v "${WALG_RECOVER_PG_HOST_DIR}/postgresql.conf:/etc/postgresql/postgresql.conf:ro" \
+        -v "${WALG_RECOVER_PG_HOST_DIR}/pg_hba.conf:/var/lib/postgresql/pg_hba.conf:ro" \
+        -v "${WALG_RECOVER_PG_HOST_DIR}/config:/opt/config:ro" \
+        -v "${WALG_RECOVER_PG_HOST_DIR}/log:/var/log/postgresql" \
+        -v "${WALG_RECOVER_PG_HOST_DIR}/psql_history:/var/lib/postgresql/.psql_history" \
         -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}" \
         "${WALG_IMAGE}" \
         postgres -c 'config_file=/etc/postgresql/postgresql.conf'
@@ -321,7 +330,6 @@ wait_for_recovery() {
             recovery_state=$(docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" || true)
             if [ "${recovery_state}" = "f" ]; then
                 info "PostgreSQL recovery completed"
-                RECOVERY_COMPLETED=1
                 return
             fi
         fi
@@ -346,6 +354,11 @@ cleanup_recover_config() {
     info "Resetting temporary restore_command override"
     docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "ALTER SYSTEM RESET restore_command"
     docker exec "${WALG_RECOVER_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "SELECT pg_reload_conf()"
+
+    if [ -n "${RECOVER_SCRIPT:-}" ] && [ -f "${RECOVER_SCRIPT}" ]; then
+        info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
+        rm -f "${RECOVER_SCRIPT}"
+    fi
 }
 
 psql_postgres() {

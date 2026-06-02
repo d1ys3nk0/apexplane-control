@@ -15,6 +15,10 @@ info() {
     is_quiet || printf '> %s\n' "$*"
 }
 
+warn() {
+    is_quiet || printf '> %s\n' "$*" >&2
+}
+
 error() {
     printf '! %s\n' "$*" >&2
     exit 1

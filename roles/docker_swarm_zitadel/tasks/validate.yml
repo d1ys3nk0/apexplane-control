@@ -48,12 +48,10 @@
 - name: Validate Docker Swarm Zitadel first-instance org variables
   ansible.builtin.assert:
     that:
-      - docker_swarm_zitadel_init_org_enabled | bool
+      - docker_swarm_zitadel_init_org_requested | bool == docker_swarm_zitadel_init_org_enabled | bool
     fail_msg: Define Zitadel first-instance org name, human username, and human password together.
   no_log: '{{ docker_swarm_zitadel_nolog }}'
-  when:
-    - docker_swarm_zitadel_enabled | bool
-    - docker_swarm_zitadel_init_org_requested | bool
+  when: docker_swarm_zitadel_enabled | bool
 
 - name: Validate Docker Swarm Zitadel PostgreSQL backup S3 variables
   ansible.builtin.assert:
