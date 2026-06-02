@@ -56,6 +56,7 @@ load_env_files
 : "${ANSIBLE_SSH_USER:?Error: ANSIBLE_SSH_USER is not set}"
 LOG_DIR="log"
 CURRENT_MIGRATION_LOG_PATH=""
+CURRENT_MIGRATION_CHANGED_LOG_PATH=""
 CURRENT_MIGRATION_CHANGED_ARCHIVED=1
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_RUNTIME_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -70,16 +71,17 @@ if [ -n "${ANSIBLE_SSH_KEY_PATH:-}" ]; then
 fi
 
 archive_current_migration_changed_log() {
-    local changed_log_path
+    local changed_log_extract_path
 
     if [ -z "${CURRENT_MIGRATION_LOG_PATH}" ] || [ "${CURRENT_MIGRATION_CHANGED_ARCHIVED}" = "1" ]; then
         return 0
     fi
 
-    changed_log_path="${LOG_DIR}/${TARGET_REALM}-${TARGET_CLUSTER}-$(date +%y%m%d%H%M%S)-migrate.log"
-    if ! grep -F 'changed:' "${CURRENT_MIGRATION_LOG_PATH}" >"${changed_log_path}"; then
-        rm -f "${changed_log_path}"
+    changed_log_extract_path="$(mktemp "${LOG_DIR}/.${TARGET_REALM}-${TARGET_CLUSTER}-migrate-changed.XXXXXX.log")"
+    if grep -F 'changed:' "${CURRENT_MIGRATION_LOG_PATH}" >"${changed_log_extract_path}"; then
+        cat "${changed_log_extract_path}" >>"${CURRENT_MIGRATION_CHANGED_LOG_PATH}"
     fi
+    rm -f "${changed_log_extract_path}" "${CURRENT_MIGRATION_LOG_PATH}"
     CURRENT_MIGRATION_CHANGED_ARCHIVED=1
 }
 
@@ -93,9 +95,9 @@ archive_current_migration_changed_log_on_exit() {
 
 start_migration_log() {
     mkdir -p "${LOG_DIR}"
-    CURRENT_MIGRATION_LOG_PATH="${LOG_DIR}/${TARGET_REALM}-${TARGET_CLUSTER}-migrate.log"
+    CURRENT_MIGRATION_LOG_PATH="$(mktemp "${LOG_DIR}/.${TARGET_REALM}-${TARGET_CLUSTER}-migrate-run.XXXXXX.log")"
+    CURRENT_MIGRATION_CHANGED_LOG_PATH="${LOG_DIR}/${TARGET_REALM}-${TARGET_CLUSTER}-migrate.log"
     CURRENT_MIGRATION_CHANGED_ARCHIVED=0
-    : >"${CURRENT_MIGRATION_LOG_PATH}"
     export ANSIBLE_LOG_PATH="${CURRENT_MIGRATION_LOG_PATH}"
 }
 

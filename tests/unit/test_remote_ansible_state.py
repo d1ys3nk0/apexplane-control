@@ -88,6 +88,16 @@ def test_read_state_accepts_legacy_migration_tag_only(tmp_path: Path) -> None:
     assert remote_state.read_state(state_path) == {"migrate_tag": "260601120000"}
 
 
+def test_emit_preserves_legacy_migration_tag_only_state() -> None:
+    emitted = emitted_state(remote_state.emit, {"migrate_tag": "260601120000"})
+
+    assert emitted == {
+        "locked_at": "",
+        "locked_by": "",
+        "migrate_tag": "260601120000",
+    }
+
+
 def test_acquire_writes_utc_lock_and_release_clears_it(tmp_path: Path) -> None:
     state_path = tmp_path / "state/state.json"
     lock_path = tmp_path / "lock/state.lock"

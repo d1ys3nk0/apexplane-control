@@ -33,7 +33,8 @@ for VAR in TARGET_REALM TARGET_PLATFORM TARGET_CLUSTER TARGET_ACTION; do
 done
 
 LOG_DIR="log"
-LOG_PATH="${LOG_DIR}/${TARGET_REALM}-${TARGET_CLUSTER}-${TARGET_ACTION}.log"
+CHANGED_LOG_PATH="${LOG_DIR}/${TARGET_REALM}-${TARGET_CLUSTER}-${TARGET_ACTION}.log"
+RUN_LOG_PATH=""
 LOG_STARTED=0
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_RUNTIME_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -45,7 +46,7 @@ export ANSIBLE_FORCE_COLOR="${ANSIBLE_FORCE_COLOR:-1}"
 
 cleanup() {
     local status=$?
-    local changed_log_path
+    local changed_log_extract_path
 
     if [ "${REMOTE_LOCK_ACQUIRED}" = "1" ]; then
         remote_state release --locked-by "${REMOTE_LOCKED_BY}" >/dev/null || true
@@ -55,10 +56,11 @@ cleanup() {
         exit "${status}"
     fi
 
-    changed_log_path="${LOG_DIR}/${TARGET_REALM}-${TARGET_CLUSTER}-$(date +%y%m%d%H%M%S)-${TARGET_ACTION}.log"
-    if ! grep -F 'changed:' "${LOG_PATH}" >"${changed_log_path}"; then
-        rm -f "${changed_log_path}"
+    changed_log_extract_path="$(mktemp "${LOG_DIR}/.${TARGET_REALM}-${TARGET_CLUSTER}-${TARGET_ACTION}-changed.XXXXXX.log")"
+    if grep -F 'changed:' "${RUN_LOG_PATH}" >"${changed_log_extract_path}"; then
+        cat "${changed_log_extract_path}" >>"${CHANGED_LOG_PATH}"
     fi
+    rm -f "${changed_log_extract_path}" "${RUN_LOG_PATH}"
 
     exit "${status}"
 }
@@ -67,9 +69,9 @@ trap cleanup EXIT
 
 start_run_log() {
     mkdir -p "${LOG_DIR}"
+    RUN_LOG_PATH="$(mktemp "${LOG_DIR}/.${TARGET_REALM}-${TARGET_CLUSTER}-${TARGET_ACTION}-run.XXXXXX.log")"
     LOG_STARTED=1
-    : >"${LOG_PATH}"
-    export ANSIBLE_LOG_PATH="${LOG_PATH}"
+    export ANSIBLE_LOG_PATH="${RUN_LOG_PATH}"
 }
 
 load_env_files() {

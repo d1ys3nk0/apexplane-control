@@ -16,7 +16,7 @@ Migration playbooks handle one-time repository-history cleanup for consuming inf
 - `DRY=0 task apc:migrate -- apply [realm] [platform] [cluster]` applies pending migrations before the target playbook is run separately with `task apc:run --`.
 - `task apc:migrate --` stores per-host state on the remote host under `/var/lib/ansible-*/state.json`.
 - Remote state uses `migrate_tags` as the authoritative list of applied migration timestamps. The `migrate_tag` value is kept only as a latest-timestamp summary for operator readability and legacy conversion.
-- Migration runs write the latest full Ansible run log to `log/<realm>-<cluster>-migrate.log` and write timestamped changed-line summaries only when the full log contains changed results.
+- Migration runs append changed-line entries to `log/<realm>-<cluster>-migrate.log` only when the run contains changed results; full Ansible run logs are temporary and timestamped changed-log files are not created.
 - Missing host state means no migrations have been applied, so all migrations for that cluster are pending for that host.
 - If a host has legacy state with only `migrate_tag`, migrations with timestamps less than or equal to that value are treated as applied. During the next non-dry migration run, the wrapper materializes those selected migration timestamps into `migrate_tags`.
 - Migrations update remote state only when `DRY=0` or `DRY=false` is set and the migration playbook succeeds. Dry/check mode never writes migration state.

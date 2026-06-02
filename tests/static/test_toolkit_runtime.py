@@ -131,6 +131,9 @@ def test_runtime_run_resolves_remote_state_from_installed_runtime(tmp_path: Path
     write_runtime_fixture(tmp_path, "run")
     write_fake_uv(tmp_path)
     write_target_repo_fixture(tmp_path)
+    run_log = tmp_path / "log/prd-app-setup.log"
+    run_log.parent.mkdir()
+    run_log.write_text("changed: [previous-host]\n", encoding="utf-8")
 
     result = subprocess.run(  # noqa: S603
         [BASH, "bin/run", "prd", "ycl", "app", "setup"],
@@ -148,15 +151,20 @@ def test_runtime_run_resolves_remote_state_from_installed_runtime(tmp_path: Path
     assert " acquire " in remote_state_calls
     assert r":task\ apc:run:" in remote_state_calls
     assert " release " in remote_state_calls
-    assert (tmp_path / "log/prd-app-setup.log").is_file()
+    assert run_log.read_text(encoding="utf-8") == (
+        'changed: [previous-host]\nchanged: [prd-ycl-app01] => {"changed": true}\n'
+    )
     assert not (tmp_path / "log/prd-app.log").exists()
-    assert list((tmp_path / "log").glob("prd-app-*-setup.log"))
+    assert not list((tmp_path / "log").glob("prd-app-*-setup.log"))
 
 
 def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: Path) -> None:
     write_runtime_fixture(tmp_path, "migrate")
     write_fake_uv(tmp_path)
     write_target_repo_fixture(tmp_path)
+    migration_log = tmp_path / "log/prd-app-migrate.log"
+    migration_log.parent.mkdir()
+    migration_log.write_text("changed: [previous-host]\n", encoding="utf-8")
     migration_path = tmp_path / "playbooks/app/_260601120000_runtime_test.yml"
     migration_path.write_text("---\n\n- hosts: all\n", encoding="utf-8")
 
@@ -176,9 +184,11 @@ def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: 
     assert r":task\ apc:migrate:" in remote_state_calls
     assert " mark --migrate-tag 260601120000" in remote_state_calls
     assert " release " in remote_state_calls
-    assert (tmp_path / "log/prd-app-migrate.log").is_file()
+    assert migration_log.read_text(encoding="utf-8") == (
+        'changed: [previous-host]\nchanged: [prd-ycl-app01] => {"changed": true}\n'
+    )
     assert not (tmp_path / "log/prd-app-migration.log").exists()
-    assert list((tmp_path / "log").glob("prd-app-*-migrate.log"))
+    assert not list((tmp_path / "log").glob("prd-app-*-migrate.log"))
 
 
 def test_runtime_migrate_dry_mode_skips_applied_migrations(tmp_path: Path) -> None:
@@ -340,7 +350,8 @@ def test_runtime_migrate_dry_mode_runs_pending_migrations_in_check_mode(tmp_path
     assert " acquire " not in remote_state_calls
     assert " mark " not in remote_state_calls
     assert "--check" in result.stdout
-    assert (tmp_path / "log/prd-app-migrate.log").is_file()
+    migration_log = tmp_path / "log/prd-app-migrate.log"
+    assert migration_log.read_text(encoding="utf-8") == 'changed: [prd-ycl-app01] => {"changed": true}\n'
 
 
 def test_bootstrap_uses_target_working_directory_for_inventory() -> None:

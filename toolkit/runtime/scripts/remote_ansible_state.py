@@ -60,7 +60,8 @@ def with_lock(lock_path: Path) -> TextIO:
 
 def emit(state: dict[str, Any]) -> None:
     payload = {key: state.get(key, "") for key in ("migrate_tag", "locked_at", "locked_by")}
-    payload["migrate_tags"] = state.get("migrate_tags", [])
+    if "migrate_tags" in state:
+        payload["migrate_tags"] = state["migrate_tags"]
     sys.stdout.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
