@@ -12,6 +12,9 @@
       - docker_postgres_mode in ['leader', 'follower']
       - docker_postgres_image_name | string | length > 0
       - docker_postgres_image_tag | string | length > 0
+      - docker_postgres_container | string | length > 0
+      - docker_postgres_port | int >= 1
+      - docker_postgres_port | int <= 65535
 
 - name: Validate Docker PostgreSQL image mode
   ansible.builtin.assert:

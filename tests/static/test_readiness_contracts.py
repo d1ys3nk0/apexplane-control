@@ -81,6 +81,28 @@ def has_docker_container_info_or_include(task_path: Path, task: Mapping[str, obj
     )
 
 
+def task_include_file(task: Mapping[str, object]) -> str | None:
+    include_tasks = task.get("ansible.builtin.include_tasks")
+    return include_tasks if isinstance(include_tasks, str) else None
+
+
+def role_main_verifies_included_container(task_path: Path, container_name: object) -> bool:
+    main_path = task_path.parent / "main.yml"
+    if task_path.name == "main.yml" or not main_path.is_file():
+        return False
+
+    main_tasks = list(iter_tasks(load_yaml(main_path)))
+    for index, task in enumerate(main_tasks):
+        if task_include_file(task) != task_path.name:
+            continue
+        return any(
+            has_docker_container_info_or_include(main_path, next_task, container_name)
+            for next_task in main_tasks[index + 1 :]
+        )
+
+    return False
+
+
 def test_started_or_restarted_services_verify_active_state() -> None:
     errors: list[str] = []
 
@@ -117,7 +139,7 @@ def test_long_running_docker_containers_verify_running_state() -> None:
             if not any(
                 has_docker_container_info_or_include(task_path, next_task, container_name)
                 for next_task in tasks[index + 1 :]
-            ):
+            ) and not role_main_verifies_included_container(task_path, container_name):
                 errors.append(f"{rel(task_path)}: {task_name}: long-running containers must verify State.Running")
 
     assert errors == []

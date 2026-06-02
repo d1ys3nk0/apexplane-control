@@ -127,7 +127,7 @@ hosts = cluster_node.setdefault("hosts", {})
 host_entry = hosts.setdefault(hostname, {})
 host_entry["iv_ssh_host"] = ssh_host
 host_entry["iv_ssh_port"] = ssh_port
-if ssh_user_after != "cicd":
+if ssh_user_after != "iac":
     host_entry["gv_ansible_ssh_user"] = ssh_user_after
 
 if jmp_host:
@@ -160,7 +160,7 @@ main() {
     SSH_USER="${SSH_USER:-$(prompt "SSH User" "root")}"
     NEW_HOSTNAME="${NEW_HOSTNAME:-$(prompt "New Hostname" "${REALM}-${PLATFORM}-${CLUSTER}01")}"
     SSH_PORT_AFTER="${SSH_PORT_AFTER:-$(prompt "SSH Port After" "${SSH_PORT}")}"
-    SSH_USER_AFTER="${SSH_USER_AFTER:-$(prompt "SSH User After" "cicd")}"
+    SSH_USER_AFTER="${SSH_USER_AFTER:-$(prompt "SSH User After" "iac")}"
 
     if [ -n "${JMP_HOST:-}" ]; then
         JMP_PORT="${JMP_PORT:-22}"

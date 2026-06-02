@@ -1,22 +1,17 @@
 ---
 
-- name: Prepare common PostgreSQL setup
-  ansible.builtin.include_tasks: setup_common.yml
-
-- name: Restore vanilla PostgreSQL replica from active leader
-  ansible.builtin.include_tasks: setup_dr.yml
-  when: docker_postgres_replica_restore | bool
-
 - name: Start vanilla PostgreSQL container
   community.docker.docker_container:
     hostname: postgres.{{ inventory_hostname }}
-    name: '{{ docker_postgres_container_name }}'
+    name: '{{ docker_postgres_container }}'
     image: '{{ docker_postgres_image_full }}'
     pull: false
     env:
       POSTGRES_USER: '{{ docker_postgres_pg_admin_user }}'
       POSTGRES_PASSWORD: '{{ docker_postgres_pg_admin_pass }}'
+      PGDATABASE: postgres
       PGHOST: /var/run/postgresql
+      PGPORT: '{{ docker_postgres_port | string }}'
       PGUSER: '{{ docker_postgres_pg_admin_user }}'
     command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     restart_policy: unless-stopped
@@ -33,11 +28,8 @@
       - /opt/postgres/psql_history:/var/lib/postgresql/.psql_history
       - '{{ docker_postgres_data_volume }}:/var/lib/postgresql/data'
     healthcheck:
-      test: [CMD, pg_isready, -d, postgres, -U, '{{ docker_postgres_pg_admin_user }}']
+      test: [CMD, pg_isready]
       timeout: 2s
       interval: 10s
       start_period: 5s
   no_log: '{{ docker_postgres_nolog }}'
-
-- name: Verify vanilla PostgreSQL setup
-  ansible.builtin.include_tasks: setup_verify.yml

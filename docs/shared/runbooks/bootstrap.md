@@ -2,19 +2,19 @@
 
 ## Prepare Ansible SSH User
 
-Run this only when a host does not already have the operator user with passwordless sudo. `task apc:bootstrap --` uses `SSH_USER` for the initial login and defaults `SSH_USER_AFTER` to `cicd`.
+Run this only when a host does not already have the operator user with passwordless sudo. `task apc:bootstrap --` uses `SSH_USER` for the initial login and defaults `SSH_USER_AFTER` to `iac`.
 
 ```sh
 sudo -s
 
-id cici || useradd -s /bin/bash -m cici
-echo 'cici ALL=(ALL:ALL) NOPASSWD:ALL' | tee /etc/sudoers.d/cici
-chmod 440 /etc/sudoers.d/cici
+id iac || useradd -s /bin/bash -m iac
+echo 'iac ALL=(ALL:ALL) NOPASSWD:ALL' | tee /etc/sudoers.d/iac
+chmod 440 /etc/sudoers.d/iac
 
-mkdir -p /home/cici/.ssh
-cat /path/to/cici.pub | tee /home/cici/.ssh/authorized_keys
-chmod 600 /home/cici/.ssh/authorized_keys
-chown -R cici:cici /home/cici/.ssh
+mkdir -p /home/iac/.ssh
+cat /path/to/gitlab-iac.pub | tee /home/iac/.ssh/authorized_keys
+chmod 600 /home/iac/.ssh/authorized_keys
+chown -R iac:iac /home/iac/.ssh
 ```
 
 ## Run Bootstrap Script
@@ -26,7 +26,7 @@ SSH_HOST="<HOST>" \
 SSH_PORT="22" \
 SSH_PORT_AFTER="55555" \
 SSH_USER="root" \
-SSH_USER_AFTER="cici" \
+SSH_USER_AFTER="iac" \
 task apc:bootstrap -- <realm> <platform> <cluster>
 ```
 

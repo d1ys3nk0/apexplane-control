@@ -11,12 +11,19 @@
     fail_msg: PostgreSQL DR actions require DR=1 and a valid docker_postgres_dr_action.
 
 - name: Run standalone PostgreSQL DR action
-  ansible.builtin.include_tasks: setup_dr.yml
+  ansible.builtin.include_tasks: dr.yml
   when: docker_postgres_dr_action in ['wait_synced', 'stop']
 
 - name: Stop PostgreSQL role after standalone DR action
   ansible.builtin.meta: end_host
   when: docker_postgres_dr_action in ['wait_synced', 'stop']
+
+- name: Prepare common PostgreSQL setup
+  ansible.builtin.include_tasks: setup_common.yml
+
+- name: Restore PostgreSQL replica from active leader
+  ansible.builtin.include_tasks: dr.yml
+  when: docker_postgres_replica_restore | bool
 
 - name: Set up vanilla PostgreSQL
   ansible.builtin.include_tasks: setup_vanilla.yml
@@ -25,3 +32,10 @@
 - name: Set up PostgreSQL with WAL-G
   ansible.builtin.include_tasks: setup_walg.yml
   when: docker_postgres_walg_enabled | bool
+
+- name: Verify PostgreSQL setup
+  ansible.builtin.include_tasks: verify.yml
+
+- name: Promote PostgreSQL leader during DR
+  ansible.builtin.include_tasks: dr.yml
+  when: docker_postgres_dr_action == 'promote'

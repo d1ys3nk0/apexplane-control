@@ -234,5 +234,5 @@ def test_bootstrap_uses_target_working_directory_for_inventory() -> None:
 
     assert 'PROJECT_ROOT="${PWD}"' in bootstrap_script
     assert 'prompt "SSH User" "root"' in bootstrap_script
-    assert 'prompt "SSH User After" "cicd"' in bootstrap_script
+    assert 'prompt "SSH User After" "iac"' in bootstrap_script
     assert 'prompt "New Hostname" "${REALM}-${PLATFORM}-${CLUSTER}01"' in bootstrap_script

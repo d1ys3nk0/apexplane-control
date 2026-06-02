@@ -72,6 +72,7 @@ Required environment:
   WALG_RECOVER_S3_SECRET_KEY
 
 Optional environment:
+  PG_PORT=5432
   WALG_CONTAINER=postgres
   WALG_DATA_DIR=/var/lib/postgresql/data
   WALG_CONFIG_DIR=/opt/postgres/config
@@ -101,6 +102,7 @@ init_config() {
     fi
 
     WALG_CONTAINER="${WALG_CONTAINER:-postgres}"
+    PG_PORT="${PG_PORT:-5432}"
     WALG_DATA_DIR="${WALG_DATA_DIR:-/var/lib/postgresql/data}"
     WALG_DATA_VOLUME="$(docker inspect "${WALG_CONTAINER}" --format '{{range .Mounts}}{{if eq .Destination "'"${WALG_DATA_DIR}"'"}}{{.Name}}{{end}}{{end}}')"
     if [ -z "${WALG_DATA_VOLUME}" ]; then
@@ -141,6 +143,7 @@ init_config() {
         "WALG_RECOVER_S3_ACCESS_KEY" \
         "WALG_RECOVER_S3_SECRET_KEY"
     require_positive_integer "${WALG_RECOVER_WAIT_SECONDS}" WALG_RECOVER_WAIT_SECONDS
+    require_positive_integer "${PG_PORT}" PG_PORT
     is_true "${WALG_RECOVER_NO_SNAPSHOT}" WALG_RECOVER_NO_SNAPSHOT || true
     is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || true
     is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT || true
@@ -179,7 +182,7 @@ cleanup() {
     fi
 
     local recovery_state
-    recovery_state=$(docker exec "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
+    recovery_state=$(docker exec "${WALG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
     if [ "${recovery_state}" = "f" ]; then
         if [ -n "${RECOVER_SCRIPT:-}" ] && [ -f "${RECOVER_SCRIPT}" ]; then
             info "Removing temporary WAL-G recovery config ${RECOVER_SCRIPT}"
@@ -303,8 +306,8 @@ wait_for_recovery() {
     info "Waiting up to ${WALG_RECOVER_WAIT_SECONDS}s for PostgreSQL to finish recovery"
     deadline=$((SECONDS + WALG_RECOVER_WAIT_SECONDS))
     while [ "${SECONDS}" -lt "${deadline}" ]; do
-        if docker exec "${WALG_CONTAINER}" pg_isready -d postgres -U "${WALG_RECOVER_PGUSER}" >/dev/null 2>&1; then
-            recovery_state=$(docker exec "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" || true)
+        if docker exec "${WALG_CONTAINER}" pg_isready -d postgres -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" >/dev/null 2>&1; then
+            recovery_state=$(docker exec "${WALG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" || true)
             if [ "${recovery_state}" = "f" ]; then
                 info "PostgreSQL recovery completed"
                 RECOVERY_COMPLETED=1
@@ -323,26 +326,26 @@ cleanup_recover_config() {
     fi
 
     local recovery_state
-    recovery_state=$(docker exec "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
+    recovery_state=$(docker exec "${WALG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
     if [ "${recovery_state}" = "t" ]; then
         warn "PostgreSQL is still in recovery; leaving restore_command in place"
         return
     fi
 
     info "Resetting temporary restore_command override"
-    docker exec "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d postgres -c "ALTER SYSTEM RESET restore_command"
-    docker exec "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d postgres -c "SELECT pg_reload_conf()"
+    docker exec "${WALG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "ALTER SYSTEM RESET restore_command"
+    docker exec "${WALG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "SELECT pg_reload_conf()"
 }
 
 psql_postgres() {
-    docker exec -i "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d postgres -v ON_ERROR_STOP=1 "$@"
+    docker exec -i "${WALG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -v ON_ERROR_STOP=1 "$@"
 }
 
 psql_database() {
     local database="$1"
     shift
 
-    docker exec -i "${WALG_CONTAINER}" psql -U "${WALG_RECOVER_PGUSER}" -d "${database}" -v ON_ERROR_STOP=1 "$@"
+    docker exec -i "${WALG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d "${database}" -v ON_ERROR_STOP=1 "$@"
 }
 
 reconcile_database_name() {

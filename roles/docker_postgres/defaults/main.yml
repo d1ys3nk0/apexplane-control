@@ -7,7 +7,7 @@ docker_postgres_walg_version: ''
 docker_postgres_walg_enabled: "{{ docker_postgres_walg_version | string | length > 0 }}"
 docker_postgres_runtime_image_full: "{{ (docker_postgres_image_name ~ '-walg:' ~ docker_postgres_image_tag) if (docker_postgres_walg_enabled | bool) else docker_postgres_image_full }}"
 docker_postgres_connections: 100
-docker_postgres_container_name: postgres
+docker_postgres_container: postgres
 docker_postgres_data_volume: postgres-data
 docker_postgres_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
 docker_postgres_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
