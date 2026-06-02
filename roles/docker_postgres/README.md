@@ -21,9 +21,7 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_image_name` | `postgres` |
 | `docker_postgres_image_tag` | `'18'` |
 | `docker_postgres_image_full` | `<derived>` |
-| `docker_postgres_walg_version` | `''` |
-| `docker_postgres_walg_enabled` | `<derived>` |
-| `docker_postgres_runtime_image_full` | `<derived>` |
+| `docker_postgres_image_runtime` | `<derived>` |
 | `docker_postgres_connections` | `100` |
 | `docker_postgres_container` | `postgres` |
 | `docker_postgres_data_volume` | `postgres-data` |
@@ -52,6 +50,8 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_utility_image_name` | `busybox` |
 | `docker_postgres_utility_image_tag` | `1.37.0` |
 | `docker_postgres_utility_image_full` | `<derived>` |
+| `docker_postgres_walg_version` | `''` |
+| `docker_postgres_walg_enabled` | `<derived>` |
 | `docker_postgres_walg_backup_s3_endpoint` | `''` |
 | `docker_postgres_walg_backup_s3_region` | `''` |
 | `docker_postgres_walg_backup_s3_bucket` | `''` |

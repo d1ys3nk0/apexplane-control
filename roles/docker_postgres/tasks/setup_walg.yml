@@ -47,7 +47,7 @@
   community.docker.docker_container:
     hostname: postgres.{{ inventory_hostname }}
     name: '{{ docker_postgres_container }}'
-    image: '{{ docker_postgres_runtime_image_full }}'
+    image: '{{ docker_postgres_image_runtime }}'
     pull: false
     env:
       POSTGRES_USER: '{{ docker_postgres_pg_admin_user }}'

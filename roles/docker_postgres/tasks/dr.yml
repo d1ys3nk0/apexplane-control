@@ -27,7 +27,7 @@
   when: docker_postgres_dr_action == 'stop'
 
 - name: Promote PostgreSQL to leader
-  ansible.builtin.command: docker run --rm -v {{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }} -u postgres {{ docker_postgres_runtime_image_full }} pg_ctl promote -t 300 -D {{ docker_postgres_data_dir }}
+  ansible.builtin.command: docker run --rm -v {{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }} -u postgres {{ docker_postgres_image_runtime }} pg_ctl promote -t 300 -D {{ docker_postgres_data_dir }}
   changed_when: true
   when:
     - docker_postgres_dr_action == 'promote'
@@ -87,7 +87,7 @@
   community.docker.docker_container:
     name: pg-basebackup
     hostname: pg-basebackup.{{ inventory_hostname }}
-    image: '{{ docker_postgres_runtime_image_full }}'
+    image: '{{ docker_postgres_image_runtime }}'
     command: pg_basebackup -vPR -X stream -c fast -h {{ docker_postgres_pg_fallback_host }} -p {{ docker_postgres_pg_fallback_port }} -U {{ docker_postgres_pg_replicator_user }} -D {{ docker_postgres_data_dir }}
     env:
       PGPASSWORD: '{{ docker_postgres_pg_replicator_pass }}'
