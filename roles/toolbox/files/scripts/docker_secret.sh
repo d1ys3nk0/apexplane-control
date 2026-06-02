@@ -14,6 +14,8 @@ Usage:
   docker_secret view <app>/<realm>/<environment>/<service>
   docker_secret edit <app>/<realm>/<environment>/<service>
   docker_secret push <app>/<realm>/<environment>/<service>
+  docker_secret list <app>/<realm>/<environment>/<service>
+  docker_secret read <app>/<realm>/<environment>/<service>[/<tag>]
   docker_secret prune [<app>[/<realm>[/<environment>[/<service>]]]]
   docker_secret help
   docker_secret -h
@@ -23,10 +25,13 @@ Actions:
   view     Print the source secret JSON file.
   edit     Open the source secret JSON file in vi.
   push     Validate the source secret JSON with jq, then create a timestamped Docker secret.
+  list     Print created Docker secret names for a target sorted ascending.
+  read     Print the latest target Docker Swarm secret, or a specific secret when tag is provided.
   prune    Remove outdated timestamped managed Docker secrets, leaving only the latest version per prefix.
 
 Target:
   Full target format:  <app>/<realm>/<environment>/<service>
+  Secret read format:  <app>/<realm>/<environment>/<service> or <app>/<realm>/<environment>/<service>/<tag>
   Prune prefix:        omitted, <app>, <app>/<realm>, <app>/<realm>/<environment>, or full target
 
 Remote paths and names:
@@ -40,6 +45,9 @@ Examples:
   docker_secret view app/eng/test01/api
   docker_secret edit app/eng/test01/api
   docker_secret push app/eng/test01/api
+  docker_secret list app/eng/test01/api
+  docker_secret read app/eng/test01/api
+  docker_secret read app/eng/test01/api/260102030405
   docker_secret prune
   docker_secret prune app
   docker_secret prune app/eng
@@ -53,6 +61,24 @@ validate_slug() {
 
     if [[ ! "${value}" =~ ${slug_regex} ]]; then
         _die "Invalid ${name} '${value}'"
+    fi
+}
+
+validate_docker_secret_name() {
+    local secret_name="$1"
+    local secret_name_regex='^[A-Za-z0-9][A-Za-z0-9_.-]*$'
+
+    if [[ ! "${secret_name}" =~ ${secret_name_regex} ]]; then
+        _die "Invalid Docker secret name '${secret_name}'"
+    fi
+}
+
+validate_secret_tag() {
+    local tag="$1"
+    local tag_regex='^[A-Za-z0-9][A-Za-z0-9_.-]*$'
+
+    if [[ ! "${tag}" =~ ${tag_regex} ]]; then
+        _die "Invalid Docker secret tag '${tag}'"
     fi
 }
 
@@ -76,6 +102,26 @@ parse_full_target() {
 
     SECRET_FILE="/home/${APP_NAME}/secrets/${REALM}_${ENVIRONMENT}_${SERVICE}.json"
     SECRET_PREFIX="${APP_NAME}-${REALM}-${ENVIRONMENT}-${SERVICE}"
+}
+
+parse_secret_read_target() {
+    local target="$1"
+    local extra
+
+    IFS=/ read -r APP_NAME REALM ENVIRONMENT SERVICE SECRET_TAG extra <<<"${target}"
+    if [ -z "${APP_NAME}" ] || [ -z "${REALM}" ] || [ -z "${ENVIRONMENT}" ] || [ -z "${SERVICE}" ] || [ -n "${extra}" ]; then
+        _die "Invalid secret target '${target}'"
+    fi
+
+    validate_target_parts
+    SECRET_PREFIX="${APP_NAME}-${REALM}-${ENVIRONMENT}-${SERVICE}"
+
+    if [ -n "${SECRET_TAG}" ]; then
+        validate_secret_tag "${SECRET_TAG}"
+        SECRET_NAME="${SECRET_PREFIX}-${SECRET_TAG}"
+    else
+        SECRET_NAME=""
+    fi
 }
 
 parse_prune_prefix() {
@@ -170,6 +216,85 @@ edit_secret_file() {
     vi "${SECRET_FILE}"
 }
 
+list_docker_secrets() {
+    parse_full_target "$1"
+
+    docker secret ls --format "{{.Name}}" | while IFS= read -r secret_name; do
+        case "${secret_name}" in
+        "${SECRET_PREFIX}-"*) printf '%s\n' "${secret_name}" ;;
+        esac
+    done | sort
+}
+
+cleanup_read_service() {
+    if [ -n "${DOCKER_SECRET_READ_SERVICE_NAME:-}" ] && docker service inspect "${DOCKER_SECRET_READ_SERVICE_NAME}" >/dev/null 2>&1; then
+        _info "Removing temporary Docker service: ${DOCKER_SECRET_READ_SERVICE_NAME}" >&2
+        docker service rm "${DOCKER_SECRET_READ_SERVICE_NAME}" >/dev/null 2>&1 || true
+    fi
+
+    DOCKER_SECRET_READ_SERVICE_NAME=""
+}
+
+wait_read_service() {
+    local service_name="$1"
+    local timeout="${DOCKER_SECRET_READ_TIMEOUT:-60}"
+    local elapsed=0
+    local task_state
+
+    _require_positive_integer "${timeout}" "DOCKER_SECRET_READ_TIMEOUT"
+
+    while [ "${elapsed}" -lt "${timeout}" ]; do
+        task_state="$(docker service ps --no-trunc --format "{{.CurrentState}}" "${service_name}" | head -n 1)"
+
+        case "${task_state}" in
+        Complete*) return 0 ;;
+        Failed* | Rejected* | Shutdown*) _die "Temporary Docker service failed with state: ${task_state}" ;;
+        esac
+
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    _die "Timed out waiting for temporary Docker service '${service_name}'"
+}
+
+read_docker_secret() {
+    parse_secret_read_target "$1"
+
+    local secret_name="${SECRET_NAME}"
+    if [ -z "${secret_name}" ]; then
+        secret_name="$(list_docker_secrets "$1" | tail -n 1)"
+        if [ -z "${secret_name}" ]; then
+            _die "No Docker secrets found for target '${1}'"
+        fi
+    fi
+
+    validate_docker_secret_name "${secret_name}"
+
+    if ! docker secret inspect "${secret_name}" >/dev/null 2>&1; then
+        _die "Docker secret '${secret_name}' not found"
+    fi
+
+    local read_image="${DOCKER_SECRET_READ_IMAGE:-busybox:1.37.0}"
+    local read_service_name
+    read_service_name="toolbox-secret-read-$(date -u +'%y%m%d%H%M%S')-$$"
+
+    DOCKER_SECRET_READ_SERVICE_NAME="${read_service_name}"
+    trap 'cleanup_read_service' EXIT
+
+    _info "Creating temporary Docker service: ${read_service_name}" >&2
+    docker service create \
+        --name "${read_service_name}" \
+        --secret "source=${secret_name},target=secret" \
+        --restart-condition none \
+        --detach=true \
+        "${read_image}" \
+        sh -c 'cat /run/secrets/secret' >/dev/null
+
+    wait_read_service "${read_service_name}"
+    docker service logs --raw --no-trunc "${read_service_name}"
+}
+
 push_secret() {
     parse_full_target "$1"
     require_file "${SECRET_FILE}"
@@ -261,6 +386,14 @@ main() {
     push)
         [ "$#" -eq 2 ] || _die "push requires exactly one target"
         push_secret "$2"
+        ;;
+    list)
+        [ "$#" -eq 2 ] || _usage_error "list requires exactly one target"
+        list_docker_secrets "$2"
+        ;;
+    read)
+        [ "$#" -eq 2 ] || _usage_error "read requires exactly one secret target"
+        read_docker_secret "$2"
         ;;
     prune)
         [ "$#" -le 2 ] || _die "prune accepts at most one prefix"

@@ -83,15 +83,22 @@ PostgreSQL scripts are installed when `toolbox_postgres_enabled` is true:
 - `/opt/toolbox/bin/pg_recover`
 - `/opt/toolbox/bin/pg_user`
 
-### Docker Secrets
+### Docker Secrets Management
 
-View, edit, push, or prune timestamped Docker Swarm secrets from an app runtime secret file:
+Secret source files management:
 
 ```sh
-sudo /opt/toolbox/bin/docker_secret view app/eng/test01/api
-sudo /opt/toolbox/bin/docker_secret edit app/eng/test01/api
-sudo /opt/toolbox/bin/docker_secret push app/eng/test01/api
-sudo /opt/toolbox/bin/docker_secret prune app/eng
+ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret view app/eng/test01/backend
+ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret edit app/eng/test01/backend
+ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret push app/eng/test01/backend
+```
+
+Docker secrets management:
+
+```sh
+ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret list app/eng/test01/backend
+ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret read app/eng/test01/backend
+ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret read app/eng/test01/backend/260102030405
 ```
 
 ### HAProxy Reports
