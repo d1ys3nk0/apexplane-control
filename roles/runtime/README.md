@@ -7,7 +7,7 @@ This role prepares application runtime host resources, secret JSON files, and ap
 - Create `/home/<app>/secrets` and `/home/<app>/postgres` directories.
 - Render resolved service secret mappings to `/home/<app>/secrets/<realm>_<env>_<service>.json`.
 - Render resolved PostgreSQL base mappings to `/home/<app>/postgres/<base>.env`.
-- Create PostgreSQL users and databases from resolved PostgreSQL base mappings when admin credentials are available.
+- Create PostgreSQL users and databases from resolved PostgreSQL base mappings when provisioning is requested and admin credentials are provided.
 
 ## Configuration
 Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_bases`, `runtime_cluster_realm`, and `runtime_pg_host`.
@@ -21,7 +21,7 @@ Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_
 | `runtime_cluster_realm` | `~` |
 | `runtime_pg_admin_user` | `''` |
 | `runtime_pg_admin_pass` | `''` |
-| `runtime_pg_image` | `postgres:14-alpine` |
+| `runtime_pg_image` | `postgres:latest` |
 | `runtime_pg_host` | `~` |
 | `runtime_pg_port` | `5432` |
 | `runtime_pg_sslmode` | `disable` |

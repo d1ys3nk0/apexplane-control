@@ -84,6 +84,16 @@
     label: "{{ item.base | default('<missing-base>', true) }}"
   when: runtime_enabled | bool
 
+- name: Validate runtime PostgreSQL admin credentials
+  ansible.builtin.assert:
+    that:
+      - runtime_pg_admin_user | string | length > 0
+      - runtime_pg_admin_pass | string | length > 0
+    fail_msg: Define runtime PostgreSQL admin user and pass when PostgreSQL provisioning is requested.
+  when:
+    - runtime_enabled | bool
+    - runtime_pg_provision_requested | bool
+
 - name: Validate runtime PostgreSQL backup S3 variables
   ansible.builtin.assert:
     that:
