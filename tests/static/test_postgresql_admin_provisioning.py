@@ -82,6 +82,7 @@ def test_docker_postgres_admin_credentials_are_required() -> None:
     assert "docker_postgres_pg_admin_user | string | length > 0" in validate_text
     assert "docker_postgres_pg_admin_pass is not none" in validate_text
     assert "docker_postgres_pg_admin_pass | string | length > 0" in validate_text
+    assert "docker_postgres_walg_binary_url is match('^https?://.*/wal-g-pg[-_].*')" in validate_text
 
 
 def test_runtime_postgresql_provisioning_requires_admin_and_target_credentials() -> None:

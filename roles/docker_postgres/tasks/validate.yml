@@ -27,7 +27,8 @@
     that:
       - docker_postgres_walg_enabled | bool == (docker_postgres_walg_binary_url | string | length > 0)
       - not docker_postgres_walg_enabled | bool or docker_postgres_walg_binary_url is match('^https?://')
-    fail_msg: Set docker_postgres_walg_binary_url to an HTTP(S) WAL-G binary URL to build a WAL-G image from docker_postgres_image_name and docker_postgres_image_tag.
+      - not docker_postgres_walg_enabled | bool or docker_postgres_walg_binary_url is match('^https?://.*/wal-g-pg[-_].*')
+    fail_msg: Set docker_postgres_walg_binary_url to an HTTP(S) PostgreSQL WAL-G binary URL to build a WAL-G image from docker_postgres_image_name and docker_postgres_image_tag.
 
 - name: Validate Docker PostgreSQL WAL-G backup settings
   ansible.builtin.assert:
