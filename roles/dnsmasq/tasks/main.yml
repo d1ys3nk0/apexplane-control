@@ -6,9 +6,9 @@
 - name: Run dnsmasq service tasks
   ansible.builtin.include_tasks: setup_dnsmasq.yml
 
-- name: Run dnsmasq health checks
-  ansible.builtin.include_tasks: setup_health.yml
-
 - name: Run local resolver tasks
   ansible.builtin.include_tasks: setup_resolver.yml
   when: dnsmasq_local_resolver | string | trim | length > 0
+
+- name: Verify dnsmasq setup
+  ansible.builtin.include_tasks: verify.yml

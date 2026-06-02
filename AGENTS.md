@@ -22,7 +22,7 @@ This repository contains reusable Ansible roles shared by infrastructure playboo
 - Operational DR/failover fallback behavior is allowed only when it represents desired infrastructure behavior, not compatibility with an old contract.
 - Define user-provided role inputs in the role's `defaults/main.yml`; define dynamic or derived role variables in `vars/main.yml`. (See `test_repository_role_variable_contracts_pass` in `tests/static/test_ansible_role_variable_contracts.py`.)
 - Put reusable or complex task conditions in dynamic role variables under `vars/main.yml`, then reference those variables directly from `when:` clauses.
-- Name task files included directly from a role's `tasks/main.yml` as `setup_*.yml`, except the validation entry point, which remains `validate.yml`.
+- Name task files included directly from a role's `tasks/main.yml` as `setup*.yml` for setup, `verify.yml` for post-setup health/readiness checks, and `validate.yml` for input validation.
 - Prefer single-line YAML scalar values when the resulting line is at most 120 characters, especially for short Jinja expressions and validation messages.
 - Give required variables `~` defaults and validate them in `tasks/validate.yml`. (See `test_repository_role_variable_contracts_pass` in `tests/static/test_ansible_role_variable_contracts.py`.)
 - Use `no_log: '{{ <role_name>_nolog }}'` for sensitive values, with `<role_name>_nolog` defined from `<role_name>_ci_mode` and `<role_name>_debug_mode`. Define those dynamic mode variables in `vars/main.yml` from the `CI` and `DEBUG` environment variables.
