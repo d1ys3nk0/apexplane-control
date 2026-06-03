@@ -72,11 +72,5 @@ docker_postgres_walg_recover_s3_bucket: ''
 docker_postgres_walg_recover_s3_prefix: ''
 docker_postgres_walg_recover_s3_access_key: ''
 docker_postgres_walg_recover_s3_secret_key: ''
-docker_postgres_walg_recover_origin_base: ''
-docker_postgres_walg_recover_origin_owner: ''
-docker_postgres_walg_recover_origin_users: []
-docker_postgres_walg_recover_target_base: ''
-docker_postgres_walg_recover_target_user: ''
-docker_postgres_walg_recover_target_pass: ''
 docker_postgres_walg_recover_health_wait_seconds: 120
 docker_postgres_walg_recover_log_tail_lines: 80
