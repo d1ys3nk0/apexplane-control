@@ -25,6 +25,8 @@ alias vmq='vmstat 1 3'                                                          
 alias ula='ulimit -a'                                                                       # All shell resource limits
 alias ssnl='ss -lntp'                                                                       # Listening TCP with PIDs
 alias ssh-prune='w | awk '\''$5 ~ /days/ {print "/dev/" $2}'\'' | xargs -r sudo fuser -k'   # Kill stale SSH sessions
+alias ftb-unban='sudo fail2ban-client unban --all'
+alias ftb-ssh='sudo fail2ban-client status sshd'
 
 dog() {
     local path
