@@ -14,7 +14,7 @@ This role runs PostgreSQL in a standalone Docker container with optional WAL-G a
 - Configure WAL-G.
 
 ## Configuration
-Set these required inputs before applying the role: `docker_postgres_data_dir`, `docker_postgres_pg_admin_pass`, `docker_postgres_pg_admin_user`, `docker_postgres_mode`. The PostgreSQL container defaults to `docker_postgres_container: postgres`, and the listener/readiness port defaults to `docker_postgres_port: 5432`.
+Set these required inputs before applying the role: `docker_postgres_data_dir`, `docker_postgres_pg_admin_pass`, `docker_postgres_pg_admin_user`, `docker_postgres_mode`. The PostgreSQL container defaults to `docker_postgres_container: postgres`, and the listener/readiness port defaults to `docker_postgres_port: 5432`. Remote PostgreSQL client and replication host access is controlled by `docker_postgres_allowed_cidr`, which renders CIDR `pg_hba.conf` ADDRESS entries and defaults to `0.0.0.0/0` and `::/0`; set it to narrower IPv4 or IPv6 CIDR ranges when host firewall policy should not be the only boundary.
 
 | Variable | Default |
 | --- | --- |
@@ -41,9 +41,9 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_pg_admin_user` | `~` |
 | `docker_postgres_pg_fallback_host` | `''` |
 | `docker_postgres_pg_fallback_port` | `5432` |
-| `docker_postgres_pg_fallback_src` | `''` |
 | `docker_postgres_pg_replicator_pass` | `''` |
 | `docker_postgres_pg_replicator_user` | `''` |
+| `docker_postgres_allowed_cidr` | `['0.0.0.0/0', '::/0']` |
 | `docker_postgres_port` | `5432` |
 | `docker_postgres_replica_restore` | `<derived>` |
 | `docker_postgres_mode` | `~` |

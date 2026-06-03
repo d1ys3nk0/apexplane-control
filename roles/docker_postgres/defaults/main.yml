@@ -21,9 +21,11 @@ docker_postgres_min_wal_size: 2GB
 docker_postgres_max_wal_size: 4GB
 docker_postgres_pg_admin_pass: ~
 docker_postgres_pg_admin_user: ~
+docker_postgres_allowed_cidr:
+  - 0.0.0.0/0
+  - ::/0
 docker_postgres_pg_replicator_pass: ''
 docker_postgres_pg_replicator_user: ''
-docker_postgres_pg_fallback_src: ''
 docker_postgres_pg_fallback_host: ''
 docker_postgres_pg_fallback_port: 5432
 docker_postgres_dr_action: none
