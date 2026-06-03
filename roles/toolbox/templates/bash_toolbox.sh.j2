@@ -4,7 +4,7 @@ export PATH="/opt/toolbox/bin:$PATH"
 
 alias cs='grep --color=never "^\(alias \|# >\)" /etc/skel/.bash_toolbox' # Show common aliases and section headings
 
-# >->-> Sudo & Login <-<-<
+# >->-> Login <-<-<
 
 alias s='sudo'        # Sudo
 alias mr='sudo -i'    # Masquerade as root
@@ -15,39 +15,16 @@ alias ms='sudo su -'  # Masquerade through su
 
 alias l='ls'                                                                                                                     # List directory contents
 alias la='ls -la'                                                                                                                # List all directory contents with details
-alias u='sudo ufw'                                                                                                               # Manage UFW with sudo
-alias sc='sudo systemctl'                                                                                                        # Run systemctl with sudo
-alias scf='sudo systemctl --failed'                                                                                              # Show failed systemd units
-alias scdr='sudo systemctl daemon-reload'                                                                                        # Reload systemd manager configuration
-alias scu='sudo systemctl --user'                                                                                                # Run user systemctl with sudo
-alias scuf='sudo systemctl --user --failed'                                                                                      # Show failed user systemd units
-alias scudr='sudo systemctl --user daemon-reload'                                                                                # Reload user systemd manager configuration
-alias scl='systemctl show --property DefaultLimitNOFILE --property DefaultLimitNPROC --property DefaultTasksMax --no-pager'      # Default systemd resource limits
-alias sct='systemctl show -p TasksCurrent -p TasksMax --no-pager'                                                                # Show current versus max systemd tasks
-alias sctm='systemctl list-timers --all --no-pager 2>/dev/null | head -20'                                                       # Show first 20 systemd timers
-alias jc='sudo journalctl'                                                                                                       # Read system journal with sudo
+alias tmx='tmux new-session -A -s main'                                                     # Attach or create tmux session
 alias own='sudo chown -R $(id -u):$(id -g)'                                                                                      # Recursively take ownership as current user
 alias upg='sudo apt-get update && sudo apt-get -y upgrade && sudo apt-get -y autoremove --purge && sudo apt-get clean'           # System upgrade
 alias upg-dist='sudo apt-get update && sudo apt-get -y dist-upgrade && sudo apt-get -y autoremove --purge && sudo apt-get clean' # System dist upgrade
-
-crontabs() {
-    local user
-
-    sudo find /var/spool/cron/crontabs -type f ! -name '.*' -printf '%f\n' 2>/dev/null | sort | while IFS= read -r user; do
-        printf '### %s\n' "$user"
-        sudo crontab -l -u "$user"
-    done
-}
-
-# >->-> Misc <-<-<
-
 alias w='watch -n 1'                                                                        # Re-run a command every second
 alias mem='free -m'                                                                         # Memory in MB
 alias vmq='vmstat 1 3'                                                                      # CPU/memory run queue, 1 s x 3
 alias ula='ulimit -a'                                                                       # All shell resource limits
 alias ssnl='ss -lntp'                                                                       # Listening TCP with PIDs
-alias tmx='tmux new-session -A -s main'                                                     # Attach or create tmux session
-alias ssh-cleanup='w | awk '\''$5 ~ /days/ {print "/dev/" $2}'\'' | xargs -r sudo fuser -k' # Kill stale SSH sessions
+alias ssh-prune='w | awk '\''$5 ~ /days/ {print "/dev/" $2}'\'' | xargs -r sudo fuser -k'   # Kill stale SSH sessions
 
 dog() {
     local path
@@ -68,38 +45,32 @@ dog() {
     done
 }
 
-alias bp='bp' # Prune timestamped backup files
+crontab-list() {
+    local user
 
-{% if toolbox_docker_enabled | bool %}
-# >->-> Docker <-<-<
-
-{% raw %}
-alias d='sudo docker'                                                                                    # Run docker with sudo
-alias di='sudo docker inspect'                                                                           # Inspect a Docker object
-alias de='sudo docker exec'                                                                              # Execute a command in a container
-alias dei='sudo docker exec -i'                                                                          # Execute a command in a container with stdin
-alias deit='sudo docker exec -it'                                                                        # Open an interactive shell in a container
-alias dr='sudo docker run --rm'                                                                          # Run a temporary container
-alias dri='sudo docker run --rm -i'                                                                      # Run a temporary container with stdin
-alias drit='sudo docker run --rm -it'                                                                    # Run a temporary interactive container
-alias dclo='sudo docker logs -n 100 -f'                                                                  # Follow the last 100 container log lines
-alias ds='sudo docker service'                                                                           # Manage swarm services
-alias dsl='sudo docker service ls'                                                                       # List swarm services
-alias dslo='sudo docker service logs -n 100 -f'                                                          # Follow the last 100 swarm service logs
-alias dscl='sudo docker service ps'                                                                      # Show swarm service tasks
-alias dspaf='sudo docker system prune -a -f'                                                             # Remove unused Docker data
-alias dvpaf='sudo docker volume prune -a -f'                                                             # Remove unused Docker volumes
-alias dcl='docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.RunningFor}}"'     # List running containers in table form
-alias dcla='docker ps -a --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.RunningFor}}"' # List all containers in table form
-alias dish='docker inspect --format="{{ json .State.Health }}"'                                          # Show container health JSON
-alias dvl='docker secret ls --format "{{.Name}}"'                                                        # List Docker secret names
-
-docker-cleanup() {
-    docker_cleanup "$@"
+    sudo find /var/spool/cron/crontabs -type f ! -name '.*' -printf '%f\n' 2>/dev/null | sort | while IFS= read -r user; do
+        printf '### %s\n' "$user"
+        sudo crontab -l -u "$user"
+    done
 }
-{% endraw %}
 
-{% endif %}
+# >->-> Systemd <-<-<
+
+alias sc='sudo systemctl'                                                                                                        # Run systemctl with sudo
+alias scf='sudo systemctl --failed'                                                                                              # Show failed systemd units
+alias scdr='sudo systemctl daemon-reload'                                                                                        # Reload systemd manager configuration
+alias scu='sudo systemctl --user'                                                                                                # Run user systemctl with sudo
+alias scuf='sudo systemctl --user --failed'                                                                                      # Show failed user systemd units
+alias scudr='sudo systemctl --user daemon-reload'                                                                                # Reload user systemd manager configuration
+alias scl='systemctl show --property DefaultLimitNOFILE --property DefaultLimitNPROC --property DefaultTasksMax --no-pager'      # Default systemd resource limits
+alias sct='systemctl show -p TasksCurrent -p TasksMax --no-pager'                                                                # Show current versus max systemd tasks
+alias sctm='systemctl list-timers --all --no-pager 2>/dev/null | head -20'                                                       # Show first 20 systemd timers
+alias jc='sudo journalctl'                                                                                                       # Read system journal with sudo
+
+# >->-> UFW <-<-<
+
+alias u='sudo ufw'                                                                                                               # Manage UFW with sudo
+
 # >->-> Git <-<-<
 
 alias gcl='git clone'                        # Clone a repository
@@ -132,6 +103,36 @@ alias gps='git push'                         # Push commits
 alias gpsf='git push -f'                     # Force push commits
 alias gpso='git push -u origin HEAD'         # Push current branch and set upstream
 alias gpsof='git push -u origin HEAD -f'     # Force push current branch and set upstream
+
+{% if toolbox_docker_enabled | bool %}
+# >->-> Docker <-<-<
+
+{% raw %}
+alias d='sudo docker'                                                                                    # Run docker with sudo
+alias di='sudo docker inspect'                                                                           # Inspect a Docker object
+alias de='sudo docker exec'                                                                              # Execute a command in a container
+alias dei='sudo docker exec -i'                                                                          # Execute a command in a container with stdin
+alias deit='sudo docker exec -it'                                                                        # Open an interactive shell in a container
+alias dr='sudo docker run --rm'                                                                          # Run a temporary container
+alias dri='sudo docker run --rm -i'                                                                      # Run a temporary container with stdin
+alias drit='sudo docker run --rm -it'                                                                    # Run a temporary interactive container
+alias dclo='sudo docker logs -n 100 -f'                                                                  # Follow the last 100 container log lines
+alias ds='sudo docker service'                                                                           # Manage swarm services
+alias dsl='sudo docker service ls'                                                                       # List swarm services
+alias dslo='sudo docker service logs -n 100 -f'                                                          # Follow the last 100 swarm service logs
+alias dscl='sudo docker service ps'                                                                      # Show swarm service tasks
+alias dspaf='sudo docker system prune -a -f'                                                             # Remove unused Docker data
+alias dvpaf='sudo docker volume prune -a -f'                                                             # Remove unused Docker volumes
+alias dcl='docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.RunningFor}}"'     # List running containers in table form
+alias dcla='docker ps -a --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.RunningFor}}"' # List all containers in table form
+alias dish='docker inspect --format="{{ json .State.Health }}"'                                          # Show container health JSON
+alias dvl='docker secret ls --format "{{.Name}}"'                                                        # List Docker secret names
+
+docker-cleanup() {
+    docker_cleanup "$@"
+}
+{% endraw %}
+{% endif %}
 
 {% if toolbox_haproxy_enabled | bool %}
 # >->-> HAProxy <-<-<

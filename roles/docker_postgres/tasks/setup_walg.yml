@@ -9,6 +9,8 @@
     owner: root
     group: root
   loop:
+    - snap_dump
+    - snap_restore
     - walg_backup
     - walg_recover
 

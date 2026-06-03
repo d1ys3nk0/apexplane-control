@@ -37,12 +37,31 @@ repos:
     hooks:
       - id: shfmt
         name: shfmt
-        args: [-i, '4', -d]
+        entry: >-
+          bash -c '
+            status=0;
+            for file do
+              tmp="$(mktemp)" || exit 1;
+              shfmt -i 4 -kp "$file" | perl -pe "s/[ \t]+$//" > "$tmp";
+              diff -u "$file" "$tmp" || status=1;
+              rm -f "$tmp";
+            done;
+            exit "$status"
+          ' --
+        args: []
         files: \.sh$
 
       - id: shfmt
         name: shfmt:fix
-        args: [-i, '4', -w]
+        entry: >-
+          bash -c '
+            for file do
+              tmp="$(mktemp)" || exit 1;
+              shfmt -i 4 -kp "$file" | perl -pe "s/[ \t]+$//" > "$tmp" && cat "$tmp" > "$file";
+              rm -f "$tmp";
+            done
+          ' --
+        args: []
         files: \.sh$
         stages: [manual]
 

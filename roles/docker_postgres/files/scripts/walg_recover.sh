@@ -82,10 +82,8 @@ Optional environment:
   PG_CONTAINER=postgres
   PG_PORT=5432
   WALG_UTILITY_IMAGE=busybox:1.37.0
-  WALG_SNAPSHOT_DIR=/opt/postgres/snapshots
   WALG_RECOVER_BACKUP_NAME=LATEST
   WALG_RECOVER_PGUSER=admin
-  WALG_RECOVER_NO_SNAPSHOT=true|false
   WALG_RECOVER_START=true|false
   WALG_RECOVER_WAIT=true|false
   WALG_RECOVER_WAIT_SECONDS=3600
@@ -112,10 +110,8 @@ init_config() {
     PG_PORT="${PG_PORT:-5432}"
     require_vars "WALG_IMAGE" "WALG_DATA_VOLUME" "WALG_DATA_ROOT" "WALG_DATA_DIR"
     WALG_UTILITY_IMAGE="${WALG_UTILITY_IMAGE:-busybox:1.37.0}"
-    WALG_SNAPSHOT_DIR="${WALG_SNAPSHOT_DIR:-/opt/postgres/snapshots}"
     WALG_RECOVER_BACKUP_NAME="${WALG_RECOVER_BACKUP_NAME:-LATEST}"
     WALG_RECOVER_PGUSER="${WALG_RECOVER_PGUSER:-admin}"
-    WALG_RECOVER_NO_SNAPSHOT="${WALG_RECOVER_NO_SNAPSHOT:-false}"
     WALG_RECOVER_START="${WALG_RECOVER_START:-true}"
     WALG_RECOVER_WAIT="${WALG_RECOVER_WAIT:-true}"
     WALG_RECOVER_WAIT_SECONDS="${WALG_RECOVER_WAIT_SECONDS:-3600}"
@@ -149,7 +145,6 @@ init_config() {
     require_positive_integer "${WALG_RECOVER_WAIT_SECONDS}" WALG_RECOVER_WAIT_SECONDS
     require_positive_integer "${WALG_RECOVER_PROGRESS_SECONDS}" WALG_RECOVER_PROGRESS_SECONDS
     require_positive_integer "${PG_PORT}" PG_PORT
-    is_true "${WALG_RECOVER_NO_SNAPSHOT}" WALG_RECOVER_NO_SNAPSHOT || true
     is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || true
     is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT || true
 
@@ -203,7 +198,6 @@ init_cleanup() {
 }
 
 init_timestamps() {
-    TIME_TAG=$(date -u '+%y%m%d%H%M%S')
     TIME_UTC=$(date -u '+%Y-%m-%d %H:%M:%S')
     info "Started at ${TIME_UTC} UTC"
 }
@@ -261,21 +255,6 @@ stop_postgres_container() {
     fi
 
     warn "PostgreSQL container ${PG_CONTAINER} is ${container_state}; continuing with offline recovery"
-}
-
-snapshot_data() {
-    if is_true "${WALG_RECOVER_NO_SNAPSHOT}" WALG_RECOVER_NO_SNAPSHOT; then
-        warn "Skipping pre-restore data snapshot because WALG_RECOVER_NO_SNAPSHOT=${WALG_RECOVER_NO_SNAPSHOT}"
-        return
-    fi
-
-    info "Creating pre-restore snapshot in ${WALG_SNAPSHOT_DIR}"
-    mkdir -p "${WALG_SNAPSHOT_DIR}"
-    docker run --rm \
-        --volumes-from "${PG_CONTAINER}:ro" \
-        -v "${WALG_SNAPSHOT_DIR}:/mnt/snapshots" \
-        "${WALG_UTILITY_IMAGE}" \
-        tar czf "/mnt/snapshots/walg-recover-before-${TIME_TAG}.tar.gz" -C "${WALG_DATA_DIR}" .
 }
 
 clear_data() {
@@ -642,7 +621,6 @@ main() {
     validate_postgres_container
     wait_before_recovery
     stop_postgres_container
-    snapshot_data
     clear_data
     fetch_backup
     install_restore_command
