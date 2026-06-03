@@ -82,7 +82,7 @@
     volumes:
       - /opt/postgres/config:/opt/config:ro
       - /opt/postgres/log:/var/log/postgresql
-      - /opt/postgres/psql_history:/var/lib/postgresql/.psql_history
+      - /opt/postgres/log/psql_history:/var/lib/postgresql/.psql_history
       - '{{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }}'
     healthcheck:
       test: [CMD, pg_isready]

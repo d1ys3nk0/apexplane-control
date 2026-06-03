@@ -36,15 +36,6 @@
     - src: pg_hba.conf.j2
       dest: pg_hba.conf
 
-- name: Remove root-level PostgreSQL configs
-  become: true
-  ansible.builtin.file:
-    path: /opt/postgres/{{ item }}
-    state: absent
-  loop:
-    - postgresql.conf
-    - pg_hba.conf
-
 - name: Install PostgreSQL dotenv
   become: true
   ansible.builtin.template:
@@ -59,7 +50,7 @@
   become: true
   ansible.builtin.copy:
     content: ''
-    dest: /opt/postgres/psql_history
+    dest: /opt/postgres/log/psql_history
     mode: '0644'
     owner: root
     group: root
