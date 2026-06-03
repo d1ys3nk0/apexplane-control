@@ -35,3 +35,8 @@ tasks:
     desc: Check repository structure and shared conventions expected by ApexPlane Control
     cmds:
       - uv run python '{{.APEXPLANE_TOOLKIT_DIR}}/check_repo_sync.py' structure-check
+
+  test:
+    desc: Run ApexPlane Control shared static tests against the current repository
+    cmds:
+      - APC_TARGET_REPO_ROOT="$PWD" uv run pytest '{{.APEXPLANE_TOOLKIT_DIR}}/tests/static'

@@ -26,6 +26,8 @@ class SyncModule(Protocol):
 
     def check_global_variables(self, repo_root: Path) -> list[str]: ...
 
+    def check_role_variable_overrides(self, repo_root: Path) -> list[str]: ...
+
     def check_shared_conventions(self, repo_root: Path) -> bool: ...
 
 
@@ -168,6 +170,38 @@ def test_global_variable_definitions_outside_global_file_fail(sync_module: SyncM
     ]
 
 
+def test_role_variable_overrides_must_match_role_defaults(sync_module: SyncModule, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    variables_dir = repo_root / "variables"
+    role_defaults_dir = repo_root / "roles" / "docker_example" / "defaults"
+    variables_dir.mkdir(parents=True)
+    role_defaults_dir.mkdir(parents=True)
+    (role_defaults_dir / "main.yml").write_text("---\n\ndocker_example_enabled: true\n", encoding="utf-8")
+    (variables_dir / "app.yml").write_text(
+        "---\n\n# Role: docker_example\ndocker_example_unknown: true\n",
+        encoding="utf-8",
+    )
+
+    assert sync_module.check_role_variable_overrides(repo_root) == [
+        "variables/app.yml:4: docker_example_unknown is not declared in roles/docker_example/defaults/main.yml"
+    ]
+
+
+def test_role_variable_overrides_accept_declared_defaults(sync_module: SyncModule, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    variables_dir = repo_root / "variables"
+    role_defaults_dir = repo_root / "roles" / "docker_example" / "defaults"
+    variables_dir.mkdir(parents=True)
+    role_defaults_dir.mkdir(parents=True)
+    (role_defaults_dir / "main.yml").write_text("---\n\ndocker_example_enabled: true\n", encoding="utf-8")
+    (variables_dir / "app.yml").write_text(
+        "---\n\n# Role: docker_example\ndocker_example_enabled: false\n",
+        encoding="utf-8",
+    )
+
+    assert sync_module.check_role_variable_overrides(repo_root) == []
+
+
 def test_sync_commands_are_not_exposed() -> None:
     script = SCRIPT_PATH.read_text(encoding="utf-8")
 
@@ -183,3 +217,14 @@ def test_galaxy_build_includes_toolkit() -> None:
 
     assert isinstance(build_ignore, list)
     assert "toolkit" not in build_ignore
+
+
+def test_toolkit_shared_static_tests_are_included_in_collection_build() -> None:
+    assert (REPO_ROOT / "toolkit" / "tests" / "static" / "test_role_variable_overrides.py").is_file()
+
+    yaml = pytest.importorskip("yaml")
+    galaxy = cast("dict[str, object]", yaml.safe_load((REPO_ROOT / "galaxy.yml").read_text(encoding="utf-8")))
+    build_ignore = galaxy.get("build_ignore")
+
+    assert isinstance(build_ignore, list)
+    assert "toolkit/tests" not in build_ignore
