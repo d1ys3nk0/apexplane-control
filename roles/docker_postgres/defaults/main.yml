@@ -45,7 +45,7 @@ docker_postgres_walg_backup_s3_bucket: ''
 docker_postgres_walg_backup_s3_prefix: ''
 docker_postgres_walg_backup_s3_access_key: ''
 docker_postgres_walg_backup_s3_secret_key: ''
-docker_postgres_walg_backup_inventory_hostname: ''
+docker_postgres_walg_backup_hostnames: []
 docker_postgres_walg_backup_enabled: >-
   {{
     docker_postgres_walg_enabled | bool
@@ -55,10 +55,7 @@ docker_postgres_walg_backup_enabled: >-
     and docker_postgres_walg_backup_s3_prefix | string | length > 0
     and docker_postgres_walg_backup_s3_access_key | string | length > 0
     and docker_postgres_walg_backup_s3_secret_key | string | length > 0
-    and (
-      docker_postgres_walg_backup_inventory_hostname | string | length == 0
-      or docker_postgres_walg_backup_inventory_hostname == inventory_hostname
-    )
+    and inventory_hostname in docker_postgres_walg_backup_hostnames
   }}
 docker_postgres_walg_backup_delta_origin: LATEST
 docker_postgres_walg_backup_delta_max_steps: 24

@@ -37,6 +37,9 @@
       - docker_postgres_walg_backup_s3_region | string | length > 0
       - docker_postgres_walg_backup_s3_bucket | string | length > 0
       - docker_postgres_walg_backup_s3_prefix | string | length > 0
+      - docker_postgres_walg_backup_hostnames is sequence
+      - docker_postgres_walg_backup_hostnames is not string
+      - docker_postgres_walg_backup_hostnames | length > 0
       - docker_postgres_walg_backup_delta_origin in ['LATEST', 'LATEST_FULL', 'LATEST_FULL_WITH_TTL']
       - docker_postgres_walg_backup_delta_max_steps | string is match('^[1-9][0-9]*$')
       - docker_postgres_walg_backup_compression_method | string | length > 0
@@ -44,7 +47,7 @@
       - docker_postgres_walg_backup_disk_rate_limit | string is match('^[1-9][0-9]*$')
       - docker_postgres_walg_backup_upload_disk_concurrency | string is match('^[1-9][0-9]*$')
       - docker_postgres_walg_backup_tar_size_threshold | string | length == 0 or docker_postgres_walg_backup_tar_size_threshold | string is match('^[1-9][0-9]*$')
-    fail_msg: Define complete docker_postgres_walg_backup_s3_* settings when WAL-G backup credentials are set.
+    fail_msg: Define complete docker_postgres_walg_backup_s3_* settings and at least one docker_postgres_walg_backup_hostnames item when WAL-G backup credentials are set.
   when:
     - docker_postgres_walg_backup_s3_access_key | string | length > 0 or docker_postgres_walg_backup_s3_secret_key | string | length > 0
 

@@ -58,7 +58,7 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_walg_backup_s3_prefix` | `''` |
 | `docker_postgres_walg_backup_s3_access_key` | `''` |
 | `docker_postgres_walg_backup_s3_secret_key` | `''` |
-| `docker_postgres_walg_backup_inventory_hostname` | `''` |
+| `docker_postgres_walg_backup_hostnames` | `[]` |
 | `docker_postgres_walg_backup_enabled` | `<derived>` |
 | `docker_postgres_walg_backup_delta_origin` | `LATEST` |
 | `docker_postgres_walg_backup_delta_max_steps` | `24` |
@@ -169,7 +169,7 @@ Create a physical PostgreSQL cluster backup with a standalone WAL-G container th
 sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_backup
 ```
 
-When WAL-G backup credentials are configured, `docker_postgres_walg_backup_enabled` gates backup environment variables and PostgreSQL archive settings. Set `docker_postgres_walg_backup_inventory_hostname` to one inventory host when only that host should own WAL-G backups. Leaders archive WAL with `archive_mode = on`; followers archive received WAL with `archive_mode = always`. A backup created from a standby must archive received WAL to the same `WALG_BACKUP_S3_PREFIX`, otherwise the base backup can be written but remain unrecoverable.
+When WAL-G backup credentials are configured, `docker_postgres_walg_backup_enabled` gates backup environment variables and PostgreSQL archive settings. Set `docker_postgres_walg_backup_hostnames` to the inventory hosts that should own WAL-G backups. Leaders archive WAL with `archive_mode = on`; followers archive received WAL with `archive_mode = always`. A backup created from a standby must archive received WAL to the same `WALG_BACKUP_S3_PREFIX`, otherwise the base backup can be written but remain unrecoverable.
 
 Recover the local PostgreSQL Docker data volume from the default `WALG_RECOVER_S3_PREFIX`:
 

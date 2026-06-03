@@ -107,7 +107,7 @@ def test_docker_postgres_walg_follower_archives_to_backup_prefix() -> None:
         encoding="utf-8"
     )
 
-    assert "docker_postgres_walg_backup_inventory_hostname == inventory_hostname" in defaults_text
+    assert "inventory_hostname in docker_postgres_walg_backup_hostnames" in defaults_text
     assert "{% if docker_postgres_walg_backup_enabled | bool %}" in env_text
     assert "if docker_postgres_walg_backup_enabled | bool" in setup_text
     assert (
