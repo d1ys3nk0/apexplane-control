@@ -1,0 +1,60 @@
+---
+
+- name: Ensure logind drop-in directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/logind.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: base_hardening_user_process_persistence_enabled
+
+- name: Configure user process persistence after logout
+  become: true
+  ansible.builtin.copy:
+    content: |
+      [Login]
+      KillUserProcesses=no
+    dest: /etc/systemd/logind.conf.d/99-base-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+  register: base_hardening_logind_config
+  when: base_hardening_user_process_persistence_enabled
+
+- name: Remove managed logind process persistence drop-in
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/logind.conf.d/99-base-hardening.conf
+    state: absent
+  register: base_hardening_logind_config_removed
+  when: not base_hardening_user_process_persistence_enabled
+
+- name: Restart systemd-logind
+  become: true
+  ansible.builtin.service:
+    name: systemd-logind
+    state: restarted
+  when: >-
+    not ansible_check_mode
+    and (
+      base_hardening_logind_config.changed | default(false)
+      or base_hardening_logind_config_removed.changed | default(false)
+    )
+
+- name: Verify systemd-logind service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - systemd-logind
+  register: base_hardening_logind_service_health
+  changed_when: false
+  when: >-
+    not ansible_check_mode
+    and (
+      base_hardening_logind_config.changed | default(false)
+      or base_hardening_logind_config_removed.changed | default(false)
+    )

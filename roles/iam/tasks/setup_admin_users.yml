@@ -60,3 +60,16 @@
   loop: '{{ iam_admin_users }}'
   loop_control:
     label: '{{ item.name }}'
+
+- name: Enable lingering for admin accounts
+  become: true
+  ansible.builtin.command:
+    argv:
+      - loginctl
+      - enable-linger
+      - '{{ item.name }}'
+    creates: /var/lib/systemd/linger/{{ item.name }}
+  loop: '{{ iam_admin_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: iam_admin_linger_enabled

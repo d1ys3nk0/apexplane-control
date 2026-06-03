@@ -6,6 +6,9 @@
 - name: Run SSH tasks
   ansible.builtin.include_tasks: setup_ssh.yml
 
+- name: Run logind tasks
+  ansible.builtin.include_tasks: setup_logind.yml
+
 - name: Run sysctl tasks
   ansible.builtin.include_tasks: setup_sysctl.yml
 
