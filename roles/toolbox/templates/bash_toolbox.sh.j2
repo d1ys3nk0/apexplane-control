@@ -128,8 +128,12 @@ alias dcla='docker ps -a --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Sta
 alias dish='docker inspect --format="{{ json .State.Health }}"'                                          # Show container health JSON
 alias dvl='docker secret ls --format "{{.Name}}"'                                                        # List Docker secret names
 
-docker-cleanup() {
-    docker_cleanup "$@"
+dc-env()
+  docker inspect "$1" --format '{{range .Config.Env}}{{println .}}{{end}}'
+}
+
+dc-volumes() {
+  docker inspect "$1" --format '{{range .Mounts}}{{printf "%s name=%s source=%s destination=%s\n" .Type .Name .Source .Destination}}{{end}}'
 }
 {% endraw %}
 {% endif %}

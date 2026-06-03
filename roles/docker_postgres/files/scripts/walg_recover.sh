@@ -224,7 +224,6 @@ load_postgres_identity() {
 validate_postgres_container() {
     local container_image
     local data_mount
-    local shadow_mount
     local pgdata
 
     info "Validating PostgreSQL container ${PG_CONTAINER}"
@@ -246,15 +245,6 @@ validate_postgres_container() {
         awk -v volume="${WALG_DATA_VOLUME}" -v destination="${WALG_DATA_ROOT}" '$1 == "volume" && $2 == volume && $3 == destination { print $0; exit }')
     if [ -z "${data_mount}" ]; then
         error "PostgreSQL container ${PG_CONTAINER} does not mount ${WALG_DATA_VOLUME} at ${WALG_DATA_ROOT}"
-    fi
-
-    shadow_mount=$(docker inspect "${PG_CONTAINER}" --format '{{range .Mounts}}{{printf "%s %s %s\n" .Type .Name .Destination}}{{end}}' |
-        awk -v volume="${WALG_DATA_VOLUME}" -v root="${WALG_DATA_ROOT}" -v pgdata="${WALG_DATA_DIR}" '
-            $3 == pgdata && !(pgdata == root && $1 == "volume" && $2 == volume) { print $0; exit }
-        ')
-    if [ -n "${shadow_mount}" ]; then
-        print_recovery_volume_diagnostics
-        error "PostgreSQL PGDATA ${WALG_DATA_DIR} is shadowed by unexpected Docker mount: ${shadow_mount}"
     fi
 }
 

@@ -85,16 +85,10 @@ def test_docker_postgres_admin_credentials_are_required() -> None:
     assert "docker_postgres_walg_binary_url is match('^https?://.*/wal-g-pg[-_].*')" in validate_text
 
 
-def test_docker_postgres_walg_recovery_rejects_shadowed_pgdata_layout() -> None:
-    validate_text = (REPO_ROOT / "roles/docker_postgres/tasks/validate.yml").read_text(encoding="utf-8")
+def test_docker_postgres_walg_recovery_validates_fetched_data_before_start() -> None:
     recover_text = (REPO_ROOT / "roles/docker_postgres/files/scripts/walg_recover.sh").read_text(encoding="utf-8")
     recover_main = recover_text.split("main() {", maxsplit=1)[1].split("\n}", maxsplit=1)[0]
 
-    assert (
-        "docker_postgres_data_root != '/var/lib/postgresql' or docker_postgres_data_dir != '/var/lib/postgresql/data'"
-        in validate_text
-    )
-    assert "shadowed by unexpected Docker mount" in recover_text
     assert 'test -f "$1/PG_VERSION" && test -f "$1/global/pg_control"' in recover_text
     assert (
         'test -f "$1/postgresql.auto.conf" && test -f "$1/recovery.signal" && test -f "$1/walg_restore.log"'

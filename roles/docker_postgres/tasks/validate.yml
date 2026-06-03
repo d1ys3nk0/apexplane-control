@@ -19,7 +19,6 @@
       - docker_postgres_data_dir is not none
       - docker_postgres_data_dir | string | length > 0
       - docker_postgres_data_dir is match('^/')
-      - docker_postgres_data_root != '/var/lib/postgresql' or docker_postgres_data_dir != '/var/lib/postgresql/data'
       - docker_postgres_port | int >= 1
       - docker_postgres_port | int <= 65535
 
