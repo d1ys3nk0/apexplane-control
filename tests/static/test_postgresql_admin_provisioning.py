@@ -94,6 +94,9 @@ def test_docker_postgres_walg_recovery_validates_fetched_data_before_start() -> 
         'test -f "$1/postgresql.auto.conf" && test -f "$1/recovery.signal" && test -f "$1/walg_restore.log"'
         in recover_text
     )
+    assert '[ "${container_state}" = "running" ] || [ "${container_state}" = "restarting" ]' in recover_text
+    assert "WALG_RECOVER_STOP_WAIT_SECONDS" in recover_text
+    assert "wait_for_postgres_container_stopped" in recover_text
     assert recover_main.index("validate_recovered_data_files") < recover_main.index("install_restore_command")
     assert recover_main.index("validate_recovery_config_files") < recover_main.index("start_postgres_container")
 

@@ -86,6 +86,7 @@ Optional environment:
   WALG_RECOVER_PGUSER=admin
   WALG_RECOVER_START=true|false
   WALG_RECOVER_WAIT=true|false
+  WALG_RECOVER_STOP_WAIT_SECONDS=120
   WALG_RECOVER_WAIT_SECONDS=3600
   WALG_RECOVER_PROGRESS_SECONDS=30
   WALG_RECOVER_HEALTH_WAIT_SECONDS=120
@@ -116,6 +117,7 @@ init_config() {
     WALG_RECOVER_PGUSER="${WALG_RECOVER_PGUSER:-admin}"
     WALG_RECOVER_START="${WALG_RECOVER_START:-true}"
     WALG_RECOVER_WAIT="${WALG_RECOVER_WAIT:-true}"
+    WALG_RECOVER_STOP_WAIT_SECONDS="${WALG_RECOVER_STOP_WAIT_SECONDS:-120}"
     WALG_RECOVER_WAIT_SECONDS="${WALG_RECOVER_WAIT_SECONDS:-3600}"
     WALG_RECOVER_PROGRESS_SECONDS="${WALG_RECOVER_PROGRESS_SECONDS:-30}"
     WALG_RECOVER_HEALTH_WAIT_SECONDS="${WALG_RECOVER_HEALTH_WAIT_SECONDS:-120}"
@@ -146,6 +148,7 @@ init_config() {
         "WALG_RECOVER_S3_PREFIX" \
         "WALG_RECOVER_S3_ACCESS_KEY" \
         "WALG_RECOVER_S3_SECRET_KEY"
+    require_positive_integer "${WALG_RECOVER_STOP_WAIT_SECONDS}" WALG_RECOVER_STOP_WAIT_SECONDS
     require_positive_integer "${WALG_RECOVER_WAIT_SECONDS}" WALG_RECOVER_WAIT_SECONDS
     require_positive_integer "${WALG_RECOVER_PROGRESS_SECONDS}" WALG_RECOVER_PROGRESS_SECONDS
     require_positive_integer "${WALG_RECOVER_HEALTH_WAIT_SECONDS}" WALG_RECOVER_HEALTH_WAIT_SECONDS
@@ -287,17 +290,46 @@ validate_recovery_config_files() {
     error "WAL-G recovery config was not installed in PostgreSQL data directory ${WALG_DATA_DIR}"
 }
 
+wait_for_postgres_container_stopped() {
+    local container_state
+    local deadline
+
+    deadline=$((SECONDS + WALG_RECOVER_STOP_WAIT_SECONDS))
+    while [ "${SECONDS}" -lt "${deadline}" ]; do
+        container_state=$(docker inspect "${PG_CONTAINER}" --format '{{.State.Status}}' 2>/dev/null || true)
+        case "${container_state}" in
+        created | dead | exited)
+            return
+            ;;
+        "")
+            error "PostgreSQL container ${PG_CONTAINER} does not exist"
+            ;;
+        esac
+        sleep 1
+    done
+
+    container_state=$(docker inspect "${PG_CONTAINER}" --format '{{.State.Status}}' 2>/dev/null || true)
+    error "PostgreSQL container ${PG_CONTAINER} is still ${container_state:-missing} after ${WALG_RECOVER_STOP_WAIT_SECONDS}s"
+}
+
 stop_postgres_container() {
     local container_state
 
     container_state=$(docker inspect "${PG_CONTAINER}" --format '{{.State.Status}}')
-    if [ "${container_state}" = "running" ]; then
+    if [ "${container_state}" = "paused" ]; then
+        info "Unpausing PostgreSQL container ${PG_CONTAINER}"
+        docker unpause "${PG_CONTAINER}" >/dev/null
+        container_state=running
+    fi
+    if [ "${container_state}" = "running" ] || [ "${container_state}" = "restarting" ]; then
         info "Stopping PostgreSQL container ${PG_CONTAINER}"
         docker stop "${PG_CONTAINER}" >/dev/null
+        wait_for_postgres_container_stopped
         return
     fi
 
     warn "PostgreSQL container ${PG_CONTAINER} is ${container_state}; continuing with offline recovery"
+    wait_for_postgres_container_stopped
 }
 
 clear_data() {
