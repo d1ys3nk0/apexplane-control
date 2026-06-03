@@ -1,6 +1,6 @@
 listen_addresses = '*'
 port = {{ docker_postgres_port }}
-hba_file = '/var/lib/postgresql/pg_hba.conf'
+hba_file = '/opt/config/pg_hba.conf'
 shared_preload_libraries = 'pg_stat_statements'
 pg_stat_statements.track = ALL
 pg_stat_statements.max = 10000

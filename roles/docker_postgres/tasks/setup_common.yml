@@ -18,7 +18,7 @@
   become: true
   ansible.builtin.template:
     src: postgresql.{{ docker_postgres_mode }}.conf.j2
-    dest: /opt/postgres/postgresql.conf
+    dest: /opt/postgres/config/postgresql.conf
     mode: '0644'
     owner: root
     group: root
@@ -28,13 +28,22 @@
   become: true
   ansible.builtin.template:
     src: '{{ item.src }}'
-    dest: /opt/postgres/{{ item.dest }}
+    dest: /opt/postgres/config/{{ item.dest }}
     mode: '0644'
     owner: root
     group: root
   loop:
     - src: pg_hba.conf.j2
       dest: pg_hba.conf
+
+- name: Remove root-level PostgreSQL configs
+  become: true
+  ansible.builtin.file:
+    path: /opt/postgres/{{ item }}
+    state: absent
+  loop:
+    - postgresql.conf
+    - pg_hba.conf
 
 - name: Install PostgreSQL dotenv
   become: true

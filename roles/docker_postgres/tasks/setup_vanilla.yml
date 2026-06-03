@@ -14,7 +14,7 @@
       PGUSER: '{{ docker_postgres_pg_admin_user }}'
       PGHOST: /var/run/postgresql
       PGPORT: '{{ docker_postgres_port | string }}'
-    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    command: postgres -c 'config_file=/opt/config/postgresql.conf'
     restart_policy: unless-stopped
     shm_size: '{{ ((docker_postgres_mem_lim[:-1] | int) * 0.3) | int }}M'
     memory_reservation: '{{ docker_postgres_mem_res }}'
@@ -22,8 +22,6 @@
     memory_swap: '{{ docker_postgres_mem_swp }}'
     network_mode: host
     volumes:
-      - /opt/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
-      - /opt/postgres/pg_hba.conf:/var/lib/postgresql/pg_hba.conf:ro
       - /opt/postgres/config:/opt/config:ro
       - /opt/postgres/log:/var/log/postgresql
       - /opt/postgres/psql_history:/var/lib/postgresql/.psql_history

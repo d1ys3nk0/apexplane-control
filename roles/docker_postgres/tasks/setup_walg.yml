@@ -72,7 +72,7 @@
       AWS_REGION: '{{ docker_postgres_walg_backup_s3_region }}'
       AWS_ACCESS_KEY_ID: '{{ docker_postgres_walg_backup_s3_access_key }}'
       AWS_SECRET_ACCESS_KEY: '{{ docker_postgres_walg_backup_s3_secret_key }}'
-    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    command: postgres -c 'config_file=/opt/config/postgresql.conf'
     restart_policy: unless-stopped
     shm_size: '{{ ((docker_postgres_mem_lim[:-1] | int) * 0.3) | int }}M'
     memory_reservation: '{{ docker_postgres_mem_res }}'
@@ -80,8 +80,6 @@
     memory_swap: '{{ docker_postgres_mem_swp }}'
     network_mode: host
     volumes:
-      - /opt/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
-      - /opt/postgres/pg_hba.conf:/var/lib/postgresql/pg_hba.conf:ro
       - /opt/postgres/config:/opt/config:ro
       - /opt/postgres/log:/var/log/postgresql
       - /opt/postgres/psql_history:/var/lib/postgresql/.psql_history
