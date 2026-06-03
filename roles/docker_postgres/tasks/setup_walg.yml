@@ -17,7 +17,7 @@
 - name: Create PostgreSQL WAL-G image build directory
   become: true
   ansible.builtin.file:
-    path: /opt/postgres/docker
+    path: /opt/postgres/walg
     state: directory
     mode: '0755'
     owner: root
@@ -27,7 +27,7 @@
   become: true
   ansible.builtin.copy:
     src: docker/Dockerfile
-    dest: /opt/postgres/docker/Dockerfile
+    dest: /opt/postgres/walg/Dockerfile
     mode: '0644'
     owner: root
     group: root
@@ -39,7 +39,7 @@
     source: build
     force_source: true
     build:
-      path: /opt/postgres/docker
+      path: /opt/postgres/walg
       dockerfile: Dockerfile
       args:
         POSTGRES_IMAGE: '{{ docker_postgres_image_full }}'

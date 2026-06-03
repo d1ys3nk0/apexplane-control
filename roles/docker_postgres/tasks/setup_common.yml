@@ -10,10 +10,9 @@
     group: root
   loop:
     - /opt/postgres
+    - /opt/postgres/config
     - /opt/postgres/bin
     - /opt/postgres/log
-    - /opt/postgres/config
-    - /opt/postgres/snapshots
 
 - name: Install PostgreSQL config
   become: true
