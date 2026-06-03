@@ -37,7 +37,9 @@
       - docker_swarm_zitadel_pg_user | string | length > 0
       - docker_swarm_zitadel_pg_image | string | length > 0
       - docker_swarm_zitadel_pg_backup_concurrency | string is match('^[1-9][0-9]*$')
-      - docker_swarm_zitadel_pg_recover_concurrency | string is match('^[1-9][0-9]*$')
+      - >-
+        docker_swarm_zitadel_pg_recover_concurrency | string | length == 0
+        or docker_swarm_zitadel_pg_recover_concurrency | string is match('^[1-9][0-9]*$')
       - docker_swarm_zitadel_pg_recover_exclude_extensions is string
       - docker_swarm_zitadel_pg_recover_no_prepare is boolean
       - docker_swarm_zitadel_pg_recover_no_recreate is boolean

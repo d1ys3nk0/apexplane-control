@@ -26,7 +26,7 @@ docker_swarm_zitadel_pg_port: 5432
 docker_swarm_zitadel_pg_ssl: disable
 docker_swarm_zitadel_pg_image: postgres:18-alpine
 docker_swarm_zitadel_pg_backup_concurrency: 1
-docker_swarm_zitadel_pg_recover_concurrency: 1
+docker_swarm_zitadel_pg_recover_concurrency: ''
 docker_swarm_zitadel_pg_recover_no_prepare: false
 docker_swarm_zitadel_pg_recover_no_recreate: false
 docker_swarm_zitadel_pg_recover_exclude_extensions: ''

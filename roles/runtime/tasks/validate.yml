@@ -14,7 +14,9 @@
       - runtime_pg_host | string | length > 0
       - runtime_pg_port is number or runtime_pg_port | string | length > 0
       - runtime_pg_backup_concurrency | string is match('^[1-9][0-9]*$')
-      - runtime_pg_recover_concurrency | string is match('^[1-9][0-9]*$')
+      - >-
+        runtime_pg_recover_concurrency | string | length == 0
+        or runtime_pg_recover_concurrency | string is match('^[1-9][0-9]*$')
       - runtime_pg_recover_exclude_extensions is string
       - runtime_pg_recover_no_prepare is boolean
       - runtime_pg_recover_no_recreate is boolean

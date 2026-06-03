@@ -41,7 +41,7 @@ Set these required inputs before applying the role: `docker_swarm_zitadel_domain
 | `docker_swarm_zitadel_pg_ssl` | `disable` |
 | `docker_swarm_zitadel_pg_image` | `postgres:18-alpine` |
 | `docker_swarm_zitadel_pg_backup_concurrency` | `1` |
-| `docker_swarm_zitadel_pg_recover_concurrency` | `1` |
+| `docker_swarm_zitadel_pg_recover_concurrency` | `''` |
 | `docker_swarm_zitadel_pg_recover_exclude_extensions` | `''` |
 | `docker_swarm_zitadel_pg_recover_no_prepare` | `false` |
 | `docker_swarm_zitadel_pg_recover_no_recreate` | `false` |

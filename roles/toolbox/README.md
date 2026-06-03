@@ -163,7 +163,7 @@ Restore the latest S3 backup under `PG_RECOVER_S3_PREFIX`:
 sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env /opt/toolbox/bin/pg_recover
 ```
 
-Run restore and post-restore analyze with multiple jobs:
+Recover defaults to `nproc` jobs for archive restores and post-restore analyze. Pin a manual job count when needed:
 
 ```sh
 sudo /opt/toolbox/bin/dotenv /path/to/pg-database.env PG_RECOVER_CONCURRENCY=8 /opt/toolbox/bin/pg_recover
