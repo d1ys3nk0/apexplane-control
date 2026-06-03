@@ -1,7 +1,9 @@
 local all all trust
 host all all 127.0.0.1/32 scram-sha-256
 host all all ::1/128 scram-sha-256
+
 {% for docker_postgres_src in docker_postgres_allowed_cidr %}
+# Allow access from {{ docker_postgres_src }}
 host all all {{ docker_postgres_src }} scram-sha-256
 {% if docker_postgres_pg_replicator_user | string | length > 0 %}
 host replication {{ docker_postgres_pg_replicator_user }} {{ docker_postgres_src }} scram-sha-256
