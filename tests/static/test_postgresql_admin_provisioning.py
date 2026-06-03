@@ -85,6 +85,25 @@ def test_docker_postgres_admin_credentials_are_required() -> None:
     assert "docker_postgres_walg_binary_url is match('^https?://.*/wal-g-pg[-_].*')" in validate_text
 
 
+def test_docker_postgres_walg_recovery_rejects_shadowed_pgdata_layout() -> None:
+    validate_text = (REPO_ROOT / "roles/docker_postgres/tasks/validate.yml").read_text(encoding="utf-8")
+    recover_text = (REPO_ROOT / "roles/docker_postgres/files/scripts/walg_recover.sh").read_text(encoding="utf-8")
+    recover_main = recover_text.split("main() {", maxsplit=1)[1].split("\n}", maxsplit=1)[0]
+
+    assert (
+        "docker_postgres_data_root != '/var/lib/postgresql' or docker_postgres_data_dir != '/var/lib/postgresql/data'"
+        in validate_text
+    )
+    assert "shadowed by unexpected Docker mount" in recover_text
+    assert 'test -f "$1/PG_VERSION" && test -f "$1/global/pg_control"' in recover_text
+    assert (
+        'test -f "$1/postgresql.auto.conf" && test -f "$1/recovery.signal" && test -f "$1/walg_restore.log"'
+        in recover_text
+    )
+    assert recover_main.index("validate_recovered_data_files") < recover_main.index("install_restore_command")
+    assert recover_main.index("validate_recovery_config_files") < recover_main.index("start_postgres_container")
+
+
 def test_runtime_postgresql_provisioning_requires_admin_and_target_credentials() -> None:
     vars_text = (REPO_ROOT / "roles/runtime/vars/main.yml").read_text(encoding="utf-8")
     validate_text = (REPO_ROOT / "roles/runtime/tasks/validate.yml").read_text(encoding="utf-8")

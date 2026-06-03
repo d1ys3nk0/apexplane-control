@@ -9,13 +9,14 @@
     owner: haproxy
     group: haproxy
 
-- name: Download DH parameters if not present
+- name: Download DH parameters if missing
   become: true
   ansible.builtin.get_url:
     url: https://ssl-config.mozilla.org/ffdhe2048.txt
     dest: /etc/haproxy/dhparam
     mode: '0644'
     tmp_dest: /var/tmp
+    force: false
 
 - name: Check self-signed ssl cert
   become: true

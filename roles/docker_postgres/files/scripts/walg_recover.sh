@@ -224,6 +224,7 @@ load_postgres_identity() {
 validate_postgres_container() {
     local container_image
     local data_mount
+    local shadow_mount
     local pgdata
 
     info "Validating PostgreSQL container ${PG_CONTAINER}"
@@ -246,6 +247,54 @@ validate_postgres_container() {
     if [ -z "${data_mount}" ]; then
         error "PostgreSQL container ${PG_CONTAINER} does not mount ${WALG_DATA_VOLUME} at ${WALG_DATA_ROOT}"
     fi
+
+    shadow_mount=$(docker inspect "${PG_CONTAINER}" --format '{{range .Mounts}}{{printf "%s %s %s\n" .Type .Name .Destination}}{{end}}' |
+        awk -v volume="${WALG_DATA_VOLUME}" -v root="${WALG_DATA_ROOT}" -v pgdata="${WALG_DATA_DIR}" '
+            $3 == pgdata && !(pgdata == root && $1 == "volume" && $2 == volume) { print $0; exit }
+        ')
+    if [ -n "${shadow_mount}" ]; then
+        print_recovery_volume_diagnostics
+        error "PostgreSQL PGDATA ${WALG_DATA_DIR} is shadowed by unexpected Docker mount: ${shadow_mount}"
+    fi
+}
+
+print_recovery_volume_diagnostics() {
+    warn "PostgreSQL container mounts:"
+    docker inspect "${PG_CONTAINER}" --format '{{range .Mounts}}{{printf "%s name=%s source=%s destination=%s\n" .Type .Name .Source .Destination}}{{end}}' >&2 || true
+    warn "PostgreSQL data directory diagnostics:"
+    docker run --rm \
+        --volumes-from "${PG_CONTAINER}:ro" \
+        "${WALG_UTILITY_IMAGE}" \
+        sh -c '
+            for path in "$1" "$1/global"; do
+                printf "%s\n" "# ${path}"
+                ls -la "${path}" 2>&1 || true
+            done
+        ' sh "${WALG_DATA_DIR}" >&2 || true
+}
+
+validate_recovered_data_files() {
+    if docker run --rm \
+        --volumes-from "${PG_CONTAINER}:ro" \
+        "${WALG_UTILITY_IMAGE}" \
+        sh -c 'test -f "$1/PG_VERSION" && test -f "$1/global/pg_control"' sh "${WALG_DATA_DIR}"; then
+        return
+    fi
+
+    print_recovery_volume_diagnostics
+    error "WAL-G backup fetch did not produce a valid PostgreSQL data directory at ${WALG_DATA_DIR}"
+}
+
+validate_recovery_config_files() {
+    if docker run --rm \
+        --volumes-from "${PG_CONTAINER}:ro" \
+        "${WALG_UTILITY_IMAGE}" \
+        sh -c 'test -f "$1/postgresql.auto.conf" && test -f "$1/recovery.signal" && test -f "$1/walg_restore.log"' sh "${WALG_DATA_DIR}"; then
+        return
+    fi
+
+    print_recovery_volume_diagnostics
+    error "WAL-G recovery config was not installed in PostgreSQL data directory ${WALG_DATA_DIR}"
 }
 
 stop_postgres_container() {
@@ -723,8 +772,10 @@ main() {
     stop_postgres_container
     clear_data
     fetch_backup
+    validate_recovered_data_files
     install_restore_command
     enable_recovery
+    validate_recovery_config_files
     start_postgres_container
     wait_for_recovery
     wait_for_postgres_health
