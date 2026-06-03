@@ -128,7 +128,7 @@ alias dcla='docker ps -a --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Sta
 alias dish='docker inspect --format="{{ json .State.Health }}"'                                          # Show container health JSON
 alias dvl='docker secret ls --format "{{.Name}}"'                                                        # List Docker secret names
 
-dc-env()
+dc-env() {
   docker inspect "$1" --format '{{range .Config.Env}}{{println .}}{{end}}'
 }
 
