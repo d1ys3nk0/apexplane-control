@@ -59,8 +59,8 @@
       PGUSER: '{{ docker_postgres_pg_admin_user }}'
       PGHOST: /var/run/postgresql
       PGPORT: '{{ docker_postgres_port | string }}'
-      WALG_COMPRESSION_METHOD: brotli
-      WALG_COMPRESSION_LEVEL: '5'
+      WALG_COMPRESSION_METHOD: '{{ docker_postgres_walg_backup_compression_method }}'
+      WALG_COMPRESSION_LEVEL: '{{ docker_postgres_walg_backup_compression_level | string }}'
       WALG_S3_PREFIX: >-
         {{
           ('s3://' ~ docker_postgres_walg_backup_s3_bucket ~ '/' ~ docker_postgres_walg_backup_s3_prefix)

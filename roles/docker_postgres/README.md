@@ -58,6 +58,13 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_walg_backup_s3_prefix` | `''` |
 | `docker_postgres_walg_backup_s3_access_key` | `''` |
 | `docker_postgres_walg_backup_s3_secret_key` | `''` |
+| `docker_postgres_walg_backup_delta_origin` | `LATEST` |
+| `docker_postgres_walg_backup_delta_max_steps` | `24` |
+| `docker_postgres_walg_backup_compression_method` | `brotli` |
+| `docker_postgres_walg_backup_compression_level` | `5` |
+| `docker_postgres_walg_backup_disk_rate_limit` | `10485760` |
+| `docker_postgres_walg_backup_upload_disk_concurrency` | `1` |
+| `docker_postgres_walg_backup_tar_size_threshold` | `''` |
 | `docker_postgres_walg_recover_s3_endpoint` | `''` |
 | `docker_postgres_walg_recover_s3_region` | `''` |
 | `docker_postgres_walg_recover_s3_bucket` | `''` |
@@ -70,6 +77,8 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_walg_recover_target_base` | `''` |
 | `docker_postgres_walg_recover_target_user` | `''` |
 | `docker_postgres_walg_recover_target_pass` | `''` |
+| `docker_postgres_walg_recover_health_wait_seconds` | `120` |
+| `docker_postgres_walg_recover_log_tail_lines` | `80` |
 
 ## Usage
 ```yaml
@@ -170,7 +179,7 @@ Recover from another WAL-G prefix:
 sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_recover s3://<bucket>/<prefix> LATEST
 ```
 
-`walg_recover` is destructive at the PostgreSQL cluster level and does not create a local snapshot. Create one explicitly with `snap_dump` first when rollback to the current local state is needed. `walg_recover` prints a 10-second countdown, validates `PG_CONTAINER`, stops that container, clears `WALG_DATA_VOLUME`, fetches the requested WAL-G backup with a short-lived WAL-G container mounted from `PG_CONTAINER`, writes a temporary PostgreSQL restore command under `WALG_DATA_ROOT`, starts `PG_CONTAINER` for archive recovery, prints recovery progress every `WALG_RECOVER_PROGRESS_SECONDS` seconds while waiting, and removes the temporary restore command after PostgreSQL leaves recovery. Recovery progress includes container state, PostgreSQL readiness, `pg_is_in_recovery()`, recovered data size in KiB, WAL restore log size in bytes, and replay LSN when PostgreSQL is queryable. When `WALG_RECOVER_ORIGIN_BASE`, `WALG_RECOVER_ORIGIN_OWNER`, `WALG_RECOVER_ORIGIN_USERS`, and `WALG_RECOVER_TARGET_*` are set, the script also reconciles the recovered database and role names after recovery.
+`walg_recover` is destructive at the PostgreSQL cluster level and does not create a local snapshot. Create one explicitly with `snap_dump` first when rollback to the current local state is needed. `walg_recover` prints a 10-second countdown, validates `PG_CONTAINER`, stops that container, clears `WALG_DATA_VOLUME`, fetches the requested WAL-G backup with a short-lived WAL-G container mounted from `PG_CONTAINER`, writes a temporary PostgreSQL restore command under `WALG_DATA_ROOT`, starts `PG_CONTAINER` for archive recovery, prints recovery progress every `WALG_RECOVER_PROGRESS_SECONDS` seconds while waiting, and removes the temporary restore command only after PostgreSQL leaves recovery and the container healthcheck is healthy. Recovery progress includes container state, health state, restart count, exit code, PostgreSQL readiness, `pg_is_in_recovery()`, recovered data size in KiB, WAL restore log size in bytes, and replay LSN when PostgreSQL is queryable. If recovery fails or the container restarts before health is confirmed, the temporary restore command is left in place and the script prints Docker, PostgreSQL, and WAL-G restore-log diagnostics. When `WALG_RECOVER_ORIGIN_BASE`, `WALG_RECOVER_ORIGIN_OWNER`, `WALG_RECOVER_ORIGIN_USERS`, and `WALG_RECOVER_TARGET_*` are set, the script also reconciles the recovered database and role names after recovery.
 
 Stop application writers before running `walg_recover`. The script manages the configured PostgreSQL container lifecycle itself.
 

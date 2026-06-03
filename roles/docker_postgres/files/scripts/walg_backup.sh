@@ -74,6 +74,7 @@ Optional environment:
   WALG_COMPRESSION_LEVEL=5
   WALG_DISK_RATE_LIMIT=10485760
   WALG_UPLOAD_DISK_CONCURRENCY=1
+  WALG_TAR_SIZE_THRESHOLD=<unset>
 
 Example:
   dotenv /opt/postgres/env /opt/postgres/bin/walg_backup
@@ -99,6 +100,7 @@ init_config() {
     WALG_COMPRESSION_LEVEL="${WALG_COMPRESSION_LEVEL:-5}"
     WALG_DISK_RATE_LIMIT="${WALG_DISK_RATE_LIMIT:-10485760}"
     WALG_UPLOAD_DISK_CONCURRENCY="${WALG_UPLOAD_DISK_CONCURRENCY:-1}"
+    WALG_TAR_SIZE_THRESHOLD="${WALG_TAR_SIZE_THRESHOLD:-}"
 
     require_vars \
         "WALG_IMAGE" \
@@ -123,7 +125,15 @@ init_timestamps() {
 }
 
 create_backup() {
+    local backup_started
+    local tar_size_threshold_env=()
+
+    backup_started=${SECONDS}
     info "Creating WAL-G backup from Docker volume ${WALG_DATA_VOLUME}:${WALG_DATA_DIR} to ${WALG_BACKUP_S3_PREFIX}"
+    info "Backup settings: delta_origin=${WALG_DELTA_ORIGIN}; delta_max_steps=${WALG_DELTA_MAX_STEPS}; compression=${WALG_COMPRESSION_METHOD}:${WALG_COMPRESSION_LEVEL}; disk_rate_limit=${WALG_DISK_RATE_LIMIT}; upload_disk_concurrency=${WALG_UPLOAD_DISK_CONCURRENCY}; tar_size_threshold=${WALG_TAR_SIZE_THRESHOLD:-unset}"
+    if [ -n "${WALG_TAR_SIZE_THRESHOLD}" ]; then
+        tar_size_threshold_env=(-e "WALG_TAR_SIZE_THRESHOLD=${WALG_TAR_SIZE_THRESHOLD}")
+    fi
     docker run --rm \
         --network host \
         --user postgres \
@@ -143,8 +153,10 @@ create_backup() {
         -e "WALG_COMPRESSION_LEVEL=${WALG_COMPRESSION_LEVEL}" \
         -e "WALG_DISK_RATE_LIMIT=${WALG_DISK_RATE_LIMIT}" \
         -e "WALG_UPLOAD_DISK_CONCURRENCY=${WALG_UPLOAD_DISK_CONCURRENCY}" \
+        "${tar_size_threshold_env[@]}" \
         "${WALG_IMAGE}" \
         /usr/local/bin/wal-g backup-push "${WALG_DATA_DIR}"
+    info "Created WAL-G backup in $((SECONDS - backup_started))s"
 }
 
 finish() {

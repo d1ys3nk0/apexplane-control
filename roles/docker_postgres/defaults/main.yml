@@ -45,6 +45,13 @@ docker_postgres_walg_backup_s3_bucket: ''
 docker_postgres_walg_backup_s3_prefix: ''
 docker_postgres_walg_backup_s3_access_key: ''
 docker_postgres_walg_backup_s3_secret_key: ''
+docker_postgres_walg_backup_delta_origin: LATEST
+docker_postgres_walg_backup_delta_max_steps: 24
+docker_postgres_walg_backup_compression_method: brotli
+docker_postgres_walg_backup_compression_level: 5
+docker_postgres_walg_backup_disk_rate_limit: 10485760
+docker_postgres_walg_backup_upload_disk_concurrency: 1
+docker_postgres_walg_backup_tar_size_threshold: ''
 
 # WAL-G Recovery
 docker_postgres_walg_recover_s3_endpoint: ''
@@ -59,3 +66,5 @@ docker_postgres_walg_recover_origin_users: []
 docker_postgres_walg_recover_target_base: ''
 docker_postgres_walg_recover_target_user: ''
 docker_postgres_walg_recover_target_pass: ''
+docker_postgres_walg_recover_health_wait_seconds: 120
+docker_postgres_walg_recover_log_tail_lines: 80

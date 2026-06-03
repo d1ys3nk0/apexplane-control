@@ -88,6 +88,8 @@ Optional environment:
   WALG_RECOVER_WAIT=true|false
   WALG_RECOVER_WAIT_SECONDS=3600
   WALG_RECOVER_PROGRESS_SECONDS=30
+  WALG_RECOVER_HEALTH_WAIT_SECONDS=120
+  WALG_RECOVER_LOG_TAIL_LINES=80
   WALG_RECOVER_ORIGIN_BASE=<old-database-name>
   WALG_RECOVER_TARGET_BASE=<new-database-name>
   WALG_RECOVER_ORIGIN_OWNER=<old-role-name>
@@ -116,6 +118,8 @@ init_config() {
     WALG_RECOVER_WAIT="${WALG_RECOVER_WAIT:-true}"
     WALG_RECOVER_WAIT_SECONDS="${WALG_RECOVER_WAIT_SECONDS:-3600}"
     WALG_RECOVER_PROGRESS_SECONDS="${WALG_RECOVER_PROGRESS_SECONDS:-30}"
+    WALG_RECOVER_HEALTH_WAIT_SECONDS="${WALG_RECOVER_HEALTH_WAIT_SECONDS:-120}"
+    WALG_RECOVER_LOG_TAIL_LINES="${WALG_RECOVER_LOG_TAIL_LINES:-80}"
     WALG_RECOVER_S3_BUCKET="${WALG_RECOVER_S3_BUCKET:-}"
     WALG_RECOVER_ORIGIN_BASE="${WALG_RECOVER_ORIGIN_BASE:-}"
     WALG_RECOVER_TARGET_BASE="${WALG_RECOVER_TARGET_BASE:-}"
@@ -144,6 +148,8 @@ init_config() {
         "WALG_RECOVER_S3_SECRET_KEY"
     require_positive_integer "${WALG_RECOVER_WAIT_SECONDS}" WALG_RECOVER_WAIT_SECONDS
     require_positive_integer "${WALG_RECOVER_PROGRESS_SECONDS}" WALG_RECOVER_PROGRESS_SECONDS
+    require_positive_integer "${WALG_RECOVER_HEALTH_WAIT_SECONDS}" WALG_RECOVER_HEALTH_WAIT_SECONDS
+    require_positive_integer "${WALG_RECOVER_LOG_TAIL_LINES}" WALG_RECOVER_LOG_TAIL_LINES
     require_positive_integer "${PG_PORT}" PG_PORT
     is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || true
     is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT || true
@@ -167,6 +173,9 @@ init_config() {
     fi
 
     RESTORE_SCRIPT="${WALG_DATA_ROOT}/walg_restore_command.sh"
+    RESTORE_CONFIG_INSTALLED=false
+    RECOVERY_COMPLETED=false
+    POSTGRES_HEALTH_CONFIRMED=false
     POSTGRES_UID=""
     POSTGRES_GID=""
 }
@@ -176,21 +185,16 @@ cleanup() {
         return
     fi
 
-    if ! docker inspect "${PG_CONTAINER}" --format '{{.State.Running}}' >/dev/null 2>&1; then
-        info "Removing temporary WAL-G recovery config ${RESTORE_SCRIPT}"
-        remove_restore_command
+    if [ "${RESTORE_CONFIG_INSTALLED:-false}" != "true" ]; then
         return
     fi
 
-    local recovery_state
-    recovery_state=$(docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
-    if [ "${recovery_state}" != "t" ]; then
-        info "Removing temporary WAL-G recovery config ${RESTORE_SCRIPT}"
-        remove_restore_command
+    if [ "${POSTGRES_HEALTH_CONFIRMED:-false}" = "true" ]; then
         return
     fi
 
-    warn "Leaving ${RESTORE_SCRIPT} in place because PostgreSQL may still need it for recovery"
+    warn "Leaving ${RESTORE_SCRIPT} in place because PostgreSQL recovery was not confirmed healthy"
+    warn "Inspect with: docker ps; docker logs ${PG_CONTAINER} -n ${WALG_RECOVER_LOG_TAIL_LINES}; docker exec ${PG_CONTAINER} pg_isready -d postgres -p ${PG_PORT} -U ${WALG_RECOVER_PGUSER}"
 }
 
 init_cleanup() {
@@ -266,6 +270,9 @@ clear_data() {
 }
 
 fetch_backup() {
+    local fetch_started
+
+    fetch_started=${SECONDS}
     info "Fetching WAL-G backup ${WALG_RECOVER_BACKUP_NAME} from ${WALG_RECOVER_S3_PREFIX}"
     docker run --rm \
         --user "${POSTGRES_UID}:${POSTGRES_GID}" \
@@ -277,6 +284,7 @@ fetch_backup() {
         -e "WALG_S3_PREFIX=${WALG_RECOVER_S3_PREFIX}" \
         "${WALG_IMAGE}" \
         /usr/local/bin/wal-g backup-fetch "${WALG_DATA_DIR}" "${WALG_RECOVER_BACKUP_NAME}"
+    info "Fetched WAL-G backup in $((SECONDS - fetch_started))s"
 }
 
 install_restore_command() {
@@ -332,6 +340,7 @@ enable_recovery() {
         -e "RESTORE_COMMAND=restore_command = '${RESTORE_SCRIPT} wal-fetch \"%f\" \"%p\" >> ${WALG_DATA_DIR}/walg_restore.log 2>&1'" \
         "${WALG_UTILITY_IMAGE}" \
         sh -c 'printf "%s\n" "$RESTORE_COMMAND" >> "$1/postgresql.auto.conf" && touch "$1/recovery.signal" && : > "$1/walg_restore.log"' sh "${WALG_DATA_DIR}"
+    RESTORE_CONFIG_INSTALLED=true
 }
 
 start_postgres_container() {
@@ -361,6 +370,58 @@ recovery_volume_metrics() {
         ' sh "${WALG_DATA_DIR}" "${WALG_DATA_DIR}/walg_restore.log" 2>/dev/null || printf 'data_kib=unknown restore_log_bytes=unknown'
 }
 
+container_metrics() {
+    docker inspect "${PG_CONTAINER}" \
+        --format 'container={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} restart_count={{.RestartCount}} exit_code={{.State.ExitCode}}' \
+        2>/dev/null || printf 'container=missing health=unknown restart_count=unknown exit_code=unknown'
+}
+
+postgres_ready() {
+    docker exec "${PG_CONTAINER}" pg_isready -d postgres -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" >/dev/null 2>&1
+}
+
+postgres_recovery_state() {
+    docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true
+}
+
+postgres_replay_metrics() {
+    docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT 'replay_lsn=' || COALESCE(pg_last_wal_replay_lsn()::text, 'unknown')" 2>/dev/null || printf 'replay_lsn=unknown'
+}
+
+restore_command_state() {
+    docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SHOW restore_command" 2>/dev/null || true
+}
+
+print_restore_log_tail() {
+    docker run --rm \
+        --volumes-from "${PG_CONTAINER}:ro" \
+        "${WALG_UTILITY_IMAGE}" \
+        sh -c '
+            if [ -f "$1" ]; then
+                tail -n "$2" "$1"
+            else
+                printf "%s\n" "restore log is missing: $1"
+            fi
+        ' sh "${WALG_DATA_DIR}/walg_restore.log" "${WALG_RECOVER_LOG_TAIL_LINES}" 2>/dev/null || true
+}
+
+print_diagnostics() {
+    local restore_command
+
+    warn "PostgreSQL restore diagnostics:"
+    warn "$(container_metrics); $(recovery_volume_metrics)"
+    if postgres_ready; then
+        restore_command=$(restore_command_state)
+        warn "postgres=ready pg_is_in_recovery=$(postgres_recovery_state) $(postgres_replay_metrics) restore_command=${restore_command:+configured}"
+    else
+        warn "postgres=not-ready"
+    fi
+    warn "Last ${WALG_RECOVER_LOG_TAIL_LINES} PostgreSQL log lines:"
+    docker logs "${PG_CONTAINER}" -n "${WALG_RECOVER_LOG_TAIL_LINES}" 2>&1 || true
+    warn "Last ${WALG_RECOVER_LOG_TAIL_LINES} WAL-G restore log lines:"
+    print_restore_log_tail
+}
+
 wait_for_recovery() {
     local container_state
     local database_metrics
@@ -369,6 +430,7 @@ wait_for_recovery() {
     local next_progress
     local ready_state
     local recovery_state
+    local recovery_started
     local remaining
 
     if ! is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || ! is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT; then
@@ -376,41 +438,77 @@ wait_for_recovery() {
     fi
 
     info "Waiting up to ${WALG_RECOVER_WAIT_SECONDS}s for PostgreSQL to finish recovery"
+    recovery_started=${SECONDS}
     deadline=$((SECONDS + WALG_RECOVER_WAIT_SECONDS))
     next_progress=${SECONDS}
     while [ "${SECONDS}" -lt "${deadline}" ]; do
         container_state=$(docker inspect "${PG_CONTAINER}" --format '{{.State.Status}}' 2>/dev/null || true)
         if [ "${container_state}" != "running" ]; then
+            print_diagnostics
             error "PostgreSQL container ${PG_CONTAINER} is ${container_state:-missing}"
         fi
 
         ready_state=not-ready
         database_metrics="replay_lsn=unknown"
         recovery_state=unknown
-        if docker exec "${PG_CONTAINER}" pg_isready -d postgres -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" >/dev/null 2>&1; then
+        if postgres_ready; then
             ready_state=ready
-            recovery_state=$(docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" || true)
-            database_metrics=$(docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT 'replay_lsn=' || COALESCE(pg_last_wal_replay_lsn()::text, 'unknown')" || true)
+            recovery_state=$(postgres_recovery_state)
+            database_metrics=$(postgres_replay_metrics)
             if [ "${recovery_state}" = "f" ]; then
-                info "PostgreSQL recovery completed"
+                RECOVERY_COMPLETED=true
+                info "PostgreSQL recovery completed in $((SECONDS - recovery_started))s"
                 return
             fi
         fi
 
         if [ "${SECONDS}" -ge "${next_progress}" ]; then
-            elapsed=$((SECONDS - SCRIPT_START_SECONDS))
+            elapsed=$((SECONDS - recovery_started))
             remaining=$((deadline - SECONDS))
             if [ "${remaining}" -lt 0 ]; then
                 remaining=0
             fi
-            info "Recovery in progress after ${elapsed}s; ${remaining}s until timeout; container=${container_state}; postgres=${ready_state}; pg_is_in_recovery=${recovery_state}; $(recovery_volume_metrics); ${database_metrics:-replay_lsn=unknown}"
+            info "Recovery in progress after ${elapsed}s; ${remaining}s until timeout; $(container_metrics); postgres=${ready_state}; pg_is_in_recovery=${recovery_state}; $(recovery_volume_metrics); ${database_metrics:-replay_lsn=unknown}"
             next_progress=$((SECONDS + WALG_RECOVER_PROGRESS_SECONDS))
         fi
 
         sleep 5
     done
 
+    print_diagnostics
     error "PostgreSQL did not finish recovery within ${WALG_RECOVER_WAIT_SECONDS}s"
+}
+
+wait_for_postgres_health() {
+    local deadline
+    local health_state
+    local recovery_state
+    local health_started
+
+    if ! is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || ! is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT; then
+        return
+    fi
+
+    info "Waiting up to ${WALG_RECOVER_HEALTH_WAIT_SECONDS}s for PostgreSQL to become healthy"
+    health_started=${SECONDS}
+    deadline=$((SECONDS + WALG_RECOVER_HEALTH_WAIT_SECONDS))
+    while [ "${SECONDS}" -lt "${deadline}" ]; do
+        health_state=$(docker inspect "${PG_CONTAINER}" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' 2>/dev/null || true)
+        if [ "$(docker inspect "${PG_CONTAINER}" --format '{{.State.Status}}' 2>/dev/null || true)" = "running" ] &&
+            [ "${health_state}" = "healthy" ] &&
+            postgres_ready; then
+            recovery_state=$(postgres_recovery_state)
+            if [ "${recovery_state}" = "f" ]; then
+                POSTGRES_HEALTH_CONFIRMED=true
+                info "PostgreSQL is healthy after restore in $((SECONDS - health_started))s; $(container_metrics); pg_is_in_recovery=${recovery_state}"
+                return
+            fi
+        fi
+        sleep 5
+    done
+
+    print_diagnostics
+    error "PostgreSQL did not become healthy within ${WALG_RECOVER_HEALTH_WAIT_SECONDS}s"
 }
 
 cleanup_recover_config() {
@@ -419,9 +517,9 @@ cleanup_recover_config() {
     fi
 
     local recovery_state
-    recovery_state=$(docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_is_in_recovery()" 2>/dev/null || true)
-    if [ "${recovery_state}" = "t" ]; then
-        warn "PostgreSQL is still in recovery; leaving restore_command in place"
+    recovery_state=$(postgres_recovery_state)
+    if [ "${RECOVERY_COMPLETED}" != "true" ] || [ "${POSTGRES_HEALTH_CONFIRMED}" != "true" ] || [ "${recovery_state}" != "f" ]; then
+        warn "PostgreSQL restore is not confirmed healthy; leaving restore_command in place"
         return
     fi
 
@@ -432,6 +530,8 @@ cleanup_recover_config() {
     if [ -n "${RESTORE_SCRIPT:-}" ]; then
         info "Removing temporary WAL-G recovery config ${RESTORE_SCRIPT}"
         remove_restore_command
+        RESTORE_CONFIG_INSTALLED=false
+        RESTORE_SCRIPT=""
     fi
 }
 
@@ -627,6 +727,7 @@ main() {
     enable_recovery
     start_postgres_container
     wait_for_recovery
+    wait_for_postgres_health
     cleanup_recover_config
     reconcile_recovered_cluster
     finish
