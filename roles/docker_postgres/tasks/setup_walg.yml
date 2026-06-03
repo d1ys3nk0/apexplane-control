@@ -64,14 +64,13 @@
       WALG_S3_PREFIX: >-
         {{
           ('s3://' ~ docker_postgres_walg_backup_s3_bucket ~ '/' ~ docker_postgres_walg_backup_s3_prefix)
-          if docker_postgres_walg_backup_s3_access_key | string | length > 0
-          and docker_postgres_walg_backup_s3_secret_key | string | length > 0
+          if docker_postgres_walg_backup_enabled | bool
           else ''
         }}
-      AWS_ENDPOINT: '{{ docker_postgres_walg_backup_s3_endpoint }}'
-      AWS_REGION: '{{ docker_postgres_walg_backup_s3_region }}'
-      AWS_ACCESS_KEY_ID: '{{ docker_postgres_walg_backup_s3_access_key }}'
-      AWS_SECRET_ACCESS_KEY: '{{ docker_postgres_walg_backup_s3_secret_key }}'
+      AWS_ENDPOINT: "{{ docker_postgres_walg_backup_s3_endpoint if docker_postgres_walg_backup_enabled | bool else '' }}"
+      AWS_REGION: "{{ docker_postgres_walg_backup_s3_region if docker_postgres_walg_backup_enabled | bool else '' }}"
+      AWS_ACCESS_KEY_ID: "{{ docker_postgres_walg_backup_s3_access_key if docker_postgres_walg_backup_enabled | bool else '' }}"
+      AWS_SECRET_ACCESS_KEY: "{{ docker_postgres_walg_backup_s3_secret_key if docker_postgres_walg_backup_enabled | bool else '' }}"
     command: postgres -c 'config_file=/opt/config/postgresql.conf'
     restart_policy: unless-stopped
     shm_size: '{{ ((docker_postgres_mem_lim[:-1] | int) * 0.3) | int }}M'

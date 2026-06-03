@@ -5,3 +5,10 @@ primary_conninfo = 'host={{ docker_postgres_pg_fallback_host }} port={{ docker_p
 hot_standby = on
 hot_standby_feedback = on
 max_standby_streaming_delay = 1h
+
+{% if docker_postgres_walg_backup_enabled | bool %}
+# WAL-G
+archive_mode = always
+archive_timeout = 300s
+archive_command = '/usr/local/bin/wal-g wal-push "%p" >> /var/log/postgresql/walg_archive.log 2>&1'
+{% endif %}

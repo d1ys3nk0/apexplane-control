@@ -98,6 +98,30 @@ def test_docker_postgres_walg_recovery_validates_fetched_data_before_start() -> 
     assert recover_main.index("validate_recovery_config_files") < recover_main.index("start_postgres_container")
 
 
+def test_docker_postgres_walg_follower_archives_to_backup_prefix() -> None:
+    defaults_text = (REPO_ROOT / "roles/docker_postgres/defaults/main.yml").read_text(encoding="utf-8")
+    env_text = (REPO_ROOT / "roles/docker_postgres/templates/postgres.env.j2").read_text(encoding="utf-8")
+    setup_text = (REPO_ROOT / "roles/docker_postgres/tasks/setup_walg.yml").read_text(encoding="utf-8")
+    leader_text = (REPO_ROOT / "roles/docker_postgres/templates/postgresql.leader.conf.j2").read_text(encoding="utf-8")
+    follower_text = (REPO_ROOT / "roles/docker_postgres/templates/postgresql.follower.conf.j2").read_text(
+        encoding="utf-8"
+    )
+
+    assert "docker_postgres_walg_backup_inventory_hostname == inventory_hostname" in defaults_text
+    assert "{% if docker_postgres_walg_backup_enabled | bool %}" in env_text
+    assert "if docker_postgres_walg_backup_enabled | bool" in setup_text
+    assert (
+        'AWS_ACCESS_KEY_ID: "{{ docker_postgres_walg_backup_s3_access_key '
+        "if docker_postgres_walg_backup_enabled | bool else '' }}\""
+    ) in setup_text
+    assert "{% if docker_postgres_walg_backup_enabled | bool %}" in leader_text
+    assert "{% if docker_postgres_walg_backup_enabled | bool %}" in follower_text
+    assert "archive_mode = always" in follower_text
+    assert (
+        "archive_command = '/usr/local/bin/wal-g wal-push \"%p\" >> /var/log/postgresql/walg_archive.log 2>&1'"
+    ) in follower_text
+
+
 def test_runtime_postgresql_provisioning_requires_admin_and_target_credentials() -> None:
     vars_text = (REPO_ROOT / "roles/runtime/vars/main.yml").read_text(encoding="utf-8")
     validate_text = (REPO_ROOT / "roles/runtime/tasks/validate.yml").read_text(encoding="utf-8")

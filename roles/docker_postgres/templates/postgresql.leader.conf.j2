@@ -1,8 +1,8 @@
 {% include 'postgresql.base.conf.j2' %}
 
-{% if docker_postgres_walg_enabled | bool and docker_postgres_walg_backup_s3_access_key | string | length > 0 and docker_postgres_walg_backup_s3_bucket | string | length > 0 and docker_postgres_walg_backup_s3_prefix | string | length > 0 and docker_postgres_walg_backup_s3_secret_key | string | length > 0 %}
+{% if docker_postgres_walg_backup_enabled | bool %}
 # WAL-G
 archive_mode = on
 archive_timeout = 300s
-archive_command = '/usr/local/bin/wal-g wal-push "%p" 2>&1 | tee -a /var/log/postgresql/walg_archive.log'
+archive_command = '/usr/local/bin/wal-g wal-push "%p" >> /var/log/postgresql/walg_archive.log 2>&1'
 {% endif %}
