@@ -31,6 +31,9 @@
 {%- if auth_rule.cidr_whitelist is defined -%}
 {{ " " }}!{ src -m ip {{ auth_rule.cidr_whitelist | join(' ') }} }
 {%- endif -%}
+{%- if haproxy_alb_auth_bypass_cidrs | default([]) | length > 0 -%}
+{{ " " }}!{ src -m ip {{ haproxy_alb_auth_bypass_cidrs | join(' ') }} }
+{%- endif -%}
 {%- if auth_rule.prefix_whitelist is defined -%}
 {%- for path_prefix in auth_rule.prefix_whitelist %}{{ " " }}!{ path_beg {{ path_prefix }} }{%- endfor -%}
 {%- endif -%}
@@ -81,7 +84,7 @@ frontend web
   option httplog
   option http-buffer-request
   log global
-  log-format "t=%tr c=%ST b=%B q=%{+Q}r rt=%TR/%Tw/%Tc/%Tr/%Ta s=%ci:%cp d=%H/%ft/%b/%s ts=%tsc cs=%ac/%fc/%bc/%sc/%rc qs=%sq/%bq"
+  log-format "id=%ID ts=%tr host=%{+Q}[req.hdr(host)] method=%HM path=%{+Q}HP proto=%HV status=%ST bytes=%B client_ip=%ci client_port=%cp peer_ip=%[var(txn.peer_ip)] frontend=%ft backend=%b server=%s term=%tsc timing=%TR/%Tw/%Tc/%Tr/%Ta conn=%ac/%fc/%bc/%sc/%rc queue=%sq/%bq ssl=%[ssl_fc] sni=%{+Q}[ssl_fc_sni] tls=%{+Q}[ssl_fc_protocol] alpn=%{+Q}[ssl_fc_alpn]"
   bind :80
   bind :443 ssl crt /etc/ssl/haproxy alpn h2,http/1.1
   maxconn 1000
@@ -89,6 +92,8 @@ frontend web
   unique-id-format %[uuid()]
   unique-id-header X-Unique-ID
   http-request set-log-level info
+  http-request set-log-level silent if { path /_health }
+  http-request set-var(txn.peer_ip) src
 
 {% if haproxy_alb_crowdsec_enabled | bool %}
   # CrowdSec

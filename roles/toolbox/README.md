@@ -64,7 +64,6 @@ Set `QUIET=1` or `QUIET=true` to suppress toolbox helper `_info`, `_warn`, and `
 Docker scripts are installed when `toolbox_docker_enabled` is true:
 
 - `/opt/toolbox/bin/docker_cleanup`
-- `/opt/toolbox/bin/docker_secret`
 
 HAProxy scripts are installed when `toolbox_haproxy_enabled` is true:
 
@@ -82,24 +81,6 @@ PostgreSQL scripts are installed when `toolbox_postgres_enabled` is true:
 - `/opt/toolbox/bin/pg_backup`
 - `/opt/toolbox/bin/pg_recover`
 - `/opt/toolbox/bin/pg_user`
-
-### Docker Secrets Management
-
-Secret source files management:
-
-```sh
-ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret view app/eng/test01/backend
-ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret edit app/eng/test01/backend
-ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret push app/eng/test01/backend
-```
-
-Docker secrets management:
-
-```sh
-ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret list app/eng/test01/backend
-ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret read app/eng/test01/backend
-ssh -t app-host.example sudo /opt/toolbox/bin/docker_secret read app/eng/test01/backend/260102030405
-```
 
 ### HAProxy Reports
 

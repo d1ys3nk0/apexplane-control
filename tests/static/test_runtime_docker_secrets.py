@@ -1,0 +1,64 @@
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import cast
+
+import yaml
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+RUNTIME_DIR = REPO_ROOT / "roles" / "runtime"
+
+
+def _load_tasks(path: Path) -> list[dict[str, object]]:
+    tasks = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return tasks if isinstance(tasks, list) else []
+
+
+def _task_by_name(path: Path, name: str) -> dict[str, object]:
+    return next(task for task in _load_tasks(path) if task.get("name") == name)
+
+
+def test_runtime_unit_docker_secret_names_are_timetagged_and_hashed() -> None:
+    secrets_text = (RUNTIME_DIR / "tasks" / "secrets.yml").read_text(encoding="utf-8")
+
+    assert (
+        "runtime_unit_secret_prefix: '{{ item.app }}-{{ runtime_cluster_realm }}-{{ item.env }}-{{ item.unit }}'"
+        in secrets_text
+    )
+    assert (
+        "runtime_unit_secret_name: '{{ runtime_unit_secret_prefix }}-{{ runtime_unit_secret_timetag.stdout }}-{{ runtime_unit_secret_hash }}'"
+        in secrets_text
+    )
+    assert "date -u +%y%m%d%H%M%S" in secrets_text
+    assert "hash('sha256'))[:12]" in secrets_text
+    assert re.search(r"\[0-9\]\{12\}.*\[0-9a-f\]\{12\}", secrets_text) is not None
+
+
+def test_runtime_unit_docker_secret_tasks_use_nolog() -> None:
+    secrets_path = RUNTIME_DIR / "tasks" / "secrets.yml"
+
+    for task_name in (
+        "List runtime unit Docker secrets",
+        "Capture runtime unit Docker secret timetag",
+        "Create runtime unit Docker secrets",
+    ):
+        assert _task_by_name(secrets_path, task_name).get("no_log") == "{{ runtime_nolog }}"
+
+
+def test_runtime_unit_docker_secret_creation_does_not_force_recreate_stable_names() -> None:
+    create_task = _task_by_name(RUNTIME_DIR / "tasks" / "secrets.yml", "Create runtime unit Docker secrets")
+    module = cast("dict[str, object]", create_task["community.docker.docker_secret"])
+
+    assert module["name"] == "{{ runtime_unit_secret_name }}"
+    assert "force" not in module
+
+
+def test_runtime_validates_unit_docker_secret_definitions() -> None:
+    validate_text = (RUNTIME_DIR / "tasks" / "validate.yml").read_text(encoding="utf-8")
+    vars_text = (RUNTIME_DIR / "vars" / "main.yml").read_text(encoding="utf-8")
+
+    assert "runtime_unit_secret_items" in vars_text
+    assert "Validate runtime unit Docker secret definitions" in validate_text
+    assert "Each runtime unit Docker secret must define app, env, unit, and secrets mapping." in validate_text

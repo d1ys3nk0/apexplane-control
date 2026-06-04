@@ -1,3 +1,92 @@
 ---
 
-[]
+- name: Validate Sentry variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Ensure Sentry parent directory exists
+  become: true
+  ansible.builtin.file:
+    path: '{{ sentry_install_parent_dir }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Checkout Sentry self-hosted
+  become: true
+  ansible.builtin.git:
+    repo: '{{ sentry_repo_url }}'
+    dest: '{{ sentry_install_dir }}'
+    version: '{{ sentry_version }}'
+    force: false
+  register: sentry_checkout
+
+- name: Render Sentry environment overrides
+  become: true
+  ansible.builtin.template:
+    src: env.custom.j2
+    dest: '{{ sentry_install_dir }}/.env.custom'
+    owner: root
+    group: root
+    mode: '0640'
+  register: sentry_env_custom
+
+- name: Render Sentry application config
+  become: true
+  ansible.builtin.template:
+    src: sentry/config.yml.j2
+    dest: '{{ sentry_install_dir }}/sentry/config.yml'
+    owner: root
+    group: root
+    mode: '0640'
+  register: sentry_config_yml
+  no_log: '{{ sentry_nolog }}'
+
+- name: Render Sentry Python config
+  become: true
+  ansible.builtin.template:
+    src: sentry/sentry.conf.py.j2
+    dest: '{{ sentry_install_dir }}/sentry/sentry.conf.py'
+    owner: root
+    group: root
+    mode: '0640'
+  register: sentry_conf_py
+
+- name: Install or upgrade Sentry self-hosted
+  become: true
+  ansible.builtin.command:
+    argv:
+      - ./install.sh
+    chdir: '{{ sentry_install_dir }}'
+  register: sentry_install
+  changed_when: true
+  no_log: '{{ sentry_nolog }}'
+  when:
+    - not ansible_check_mode
+    - sentry_checkout.changed or sentry_env_custom.changed or sentry_config_yml.changed or sentry_conf_py.changed
+
+- name: Start Sentry Docker Compose stack
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - up
+      - -d
+      - --wait
+    chdir: '{{ sentry_install_dir }}'
+  register: sentry_compose_up
+  changed_when: >-
+    'Created' in sentry_compose_up.stderr
+    or 'Recreated' in sentry_compose_up.stderr
+    or 'Started' in sentry_compose_up.stderr
+  no_log: '{{ sentry_nolog }}'
+  when: not ansible_check_mode
+
+- name: Wait for Sentry web port to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ sentry_web_port }}'
+    delay: 1
+    timeout: 60
+  when: not ansible_check_mode

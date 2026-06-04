@@ -1,0 +1,3 @@
+SENTRY_WEB_HOST = "{{ sentry_web_host }}"
+SENTRY_WEB_PORT = {{ sentry_web_port | int }}
+CSRF_TRUSTED_ORIGINS = {{ sentry_csrf_trusted_origins | to_json }}

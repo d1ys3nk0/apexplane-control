@@ -151,6 +151,26 @@
         | length == (haproxy_alb_trusted_proxy_cidrs | length)
     fail_msg: haproxy_alb_trusted_proxy_cidrs must contain only IPv4 CIDR strings
 
+- name: Assert haproxy_alb_auth_bypass_cidrs is a list
+  ansible.builtin.assert:
+    that:
+      - haproxy_alb_auth_bypass_cidrs is defined
+      - haproxy_alb_auth_bypass_cidrs is iterable
+      - haproxy_alb_auth_bypass_cidrs is not string
+    fail_msg: haproxy_alb_auth_bypass_cidrs must be a list of IPv4 CIDR strings
+
+- name: Assert haproxy_alb_auth_bypass_cidrs values are IPv4 CIDRs
+  ansible.builtin.assert:
+    that:
+      - >-
+        haproxy_alb_auth_bypass_cidrs
+        | map('string')
+        | map('trim')
+        | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
+        | list
+        | length == (haproxy_alb_auth_bypass_cidrs | length)
+    fail_msg: haproxy_alb_auth_bypass_cidrs must contain only IPv4 CIDR strings
+
 - name: Assert haproxy_alb_userlists is a mapping
   ansible.builtin.assert:
     that:

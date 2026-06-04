@@ -1,0 +1,11 @@
+###############
+# Mail Server #
+###############
+
+mail.backend: '{{ sentry_smtp_backend }}'
+mail.host: '{{ sentry_smtp_host }}'
+mail.port: {{ sentry_smtp_port | int }}
+mail.username: '{{ sentry_smtp_user }}'
+mail.password: '{{ sentry_smtp_pass }}'
+mail.use-tls: {{ (sentry_smtp_use_tls | bool) | ternary('true', 'false') }}
+mail.use-ssl: {{ (sentry_smtp_use_ssl | bool) | ternary('true', 'false') }}

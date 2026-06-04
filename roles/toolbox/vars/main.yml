@@ -14,9 +14,6 @@ toolbox_always_scripts:
     src: sysrep.sh
 
 toolbox_docker_scripts:
-  - name: docker_secret
-    src: docker_secret.sh
-
   - name: docker_cleanup
     src: docker_cleanup.sh
 

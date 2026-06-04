@@ -1,0 +1,43 @@
+---
+
+- name: Assert Sentry required variables are set
+  ansible.builtin.assert:
+    that:
+      - sentry_repo_url is not none
+      - sentry_repo_url | string | length > 0
+      - sentry_version is not none
+      - sentry_version | string | length > 0
+      - sentry_install_dir is not none
+      - sentry_install_dir | string | length > 0
+      - sentry_install_dir | string is match('^/')
+      - sentry_install_parent_dir is not none
+      - sentry_install_parent_dir | string | length > 0
+      - sentry_install_parent_dir | string is match('^/')
+      - sentry_compose_profiles is not none
+      - sentry_compose_profiles | string | length > 0
+      - sentry_event_retention_days | int > 0
+      - sentry_taskworker_concurrency | int > 0
+      - sentry_report_self_hosted_issues | type_debug == 'bool'
+      - sentry_smtp_backend is not none
+      - sentry_smtp_backend | string | length > 0
+      - sentry_smtp_host is not none
+      - sentry_smtp_host | string | length > 0
+      - sentry_smtp_port is not none
+      - sentry_smtp_port | string | length > 0
+      - sentry_smtp_port | int > 0
+      - sentry_smtp_user is not none
+      - sentry_smtp_user | string | length > 0
+      - sentry_smtp_pass is not none
+      - sentry_smtp_pass | string | length > 0
+      - sentry_smtp_use_tls | type_debug == 'bool'
+      - sentry_smtp_use_ssl | type_debug == 'bool'
+      - not (sentry_smtp_use_tls | bool and sentry_smtp_use_ssl | bool)
+      - sentry_web_host is not none
+      - sentry_web_host | string | length > 0
+      - sentry_web_port | int > 0
+      - sentry_csrf_trusted_origins is iterable
+      - sentry_csrf_trusted_origins is not string
+      - sentry_csrf_trusted_origins | length > 0
+      - sentry_csrf_trusted_origins | select('string') | list | length == sentry_csrf_trusted_origins | length
+    fail_msg: Define Sentry self-hosted version, path, SMTP, web, and CSRF settings.
+  no_log: '{{ sentry_nolog }}'

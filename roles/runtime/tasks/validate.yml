@@ -49,16 +49,20 @@
     label: "{{ item.0.name | default('<missing-app>', true) }}:{{ item.1.slug | default('<missing-env>', true) }}"
   when: runtime_enabled | bool or runtime_network_enabled | bool
 
-- name: Validate runtime service definitions
+- name: Validate runtime unit Docker secret definitions
   ansible.builtin.assert:
     that:
-      - item.service is defined
-      - item.service | string | length > 0
+      - item.app is defined
+      - item.app | string | length > 0
+      - item.env is defined
+      - item.env | string | length > 0
+      - item.unit is defined
+      - item.unit | string | length > 0
       - item.secrets is mapping
-    fail_msg: Each runtime secret service must define a name and secrets mapping.
-  loop: '{{ runtime_secret_items }}'
+    fail_msg: Each runtime unit Docker secret must define app, env, unit, and secrets mapping.
+  loop: '{{ runtime_unit_secret_items }}'
   loop_control:
-    label: "{{ item.service | default('<missing-service>', true) }}"
+    label: "{{ item.app | default('<missing-app>', true) }}:{{ item.env | default('<missing-env>', true) }}:{{ item.unit | default('<missing-unit>', true) }}"
   when: runtime_enabled | bool
 
 - name: Validate runtime PostgreSQL base definitions

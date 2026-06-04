@@ -42,6 +42,7 @@ Set these required inputs before applying the role: `haproxy_alb_self_signed_cer
 | `haproxy_alb_certs` | `{}` |
 | `haproxy_alb_target_groups` | `{}` |
 | `haproxy_alb_routes` | `[]` |
+| `haproxy_alb_auth_bypass_cidrs` | `[]` |
 | `haproxy_alb_auth` | `[]` |
 | `haproxy_alb_userlists` | `{}` |
 | `haproxy_alb_default_target_group` | `''` |

@@ -48,6 +48,7 @@ listen stats
   mode http
   option httplog
   bind 127.0.0.1:{{ haproxy_alb_stats_port }}
+  http-request set-log-level silent if { path /_stats }
   stats enable
   stats uri /_stats
   stats refresh 10s
@@ -58,6 +59,7 @@ listen prometheus_exporter
   mode http
   option httplog
   bind 127.0.0.1:{{ haproxy_alb_prometheus_exporter_port }}
+  http-request set-log-level silent if { path /metrics }
   http-request use-service prometheus-exporter if { path /metrics }
 
 {% for userlist_name, userlist_users in haproxy_alb_userlists | dictsort %}

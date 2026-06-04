@@ -68,28 +68,6 @@ def test_toolbox_command_helpers_keep_cmd_as_the_entrypoint() -> None:
         )
 
 
-def test_docker_secret_script_lists_and_reads_swarm_secrets() -> None:
-    script = (TOOLBOX_SCRIPTS_DIR / "docker_secret.sh").read_text(encoding="utf-8")
-
-    assert "docker_secret list <app>/<realm>/<environment>/<service>" in script
-    assert "docker_secret read <app>/<realm>/<environment>/<service>[/<tag>]" in script
-    assert "docker_secret list app/eng/test01/api" in script
-    assert "docker_secret read app/eng/test01/api/260102030405" in script
-    assert 'case "${secret_name}" in' in script
-    assert '"${SECRET_PREFIX}-"*) printf' in script
-    assert "done | sort" in script
-    assert 'secret_name="$(list_docker_secrets "$1" | tail -n 1)"' in script
-    assert 'SECRET_NAME="${SECRET_PREFIX}-${SECRET_TAG}"' in script
-    assert "DOCKER_SECRET_READ_IMAGE:-busybox:1.37.0" in script
-    assert "docker secret inspect" in script
-    assert "docker service create" in script
-    assert '--secret "source=${secret_name},target=secret"' in script
-    assert "docker service logs --raw --no-trunc" in script
-    assert "trap 'cleanup_read_service' EXIT" in script
-    assert "docker service rm" in script
-    assert "docker run --rm" not in script
-
-
 def test_haproxy_alb_no_longer_manages_manual_dns_certbot() -> None:
     role_text = "\n".join(path.read_text(encoding="utf-8") for path in HAPROXY_ALB_DIR.rglob("*") if path.is_file())
     defaults = (HAPROXY_ALB_DIR / "defaults" / "main.yml").read_text(encoding="utf-8")
