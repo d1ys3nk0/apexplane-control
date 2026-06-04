@@ -29,7 +29,6 @@ Set these required inputs before applying the role: `haproxy_alb_self_signed_cer
 | `haproxy_alb_certbot_http_dns_wait_delay` | `5` |
 | `haproxy_alb_stats_port` | `8404` |
 | `haproxy_alb_prometheus_exporter_port` | `8405` |
-| `haproxy_alb_bypass_http_port` | `80` |
 | `haproxy_alb_redirect_all_http` | `false` |
 | `haproxy_alb_whitelists` | `{}` |
 | `haproxy_alb_whitelists_enforced` | `[]` |
@@ -42,7 +41,7 @@ Set these required inputs before applying the role: `haproxy_alb_self_signed_cer
 | `haproxy_alb_certs` | `{}` |
 | `haproxy_alb_target_groups` | `{}` |
 | `haproxy_alb_routes` | `[]` |
-| `haproxy_alb_auth_bypass_cidrs` | `[]` |
+| `haproxy_alb_auth_whitelist_cidrs` | `[]` |
 | `haproxy_alb_auth` | `[]` |
 | `haproxy_alb_userlists` | `{}` |
 | `haproxy_alb_default_target_group` | `''` |

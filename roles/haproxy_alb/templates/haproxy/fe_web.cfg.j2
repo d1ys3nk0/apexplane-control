@@ -31,8 +31,8 @@
 {%- if auth_rule.cidr_whitelist is defined -%}
 {{ " " }}!{ src -m ip {{ auth_rule.cidr_whitelist | join(' ') }} }
 {%- endif -%}
-{%- if haproxy_alb_auth_bypass_cidrs | default([]) | length > 0 -%}
-{{ " " }}!{ src -m ip {{ haproxy_alb_auth_bypass_cidrs | join(' ') }} }
+{%- if haproxy_alb_auth_whitelist_cidrs | default([]) | length > 0 -%}
+{{ " " }}!{ src -m ip {{ haproxy_alb_auth_whitelist_cidrs | join(' ') }} }
 {%- endif -%}
 {%- if auth_rule.prefix_whitelist is defined -%}
 {%- for path_prefix in auth_rule.prefix_whitelist %}{{ " " }}!{ path_beg {{ path_prefix }} }{%- endfor -%}
