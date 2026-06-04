@@ -108,7 +108,7 @@
     state: started
     enabled: true
     daemon_reload: true
-  when: not ansible_check_mode or not (mattermost_package.changed | default(true))
+  when: not ansible_check_mode
 
 - name: Verify Mattermost service is active
   become: true
@@ -119,4 +119,4 @@
       - mattermost
   register: mattermost_service_health
   changed_when: false
-  when: not ansible_check_mode or not (mattermost_package.changed | default(true))
+  when: not ansible_check_mode

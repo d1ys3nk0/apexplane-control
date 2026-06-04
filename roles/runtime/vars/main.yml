@@ -11,12 +11,12 @@ runtime_pg_base_items: "{{ runtime_pg_bases | default([], true) }}"
 runtime_pg_provision_items: "{{ runtime_pg_base_items | selectattr('provision', 'undefined') | list + runtime_pg_base_items | selectattr('provision', 'defined') | selectattr('provision') | list }}"
 runtime_pg_provision_requested: "{{ runtime_pg_provision_items | length > 0 }}"
 runtime_unit_secret_items: >-
-  {%- set items = [] -%}
-  {%- for app in runtime_selected_apps -%}
-    {%- for env in app.envs | default([], true) -%}
-      {%- for service in env.services | default([], true) if service.secrets is defined and service.secrets | length > 0 -%}
-        {%- set _ = items.append({'app': app.name, 'env': env.slug, 'unit': service.name, 'secrets': service.secrets}) -%}
+  {%- set runtime_secret_items = [] -%}
+  {%- for runtime_secret_app in runtime_selected_apps -%}
+    {%- for runtime_secret_env in runtime_secret_app.envs | default([], true) -%}
+      {%- for runtime_secret_service in runtime_secret_env.services | default([], true) if runtime_secret_service.secrets is defined and runtime_secret_service.secrets | length > 0 -%}
+        {%- set _ = runtime_secret_items.append({'app': runtime_secret_app.name, 'env': runtime_secret_env.slug, 'unit': runtime_secret_service.name, 'secrets': runtime_secret_service.secrets}) -%}
       {%- endfor -%}
     {%- endfor -%}
   {%- endfor -%}
-  {{ items }}
+  {{ runtime_secret_items }}

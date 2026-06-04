@@ -3,6 +3,8 @@
 - name: Assert Mattermost required variables are set
   ansible.builtin.assert:
     that:
+      - mattermost_archive_checksum is not none
+      - mattermost_archive_checksum | string | length > 0
       - mattermost_email_feedback_address is not none
       - mattermost_email_feedback_address | string | length > 0
       - mattermost_email_feedback_name is not none
@@ -45,5 +47,7 @@
       - mattermost_smtp_port | string | length > 0
       - mattermost_support_email is not none
       - mattermost_support_email | string | length > 0
-    fail_msg: Define Mattermost PostgreSQL, S3, SMTP, and service settings.
+      - mattermost_version is not none
+      - mattermost_version | string | length > 0
+    fail_msg: Define Mattermost version, archive checksum, PostgreSQL, S3, SMTP, and service settings.
   no_log: '{{ mattermost_nolog }}'

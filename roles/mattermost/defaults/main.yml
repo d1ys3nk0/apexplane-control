@@ -8,13 +8,12 @@ mattermost_supported_ubuntu_releases:
   - jammy
   - noble
 
-mattermost_apt_key_url: https://deb.packages.mattermost.com/pubkey.gpg
-mattermost_apt_key_fingerprint: A1B31D46F0F3A10B02CF2D44F8F2C31744774B28
-mattermost_apt_key_asc_path: /usr/share/keyrings/mattermost-archive-keyring.asc
-mattermost_apt_keyring_path: /usr/share/keyrings/mattermost-archive-keyring.gpg
-
-mattermost_package_name: mattermost
+mattermost_archive_checksum: ~
+mattermost_archive_url: https://releases.mattermost.com/{{ mattermost_version }}/mattermost-team-{{ mattermost_version }}-linux-amd64.tar.gz
+mattermost_cache_dir: /var/cache/mattermost
 mattermost_config_path: /opt/mattermost/config/config.json
+mattermost_install_dir: /opt/mattermost
+mattermost_version: ~
 
 mattermost_email_feedback_name: ~
 mattermost_email_feedback_address: ~

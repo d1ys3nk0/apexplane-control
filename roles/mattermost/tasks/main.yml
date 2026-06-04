@@ -8,11 +8,13 @@
     that:
       - ansible_distribution == 'Ubuntu'
       - ansible_distribution_release | lower in mattermost_supported_ubuntu_releases
-    fail_msg: Mattermost package deployment supports Ubuntu focal, jammy, and noble.
+    fail_msg: Mattermost Team Edition deployment supports Ubuntu focal, jammy, and noble.
 
 - name: Assert required Mattermost vars are defined
   ansible.builtin.assert:
     that:
+      - mattermost_version is defined
+      - mattermost_archive_checksum is defined
       - mattermost_site_url is defined
       - mattermost_listen_address is defined
       - mattermost_pg_host is defined
@@ -33,9 +35,9 @@
       - mattermost_smtp_port | string | length > 0
       - not mattermost_smtp_auth_enabled | bool or mattermost_smtp_user | length > 0
       - not mattermost_smtp_auth_enabled | bool or mattermost_smtp_pass | length > 0
-    fail_msg: Define Mattermost PostgreSQL, S3, SMTP, and service settings.
+    fail_msg: Define Mattermost version, archive checksum, PostgreSQL, S3, SMTP, and service settings.
 
-- name: Install Mattermost packages
+- name: Install Mattermost Team Edition
   ansible.builtin.include_tasks: setup_install.yml
 
 - name: Configure Mattermost PostgreSQL resources

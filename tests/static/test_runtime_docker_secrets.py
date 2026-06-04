@@ -36,6 +36,21 @@ def test_runtime_unit_docker_secret_names_are_timetagged_and_hashed() -> None:
     assert re.search(r"\[0-9\]\{12\}.*\[0-9a-f\]\{12\}", secrets_text) is not None
 
 
+def test_runtime_unit_docker_secret_payload_is_canonical_dotenv() -> None:
+    secrets_text = (RUNTIME_DIR / "tasks" / "secrets.yml").read_text(encoding="utf-8")
+    template_text = (RUNTIME_DIR / "templates" / "runtime_secret.env.j2").read_text(encoding="utf-8")
+
+    assert "runtime_secret.env.j2" in secrets_text
+    assert "to_json(sort_keys=true)" not in secrets_text
+    assert "item.secrets.keys() | sort" in template_text
+    assert '{{ runtime_secret_key }}="' in template_text
+    assert "replace('\\\\', '\\\\\\\\')" in template_text
+    assert "replace('\"', '\\\\\"')" in template_text
+    assert "replace('$', '\\\\$')" in template_text
+    assert "replace('`', '\\\\`')" in template_text
+    assert template_text.endswith("{% endfor %}\n")
+
+
 def test_runtime_unit_docker_secret_tasks_use_nolog() -> None:
     secrets_path = RUNTIME_DIR / "tasks" / "secrets.yml"
 
@@ -62,3 +77,12 @@ def test_runtime_validates_unit_docker_secret_definitions() -> None:
     assert "runtime_unit_secret_items" in vars_text
     assert "Validate runtime unit Docker secret definitions" in validate_text
     assert "Each runtime unit Docker secret must define app, env, unit, and secrets mapping." in validate_text
+
+
+def test_runtime_validates_unit_docker_secret_variables() -> None:
+    validate_text = (RUNTIME_DIR / "tasks" / "validate.yml").read_text(encoding="utf-8")
+
+    assert "Validate runtime unit Docker secret variables" in validate_text
+    assert "select('match', '^[A-Za-z_][A-Za-z0-9_]*$')" in validate_text
+    assert "item.secrets.values() | select('mapping') | list | length == 0" in validate_text
+    assert "item.secrets.values() | select('sequence') | reject('string') | list | length == 0" in validate_text
