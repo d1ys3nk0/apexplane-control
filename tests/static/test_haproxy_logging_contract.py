@@ -15,7 +15,7 @@ def test_haproxy_alb_traffic_logs_use_structured_loki_fields() -> None:
     expected_fields = (
         "id=%ID",
         "ts=%tr",
-        "host=%{+Q}[req.hdr(host)]",
+        "host=%{+Q}[var(txn.host)]",
         "method=%HM",
         "path=%{+Q}HP",
         "proto=%HV",
@@ -42,6 +42,8 @@ def test_haproxy_alb_traffic_logs_use_structured_loki_fields() -> None:
 
     assert "q=%{+Q}r" not in template
     assert "%HQ" not in template
+    assert "req.hdr(host)" not in template.partition("log-format ")[2].partition("\n")[0]
+    assert "http-request set-var(txn.host) req.hdr(host)" in template
     assert "http-request set-var(txn.peer_ip) src" in template
 
 

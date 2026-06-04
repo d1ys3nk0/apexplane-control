@@ -84,7 +84,7 @@ frontend web
   option httplog
   option http-buffer-request
   log global
-  log-format "id=%ID ts=%tr host=%{+Q}[req.hdr(host)] method=%HM path=%{+Q}HP proto=%HV status=%ST bytes=%B client_ip=%ci client_port=%cp peer_ip=%[var(txn.peer_ip)] frontend=%ft backend=%b server=%s term=%tsc timing=%TR/%Tw/%Tc/%Tr/%Ta conn=%ac/%fc/%bc/%sc/%rc queue=%sq/%bq ssl=%[ssl_fc] sni=%{+Q}[ssl_fc_sni] tls=%{+Q}[ssl_fc_protocol] alpn=%{+Q}[ssl_fc_alpn]"
+  log-format "id=%ID ts=%tr host=%{+Q}[var(txn.host)] method=%HM path=%{+Q}HP proto=%HV status=%ST bytes=%B client_ip=%ci client_port=%cp peer_ip=%[var(txn.peer_ip)] frontend=%ft backend=%b server=%s term=%tsc timing=%TR/%Tw/%Tc/%Tr/%Ta conn=%ac/%fc/%bc/%sc/%rc queue=%sq/%bq ssl=%[ssl_fc] sni=%{+Q}[ssl_fc_sni] tls=%{+Q}[ssl_fc_protocol] alpn=%{+Q}[ssl_fc_alpn]"
   bind :80
   bind :443 ssl crt /etc/ssl/haproxy alpn h2,http/1.1
   maxconn 1000
@@ -93,6 +93,7 @@ frontend web
   unique-id-header X-Unique-ID
   http-request set-log-level info
   http-request set-log-level silent if { path /_health }
+  http-request set-var(txn.host) req.hdr(host)
   http-request set-var(txn.peer_ip) src
 
 {% if haproxy_alb_crowdsec_enabled | bool %}
