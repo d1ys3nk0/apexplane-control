@@ -45,6 +45,24 @@
         POSTGRES_IMAGE: '{{ docker_postgres_image_full }}'
         WALG_BINARY_URL: '{{ docker_postgres_walg_binary_url }}'
 
+- name: Inspect local WAL-G repository paths
+  become: true
+  ansible.builtin.stat:
+    path: '{{ item }}'
+  loop: '{{ docker_postgres_walg_local_paths }}'
+  register: docker_postgres_walg_local_path_stats
+  when: docker_postgres_walg_local_paths | length > 0
+
+- name: Validate local WAL-G repository paths
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isdir
+    fail_msg: >-
+      Local WAL-G repository path {{ item.item }} must exist as a directory before applying docker_postgres; mount NFS
+      before running the role.
+  loop: '{{ docker_postgres_walg_local_path_stats.results | default([]) }}'
+
 - name: Start PostgreSQL WAL-G container
   community.docker.docker_container:
     hostname: postgres.{{ inventory_hostname }}
@@ -61,16 +79,12 @@
       PGPORT: '{{ docker_postgres_port | string }}'
       WALG_COMPRESSION_METHOD: '{{ docker_postgres_walg_backup_compression_method }}'
       WALG_COMPRESSION_LEVEL: '{{ docker_postgres_walg_backup_compression_level | string }}'
-      WALG_S3_PREFIX: >-
-        {{
-          ('s3://' ~ docker_postgres_walg_backup_s3_bucket ~ '/' ~ docker_postgres_walg_backup_s3_prefix)
-          if docker_postgres_walg_backup_enabled | bool
-          else ''
-        }}
-      AWS_ENDPOINT: "{{ docker_postgres_walg_backup_s3_endpoint if docker_postgres_walg_backup_enabled | bool else '' }}"
-      AWS_REGION: "{{ docker_postgres_walg_backup_s3_region if docker_postgres_walg_backup_enabled | bool else '' }}"
-      AWS_ACCESS_KEY_ID: "{{ docker_postgres_walg_backup_s3_access_key if docker_postgres_walg_backup_enabled | bool else '' }}"
-      AWS_SECRET_ACCESS_KEY: "{{ docker_postgres_walg_backup_s3_secret_key if docker_postgres_walg_backup_enabled | bool else '' }}"
+      WALG_S3_PREFIX: "{{ docker_postgres_walg_backup_storage_path if docker_postgres_walg_backup_s3_enabled | bool else '' }}"
+      WALG_FILE_PREFIX: "{{ docker_postgres_walg_backup_storage_path if docker_postgres_walg_backup_local_enabled | bool else '' }}"
+      AWS_ENDPOINT: "{{ docker_postgres_walg_backup_s3_endpoint if docker_postgres_walg_backup_s3_enabled | bool else '' }}"
+      AWS_REGION: "{{ docker_postgres_walg_backup_s3_region if docker_postgres_walg_backup_s3_enabled | bool else '' }}"
+      AWS_ACCESS_KEY_ID: "{{ docker_postgres_walg_backup_s3_access_key if docker_postgres_walg_backup_s3_enabled | bool else '' }}"
+      AWS_SECRET_ACCESS_KEY: "{{ docker_postgres_walg_backup_s3_secret_key if docker_postgres_walg_backup_s3_enabled | bool else '' }}"
     command: postgres -c 'config_file=/opt/config/postgresql.conf'
     restart_policy: unless-stopped
     shm_size: '{{ ((docker_postgres_mem_lim[:-1] | int) * 0.3) | int }}M'
@@ -78,11 +92,7 @@
     memory: '{{ docker_postgres_mem_lim }}'
     memory_swap: '{{ docker_postgres_mem_swp }}'
     network_mode: host
-    volumes:
-      - /opt/postgres/config:/opt/config:ro
-      - /opt/postgres/log:/var/log/postgresql
-      - /opt/postgres/log/psql_history:/var/lib/postgresql/.psql_history
-      - '{{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }}'
+    volumes: '{{ docker_postgres_walg_container_volumes }}'
     healthcheck:
       test: [CMD, pg_isready]
       timeout: 3s

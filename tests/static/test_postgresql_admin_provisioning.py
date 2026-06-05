@@ -89,6 +89,13 @@ def test_docker_postgres_walg_recovery_validates_fetched_data_before_start() -> 
     recover_text = (REPO_ROOT / "roles/docker_postgres/files/scripts/walg_recover.sh").read_text(encoding="utf-8")
     recover_main = recover_text.split("main() {", maxsplit=1)[1].split("\n}", maxsplit=1)[0]
 
+    assert "Usage: walg_recover [--time <timestamp>]" in recover_text
+    assert "WALG_RECOVER_PATH" in recover_text
+    assert "WALG_RECOVER_S3_PREFIX" not in recover_text
+    assert "WALG_FILE_PREFIX" in recover_text
+    assert "WALG_S3_PREFIX=${WALG_RECOVER_STORAGE_PATH}" in recover_text
+    assert "recovery_target_time" in recover_text
+    assert "recovery_target_action = %spromote%s" in recover_text
     assert 'test -f "$1/PG_VERSION" && test -f "$1/global/pg_control"' in recover_text
     assert (
         'test -f "$1/postgresql.auto.conf" && test -f "$1/recovery.signal" && test -f "$1/walg_restore.log"'
@@ -99,23 +106,45 @@ def test_docker_postgres_walg_recovery_validates_fetched_data_before_start() -> 
     assert "wait_for_postgres_container_stopped" in recover_text
     assert recover_main.index("validate_recovered_data_files") < recover_main.index("install_restore_command")
     assert recover_main.index("validate_recovery_config_files") < recover_main.index("start_postgres_container")
+    assert recover_main.index("validate_recover_path_access") < recover_main.index("wait_before_recovery")
 
 
-def test_docker_postgres_walg_follower_archives_to_backup_prefix() -> None:
+def test_docker_postgres_walg_follower_archives_to_backup_path() -> None:
     defaults_text = (REPO_ROOT / "roles/docker_postgres/defaults/main.yml").read_text(encoding="utf-8")
+    vars_text = (REPO_ROOT / "roles/docker_postgres/vars/main.yml").read_text(encoding="utf-8")
     env_text = (REPO_ROOT / "roles/docker_postgres/templates/postgres.env.j2").read_text(encoding="utf-8")
     setup_text = (REPO_ROOT / "roles/docker_postgres/tasks/setup_walg.yml").read_text(encoding="utf-8")
+    backup_text = (REPO_ROOT / "roles/docker_postgres/files/scripts/walg_backup.sh").read_text(encoding="utf-8")
     leader_text = (REPO_ROOT / "roles/docker_postgres/templates/postgresql.leader.conf.j2").read_text(encoding="utf-8")
     follower_text = (REPO_ROOT / "roles/docker_postgres/templates/postgresql.follower.conf.j2").read_text(
         encoding="utf-8"
     )
 
-    assert "inventory_hostname in docker_postgres_walg_backup_hostnames" in defaults_text
+    assert "docker_postgres_walg_backup_s3_prefix" not in defaults_text
+    assert "docker_postgres_walg_recover_s3_prefix" not in defaults_text
+    assert "docker_postgres_walg_backup_path: ''" in defaults_text
+    assert "docker_postgres_walg_recover_path: ''" in defaults_text
+    assert "inventory_hostname in docker_postgres_walg_backup_hostnames" in vars_text
+    assert "docker_postgres_walg_backup_path_is_s3_relative" in vars_text
+    assert "docker_postgres_walg_backup_path_is_local" in vars_text
+    assert "docker_postgres_walg_recover_path_is_s3_relative" in vars_text
+    assert "docker_postgres_walg_recover_path_is_local" in vars_text
+    assert "docker_postgres_walg_local_paths" in vars_text
+    assert "WALG_BACKUP_PATH" in backup_text
+    assert "WALG_BACKUP_S3_PREFIX" not in backup_text
+    assert "WALG_FILE_PREFIX" in backup_text
+    assert "WALG_S3_PREFIX=${WALG_BACKUP_STORAGE_PATH}" in backup_text
     assert "{% if docker_postgres_walg_backup_enabled | bool %}" in env_text
-    assert "if docker_postgres_walg_backup_enabled | bool" in setup_text
+    assert 'WALG_BACKUP_PATH="{{ docker_postgres_walg_backup_path }}"' in env_text
+    assert 'WALG_RECOVER_PATH="{{ docker_postgres_walg_recover_path }}"' in env_text
+    assert "docker_postgres_walg_backup_s3_enabled | bool" in setup_text
+    assert "WALG_FILE_PREFIX" in setup_text
+    assert "docker_postgres_walg_backup_local_enabled" in setup_text
+    assert "docker_postgres_walg_container_volumes" in setup_text
+    assert "Local WAL-G repository path {{ item.item }} must exist" in setup_text
     assert (
         'AWS_ACCESS_KEY_ID: "{{ docker_postgres_walg_backup_s3_access_key '
-        "if docker_postgres_walg_backup_enabled | bool else '' }}\""
+        "if docker_postgres_walg_backup_s3_enabled | bool else '' }}\""
     ) in setup_text
     assert "{% if docker_postgres_walg_backup_enabled | bool %}" in leader_text
     assert "{% if docker_postgres_walg_backup_enabled | bool %}" in follower_text

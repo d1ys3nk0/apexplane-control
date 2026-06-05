@@ -48,10 +48,15 @@
 - name: Validate Docker PostgreSQL WAL-G backup settings
   ansible.builtin.assert:
     that:
-      - docker_postgres_walg_backup_s3_endpoint | string | length > 0
-      - docker_postgres_walg_backup_s3_region | string | length > 0
-      - docker_postgres_walg_backup_s3_bucket | string | length > 0
-      - docker_postgres_walg_backup_s3_prefix | string | length > 0
+      - docker_postgres_walg_backup_enabled | bool
+      - docker_postgres_walg_backup_path is string
+      - docker_postgres_walg_backup_path | string | length > 0
+      - docker_postgres_walg_backup_path_is_s3 | bool or docker_postgres_walg_backup_path_is_local | bool
+      - not docker_postgres_walg_backup_path_is_s3 | bool or docker_postgres_walg_backup_s3_endpoint | string | length > 0
+      - not docker_postgres_walg_backup_path_is_s3 | bool or docker_postgres_walg_backup_s3_region | string | length > 0
+      - not docker_postgres_walg_backup_path_is_s3 | bool or docker_postgres_walg_backup_s3_access_key | string | length > 0
+      - not docker_postgres_walg_backup_path_is_s3 | bool or docker_postgres_walg_backup_s3_secret_key | string | length > 0
+      - not docker_postgres_walg_backup_path_is_s3_relative | bool or docker_postgres_walg_backup_s3_bucket | string | length > 0
       - docker_postgres_walg_backup_hostnames is sequence
       - docker_postgres_walg_backup_hostnames is not string
       - docker_postgres_walg_backup_hostnames | length > 0
@@ -62,19 +67,26 @@
       - docker_postgres_walg_backup_disk_rate_limit | string is match('^[1-9][0-9]*$')
       - docker_postgres_walg_backup_upload_disk_concurrency | string is match('^[1-9][0-9]*$')
       - docker_postgres_walg_backup_tar_size_threshold | string | length == 0 or docker_postgres_walg_backup_tar_size_threshold | string is match('^[1-9][0-9]*$')
-    fail_msg: Define complete docker_postgres_walg_backup_s3_* settings and at least one docker_postgres_walg_backup_hostnames item when WAL-G backup credentials are set.
-  when:
-    - docker_postgres_walg_backup_s3_access_key | string | length > 0 or docker_postgres_walg_backup_s3_secret_key | string | length > 0
+    fail_msg: >-
+      Define docker_postgres_walg_backup_path as s3:<key>, s3://<bucket>/<key>, or an absolute local path, and provide
+      matching S3 settings or local mount availability plus at least one docker_postgres_walg_backup_hostnames item.
+  when: docker_postgres_walg_backup_requested | bool
 
 - name: Validate Docker PostgreSQL WAL-G recovery settings
   ansible.builtin.assert:
     that:
-      - docker_postgres_walg_recover_s3_endpoint | string | length > 0
-      - docker_postgres_walg_recover_s3_region | string | length > 0
-      - docker_postgres_walg_recover_s3_bucket | string | length > 0
-      - docker_postgres_walg_recover_s3_prefix | string | length > 0
+      - docker_postgres_walg_recover_enabled | bool
+      - docker_postgres_walg_recover_path is string
+      - docker_postgres_walg_recover_path | string | length > 0
+      - docker_postgres_walg_recover_path_is_s3 | bool or docker_postgres_walg_recover_path_is_local | bool
+      - not docker_postgres_walg_recover_path_is_s3 | bool or docker_postgres_walg_recover_s3_endpoint | string | length > 0
+      - not docker_postgres_walg_recover_path_is_s3 | bool or docker_postgres_walg_recover_s3_region | string | length > 0
+      - not docker_postgres_walg_recover_path_is_s3 | bool or docker_postgres_walg_recover_s3_access_key | string | length > 0
+      - not docker_postgres_walg_recover_path_is_s3 | bool or docker_postgres_walg_recover_s3_secret_key | string | length > 0
+      - not docker_postgres_walg_recover_path_is_s3_relative | bool or docker_postgres_walg_recover_s3_bucket | string | length > 0
       - docker_postgres_walg_recover_health_wait_seconds | string is match('^[1-9][0-9]*$')
       - docker_postgres_walg_recover_log_tail_lines | string is match('^[1-9][0-9]*$')
-    fail_msg: Define complete docker_postgres_walg_recover_s3_* settings when WAL-G recovery credentials are set.
-  when:
-    - docker_postgres_walg_recover_s3_access_key | string | length > 0 or docker_postgres_walg_recover_s3_secret_key | string | length > 0
+    fail_msg: >-
+      Define docker_postgres_walg_recover_path as s3:<key>, s3://<bucket>/<key>, or an absolute local path, and provide
+      matching S3 settings when the recovery path is S3.
+  when: docker_postgres_walg_recover_requested | bool

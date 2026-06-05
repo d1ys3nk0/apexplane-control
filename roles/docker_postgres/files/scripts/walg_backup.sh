@@ -52,12 +52,7 @@ Required environment:
   WALG_DATA_VOLUME
   WALG_DATA_ROOT
   WALG_DATA_DIR
-  WALG_BACKUP_S3_ENDPOINT
-  WALG_BACKUP_S3_REGION
-  WALG_BACKUP_S3_BUCKET
-  WALG_BACKUP_S3_PREFIX
-  WALG_BACKUP_S3_ACCESS_KEY
-  WALG_BACKUP_S3_SECRET_KEY
+  WALG_BACKUP_PATH
 
 Optional environment:
   PG_HOST=127.0.0.1
@@ -75,10 +70,56 @@ Optional environment:
   WALG_DISK_RATE_LIMIT=10485760
   WALG_UPLOAD_DISK_CONCURRENCY=1
   WALG_TAR_SIZE_THRESHOLD=<unset>
+  WALG_BACKUP_S3_ENDPOINT=<endpoint>
+  WALG_BACKUP_S3_REGION=<region>
+  WALG_BACKUP_S3_BUCKET=<bucket>
+  WALG_BACKUP_S3_ACCESS_KEY=<access-key>
+  WALG_BACKUP_S3_SECRET_KEY=<secret-key>
 
 Example:
   dotenv /opt/postgres/env /opt/postgres/bin/walg_backup
 USAGE
+}
+
+resolve_backup_path() {
+    local s3_input
+
+    case "${WALG_BACKUP_PATH}" in
+    s3://*)
+        s3_input="${WALG_BACKUP_PATH#s3://}"
+        if [ -z "${s3_input%%/*}" ] || [[ "${s3_input}" != */* ]] || [ -z "${s3_input#*/}" ]; then
+            usage_error "Expected non-empty S3 key or prefix after s3://<bucket>/"
+        fi
+        require_vars \
+            "WALG_BACKUP_S3_ENDPOINT" \
+            "WALG_BACKUP_S3_REGION" \
+            "WALG_BACKUP_S3_ACCESS_KEY" \
+            "WALG_BACKUP_S3_SECRET_KEY"
+        WALG_BACKUP_STORAGE="s3"
+        WALG_BACKUP_STORAGE_PATH="${WALG_BACKUP_PATH}"
+        ;;
+    s3:*)
+        s3_input="${WALG_BACKUP_PATH#s3:}"
+        if [ -z "${s3_input}" ]; then
+            usage_error "Expected non-empty S3 key or prefix after s3:"
+        fi
+        require_vars \
+            "WALG_BACKUP_S3_ENDPOINT" \
+            "WALG_BACKUP_S3_REGION" \
+            "WALG_BACKUP_S3_BUCKET" \
+            "WALG_BACKUP_S3_ACCESS_KEY" \
+            "WALG_BACKUP_S3_SECRET_KEY"
+        WALG_BACKUP_STORAGE="s3"
+        WALG_BACKUP_STORAGE_PATH="s3://${WALG_BACKUP_S3_BUCKET}/${s3_input#/}"
+        ;;
+    /*)
+        WALG_BACKUP_STORAGE="file"
+        WALG_BACKUP_STORAGE_PATH="${WALG_BACKUP_PATH}"
+        ;;
+    *)
+        usage_error "WALG_BACKUP_PATH must be s3:<key-or-prefix>, s3://<bucket>/<key-or-prefix>, or an absolute local path"
+        ;;
+    esac
 }
 
 init_config() {
@@ -101,22 +142,20 @@ init_config() {
     WALG_DISK_RATE_LIMIT="${WALG_DISK_RATE_LIMIT:-10485760}"
     WALG_UPLOAD_DISK_CONCURRENCY="${WALG_UPLOAD_DISK_CONCURRENCY:-1}"
     WALG_TAR_SIZE_THRESHOLD="${WALG_TAR_SIZE_THRESHOLD:-}"
+    WALG_BACKUP_PATH="${WALG_BACKUP_PATH:-}"
+    WALG_BACKUP_S3_ENDPOINT="${WALG_BACKUP_S3_ENDPOINT:-}"
+    WALG_BACKUP_S3_REGION="${WALG_BACKUP_S3_REGION:-}"
+    WALG_BACKUP_S3_BUCKET="${WALG_BACKUP_S3_BUCKET:-}"
+    WALG_BACKUP_S3_ACCESS_KEY="${WALG_BACKUP_S3_ACCESS_KEY:-}"
+    WALG_BACKUP_S3_SECRET_KEY="${WALG_BACKUP_S3_SECRET_KEY:-}"
 
     require_vars \
         "WALG_IMAGE" \
         "WALG_DATA_VOLUME" \
         "WALG_DATA_ROOT" \
         "WALG_DATA_DIR" \
-        "WALG_BACKUP_S3_ENDPOINT" \
-        "WALG_BACKUP_S3_REGION" \
-        "WALG_BACKUP_S3_BUCKET" \
-        "WALG_BACKUP_S3_PREFIX" \
-        "WALG_BACKUP_S3_ACCESS_KEY" \
-        "WALG_BACKUP_S3_SECRET_KEY"
-
-    if [[ "${WALG_BACKUP_S3_PREFIX}" != s3://* ]]; then
-        WALG_BACKUP_S3_PREFIX="s3://${WALG_BACKUP_S3_BUCKET}/${WALG_BACKUP_S3_PREFIX#/}"
-    fi
+        "WALG_BACKUP_PATH"
+    resolve_backup_path
 }
 
 init_timestamps() {
@@ -126,11 +165,28 @@ init_timestamps() {
 
 create_backup() {
     local backup_started
+    local local_storage_volume=()
+    local storage_env=()
     local tar_size_threshold_env=()
 
     backup_started=${SECONDS}
-    info "Creating WAL-G backup from Docker volume ${WALG_DATA_VOLUME}:${WALG_DATA_DIR} to ${WALG_BACKUP_S3_PREFIX}"
+    info "Creating WAL-G backup from Docker volume ${WALG_DATA_VOLUME}:${WALG_DATA_DIR} to ${WALG_BACKUP_STORAGE_PATH}"
     info "Backup settings: delta_origin=${WALG_DELTA_ORIGIN}; delta_max_steps=${WALG_DELTA_MAX_STEPS}; compression=${WALG_COMPRESSION_METHOD}:${WALG_COMPRESSION_LEVEL}; disk_rate_limit=${WALG_DISK_RATE_LIMIT}; upload_disk_concurrency=${WALG_UPLOAD_DISK_CONCURRENCY}; tar_size_threshold=${WALG_TAR_SIZE_THRESHOLD:-unset}"
+    if [ "${WALG_BACKUP_STORAGE}" = "s3" ]; then
+        storage_env=(
+            -e "AWS_ENDPOINT=${WALG_BACKUP_S3_ENDPOINT}"
+            -e "AWS_REGION=${WALG_BACKUP_S3_REGION}"
+            -e "AWS_ACCESS_KEY_ID=${WALG_BACKUP_S3_ACCESS_KEY}"
+            -e "AWS_SECRET_ACCESS_KEY=${WALG_BACKUP_S3_SECRET_KEY}"
+            -e "WALG_S3_PREFIX=${WALG_BACKUP_STORAGE_PATH}"
+        )
+    else
+        if [ ! -d "${WALG_BACKUP_STORAGE_PATH}" ]; then
+            error "Local WAL-G backup path ${WALG_BACKUP_STORAGE_PATH} is not a directory"
+        fi
+        local_storage_volume=(-v "${WALG_BACKUP_STORAGE_PATH}:${WALG_BACKUP_STORAGE_PATH}")
+        storage_env=(-e "WALG_FILE_PREFIX=${WALG_BACKUP_STORAGE_PATH}")
+    fi
     if [ -n "${WALG_TAR_SIZE_THRESHOLD}" ]; then
         tar_size_threshold_env=(-e "WALG_TAR_SIZE_THRESHOLD=${WALG_TAR_SIZE_THRESHOLD}")
     fi
@@ -138,15 +194,12 @@ create_backup() {
         --network host \
         --user postgres \
         -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}:ro" \
+        "${local_storage_volume[@]}" \
         -e "PGHOST=${WALG_PGHOST}" \
         -e "PGPORT=${WALG_PGPORT}" \
         -e "PGUSER=${WALG_PGUSER}" \
         -e "PGPASSWORD=${WALG_PGPASSWORD}" \
-        -e "AWS_ENDPOINT=${WALG_BACKUP_S3_ENDPOINT}" \
-        -e "AWS_REGION=${WALG_BACKUP_S3_REGION}" \
-        -e "AWS_ACCESS_KEY_ID=${WALG_BACKUP_S3_ACCESS_KEY}" \
-        -e "AWS_SECRET_ACCESS_KEY=${WALG_BACKUP_S3_SECRET_KEY}" \
-        -e "WALG_S3_PREFIX=${WALG_BACKUP_S3_PREFIX}" \
+        "${storage_env[@]}" \
         -e "WALG_DELTA_ORIGIN=${WALG_DELTA_ORIGIN}" \
         -e "WALG_DELTA_MAX_STEPS=${WALG_DELTA_MAX_STEPS}" \
         -e "WALG_COMPRESSION_METHOD=${WALG_COMPRESSION_METHOD}" \

@@ -1,0 +1,108 @@
+---
+
+docker_postgres_walg_backup_path_is_s3: "{{ docker_postgres_walg_backup_path is match('^s3:') }}"
+docker_postgres_walg_backup_path_is_s3_relative: "{{ docker_postgres_walg_backup_path is match('^s3:[^/]') }}"
+docker_postgres_walg_backup_path_is_local: "{{ docker_postgres_walg_backup_path is match('^/') }}"
+docker_postgres_walg_backup_s3_ready: >-
+  {{
+    docker_postgres_walg_backup_s3_endpoint | string | length > 0
+    and docker_postgres_walg_backup_s3_region | string | length > 0
+    and docker_postgres_walg_backup_s3_access_key | string | length > 0
+    and docker_postgres_walg_backup_s3_secret_key | string | length > 0
+    and (
+      not docker_postgres_walg_backup_path_is_s3_relative | bool
+      or docker_postgres_walg_backup_s3_bucket | string | length > 0
+    )
+  }}
+docker_postgres_walg_backup_requested: >-
+  {{
+    docker_postgres_walg_enabled | bool
+    and (
+      docker_postgres_walg_backup_path | string | length > 0
+      or docker_postgres_walg_backup_hostnames | length > 0
+      or docker_postgres_walg_backup_s3_access_key | string | length > 0
+      or docker_postgres_walg_backup_s3_secret_key | string | length > 0
+    )
+  }}
+docker_postgres_walg_backup_enabled: >-
+  {{
+    docker_postgres_walg_enabled | bool
+    and docker_postgres_walg_backup_path | string | length > 0
+    and inventory_hostname in docker_postgres_walg_backup_hostnames
+    and (
+      docker_postgres_walg_backup_path_is_local | bool
+      or (docker_postgres_walg_backup_path_is_s3 | bool and docker_postgres_walg_backup_s3_ready | bool)
+    )
+  }}
+docker_postgres_walg_backup_storage_path: >-
+  {{
+    (
+      's3://' ~ docker_postgres_walg_backup_s3_bucket ~ '/'
+      ~ (docker_postgres_walg_backup_path | regex_replace('^s3:', '') | regex_replace('^/+', ''))
+    )
+    if docker_postgres_walg_backup_path_is_s3_relative | bool
+    else docker_postgres_walg_backup_path
+  }}
+docker_postgres_walg_backup_s3_enabled: >-
+  {{ docker_postgres_walg_backup_enabled | bool and docker_postgres_walg_backup_path_is_s3 | bool }}
+docker_postgres_walg_backup_local_enabled: >-
+  {{ docker_postgres_walg_backup_enabled | bool and docker_postgres_walg_backup_path_is_local | bool }}
+
+docker_postgres_walg_recover_path_is_s3: "{{ docker_postgres_walg_recover_path is match('^s3:') }}"
+docker_postgres_walg_recover_path_is_s3_relative: "{{ docker_postgres_walg_recover_path is match('^s3:[^/]') }}"
+docker_postgres_walg_recover_path_is_local: "{{ docker_postgres_walg_recover_path is match('^/') }}"
+docker_postgres_walg_recover_s3_ready: >-
+  {{
+    docker_postgres_walg_recover_s3_endpoint | string | length > 0
+    and docker_postgres_walg_recover_s3_region | string | length > 0
+    and docker_postgres_walg_recover_s3_access_key | string | length > 0
+    and docker_postgres_walg_recover_s3_secret_key | string | length > 0
+    and (
+      not docker_postgres_walg_recover_path_is_s3_relative | bool
+      or docker_postgres_walg_recover_s3_bucket | string | length > 0
+    )
+  }}
+docker_postgres_walg_recover_requested: >-
+  {{
+    docker_postgres_walg_enabled | bool
+    and (
+      docker_postgres_walg_recover_path | string | length > 0
+      or docker_postgres_walg_recover_s3_access_key | string | length > 0
+      or docker_postgres_walg_recover_s3_secret_key | string | length > 0
+    )
+  }}
+docker_postgres_walg_recover_enabled: >-
+  {{
+    docker_postgres_walg_enabled | bool
+    and docker_postgres_walg_recover_path | string | length > 0
+    and (
+      docker_postgres_walg_recover_path_is_local | bool
+      or (docker_postgres_walg_recover_path_is_s3 | bool and docker_postgres_walg_recover_s3_ready | bool)
+    )
+  }}
+docker_postgres_walg_recover_storage_path: >-
+  {{
+    (
+      's3://' ~ docker_postgres_walg_recover_s3_bucket ~ '/'
+      ~ (docker_postgres_walg_recover_path | regex_replace('^s3:', '') | regex_replace('^/+', ''))
+    )
+    if docker_postgres_walg_recover_path_is_s3_relative | bool
+    else docker_postgres_walg_recover_path
+  }}
+
+docker_postgres_walg_local_paths: >-
+  {{
+    (
+      ([docker_postgres_walg_backup_path] if docker_postgres_walg_backup_local_enabled | bool else [])
+      + ([docker_postgres_walg_recover_path] if docker_postgres_walg_recover_path_is_local | bool else [])
+    ) | unique | list
+  }}
+docker_postgres_walg_local_mounts: >-
+  {{ docker_postgres_walg_local_paths | map('regex_replace', '^(.*)$', '\\1:\\1') | list }}
+docker_postgres_walg_container_volumes: >-
+  {{ docker_postgres_walg_base_container_volumes + docker_postgres_walg_local_mounts }}
+docker_postgres_walg_base_container_volumes:
+  - /opt/postgres/config:/opt/config:ro
+  - /opt/postgres/log:/var/log/postgresql
+  - /opt/postgres/log/psql_history:/var/lib/postgresql/.psql_history
+  - '{{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }}'

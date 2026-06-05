@@ -56,8 +56,7 @@ is_true() {
 
 usage() {
     cat >&2 <<'USAGE'
-Usage: walg_recover [s3://bucket/prefix] [backup-name]
-       walg_recover [backup-name]
+Usage: walg_recover [--time <timestamp>] [s3:key-or-prefix|s3://bucket/key-or-prefix|/mounted/walg/repo]
 
 Replaces the local Docker PostgreSQL data volume with a physical WAL-G backup
 and starts PostgreSQL archive recovery. This is a whole-cluster restore, not a
@@ -71,18 +70,14 @@ Required environment:
   WALG_DATA_VOLUME
   WALG_DATA_ROOT
   WALG_DATA_DIR
-  WALG_RECOVER_S3_ENDPOINT
-  WALG_RECOVER_S3_REGION
-  WALG_RECOVER_S3_BUCKET
-  WALG_RECOVER_S3_PREFIX
-  WALG_RECOVER_S3_ACCESS_KEY
-  WALG_RECOVER_S3_SECRET_KEY
+  WALG_RECOVER_PATH
 
 Optional environment:
   PG_CONTAINER=postgres
   PG_PORT=5432
   WALG_UTILITY_IMAGE=busybox:1.37.0
   WALG_RECOVER_BACKUP_NAME=LATEST
+  WALG_RECOVER_TIME=<timestamp>
   WALG_RECOVER_PGUSER=admin
   WALG_RECOVER_START=true|false
   WALG_RECOVER_WAIT=true|false
@@ -91,22 +86,107 @@ Optional environment:
   WALG_RECOVER_PROGRESS_SECONDS=30
   WALG_RECOVER_HEALTH_WAIT_SECONDS=120
   WALG_RECOVER_LOG_TAIL_LINES=80
+  WALG_RECOVER_S3_ENDPOINT=<endpoint>
+  WALG_RECOVER_S3_REGION=<region>
+  WALG_RECOVER_S3_BUCKET=<bucket>
+  WALG_RECOVER_S3_ACCESS_KEY=<access-key>
+  WALG_RECOVER_S3_SECRET_KEY=<secret-key>
 
 Examples:
   dotenv /opt/postgres/env /opt/postgres/bin/walg_recover
-  dotenv /opt/postgres/env /opt/postgres/bin/walg_recover s3://<bucket>/<prefix> LATEST
+  dotenv /opt/postgres/env /opt/postgres/bin/walg_recover s3:<key-or-prefix>
+  dotenv /opt/postgres/env /opt/postgres/bin/walg_recover s3://<bucket>/<key-or-prefix>
+  dotenv /opt/postgres/env /opt/postgres/bin/walg_recover --time '2026-06-05 12:00:00 UTC'
 USAGE
 }
 
+parse_args() {
+    WALG_RECOVER_SOURCE=""
+    WALG_RECOVER_TIME="${WALG_RECOVER_TIME:-}"
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        --time)
+            if [ "$#" -lt 2 ] || [ -z "$2" ]; then
+                usage_error "--time requires a non-empty timestamp"
+            fi
+            WALG_RECOVER_TIME="$2"
+            shift 2
+            ;;
+        --time=*)
+            WALG_RECOVER_TIME="${1#--time=}"
+            if [ -z "${WALG_RECOVER_TIME}" ]; then
+                usage_error "--time requires a non-empty timestamp"
+            fi
+            shift
+            ;;
+        --*)
+            usage_error "Unknown option: $1"
+            ;;
+        *)
+            if [ -n "${WALG_RECOVER_SOURCE}" ]; then
+                usage_error "Expected at most one recovery source argument"
+            fi
+            WALG_RECOVER_SOURCE="$1"
+            shift
+            ;;
+        esac
+    done
+}
+
+resolve_recover_path() {
+    local s3_input
+
+    case "${WALG_RECOVER_PATH}" in
+    s3://*)
+        s3_input="${WALG_RECOVER_PATH#s3://}"
+        if [ -z "${s3_input%%/*}" ] || [[ "${s3_input}" != */* ]] || [ -z "${s3_input#*/}" ]; then
+            usage_error "Expected non-empty S3 key or prefix after s3://<bucket>/"
+        fi
+        require_vars \
+            "WALG_RECOVER_S3_ENDPOINT" \
+            "WALG_RECOVER_S3_REGION" \
+            "WALG_RECOVER_S3_ACCESS_KEY" \
+            "WALG_RECOVER_S3_SECRET_KEY"
+        WALG_RECOVER_STORAGE="s3"
+        WALG_RECOVER_STORAGE_PATH="${WALG_RECOVER_PATH}"
+        ;;
+    s3:*)
+        s3_input="${WALG_RECOVER_PATH#s3:}"
+        if [ -z "${s3_input}" ]; then
+            usage_error "Expected non-empty S3 key or prefix after s3:"
+        fi
+        require_vars \
+            "WALG_RECOVER_S3_ENDPOINT" \
+            "WALG_RECOVER_S3_REGION" \
+            "WALG_RECOVER_S3_BUCKET" \
+            "WALG_RECOVER_S3_ACCESS_KEY" \
+            "WALG_RECOVER_S3_SECRET_KEY"
+        WALG_RECOVER_STORAGE="s3"
+        WALG_RECOVER_STORAGE_PATH="s3://${WALG_RECOVER_S3_BUCKET}/${s3_input#/}"
+        ;;
+    /*)
+        WALG_RECOVER_STORAGE="file"
+        WALG_RECOVER_STORAGE_PATH="${WALG_RECOVER_PATH}"
+        ;;
+    *)
+        usage_error "WALG_RECOVER_PATH must be s3:<key-or-prefix>, s3://<bucket>/<key-or-prefix>, or an absolute local path"
+        ;;
+    esac
+}
+
 init_config() {
-    if [ "$#" -gt 2 ]; then
-        usage_error "Expected 0, 1, or 2 arguments, got $#"
-    fi
+    parse_args "$@"
 
     PG_CONTAINER="${PG_CONTAINER:-postgres}"
     PG_PORT="${PG_PORT:-5432}"
     require_vars "WALG_IMAGE" "WALG_DATA_VOLUME" "WALG_DATA_ROOT" "WALG_DATA_DIR"
     WALG_UTILITY_IMAGE="${WALG_UTILITY_IMAGE:-busybox:1.37.0}"
+    WALG_RECOVER_PATH="${WALG_RECOVER_SOURCE:-${WALG_RECOVER_PATH:-}}"
     WALG_RECOVER_BACKUP_NAME="${WALG_RECOVER_BACKUP_NAME:-LATEST}"
     WALG_RECOVER_PGUSER="${WALG_RECOVER_PGUSER:-admin}"
     WALG_RECOVER_START="${WALG_RECOVER_START:-true}"
@@ -116,26 +196,14 @@ init_config() {
     WALG_RECOVER_PROGRESS_SECONDS="${WALG_RECOVER_PROGRESS_SECONDS:-30}"
     WALG_RECOVER_HEALTH_WAIT_SECONDS="${WALG_RECOVER_HEALTH_WAIT_SECONDS:-120}"
     WALG_RECOVER_LOG_TAIL_LINES="${WALG_RECOVER_LOG_TAIL_LINES:-80}"
+    WALG_RECOVER_S3_ENDPOINT="${WALG_RECOVER_S3_ENDPOINT:-}"
+    WALG_RECOVER_S3_REGION="${WALG_RECOVER_S3_REGION:-}"
     WALG_RECOVER_S3_BUCKET="${WALG_RECOVER_S3_BUCKET:-}"
-
-    if [ "$#" -ge 1 ]; then
-        if [[ "$1" == s3://* ]]; then
-            WALG_RECOVER_S3_PREFIX="$1"
-        else
-            WALG_RECOVER_BACKUP_NAME="$1"
-        fi
-    fi
-    if [ "$#" -eq 2 ]; then
-        WALG_RECOVER_BACKUP_NAME="$2"
-    fi
+    WALG_RECOVER_S3_ACCESS_KEY="${WALG_RECOVER_S3_ACCESS_KEY:-}"
+    WALG_RECOVER_S3_SECRET_KEY="${WALG_RECOVER_S3_SECRET_KEY:-}"
 
     require_vars \
-        "WALG_RECOVER_S3_ENDPOINT" \
-        "WALG_RECOVER_S3_REGION" \
-        "WALG_RECOVER_S3_BUCKET" \
-        "WALG_RECOVER_S3_PREFIX" \
-        "WALG_RECOVER_S3_ACCESS_KEY" \
-        "WALG_RECOVER_S3_SECRET_KEY"
+        "WALG_RECOVER_PATH"
     require_positive_integer "${WALG_RECOVER_STOP_WAIT_SECONDS}" WALG_RECOVER_STOP_WAIT_SECONDS
     require_positive_integer "${WALG_RECOVER_WAIT_SECONDS}" WALG_RECOVER_WAIT_SECONDS
     require_positive_integer "${WALG_RECOVER_PROGRESS_SECONDS}" WALG_RECOVER_PROGRESS_SECONDS
@@ -144,10 +212,12 @@ init_config() {
     require_positive_integer "${PG_PORT}" PG_PORT
     is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || true
     is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT || true
-
-    if [[ "${WALG_RECOVER_S3_PREFIX}" != s3://* ]]; then
-        WALG_RECOVER_S3_PREFIX="s3://${WALG_RECOVER_S3_BUCKET}/${WALG_RECOVER_S3_PREFIX#/}"
-    fi
+    case "${WALG_RECOVER_TIME}" in
+    *$'\n'* | *$'\r'*)
+        usage_error "WALG_RECOVER_TIME must be a single-line PostgreSQL timestamp"
+        ;;
+    esac
+    resolve_recover_path
 
     RESTORE_SCRIPT="${WALG_DATA_ROOT}/walg_restore_command.sh"
     RESTORE_CONFIG_INSTALLED=false
@@ -186,7 +256,10 @@ init_timestamps() {
 wait_before_recovery() {
     local seconds_left
 
-    info "WAL-G recovery will replace Docker volume ${WALG_DATA_VOLUME} from ${WALG_RECOVER_S3_PREFIX}."
+    info "WAL-G recovery will replace Docker volume ${WALG_DATA_VOLUME} from ${WALG_RECOVER_STORAGE_PATH}."
+    if [ -n "${WALG_RECOVER_TIME}" ]; then
+        info "PostgreSQL will stop recovery at ${WALG_RECOVER_TIME} and promote."
+    fi
     for seconds_left in 10 9 8 7 6 5 4 3 2 1; do
         warn "Starting destructive recovery in ${seconds_left}s..."
         sleep 1
@@ -223,6 +296,24 @@ validate_postgres_container() {
     if [ -z "${data_mount}" ]; then
         error "PostgreSQL container ${PG_CONTAINER} does not mount ${WALG_DATA_VOLUME} at ${WALG_DATA_ROOT}"
     fi
+}
+
+validate_recover_path_access() {
+    if [ "${WALG_RECOVER_STORAGE}" != "file" ]; then
+        return
+    fi
+
+    info "Validating local WAL-G repository path ${WALG_RECOVER_STORAGE_PATH} in PostgreSQL container ${PG_CONTAINER}"
+    if docker run --rm \
+        --volumes-from "${PG_CONTAINER}:ro" \
+        "${WALG_UTILITY_IMAGE}" \
+        sh -c 'test -d "$1"' sh "${WALG_RECOVER_STORAGE_PATH}"; then
+        return
+    fi
+
+    warn "PostgreSQL container mounts:"
+    docker inspect "${PG_CONTAINER}" --format '{{range .Mounts}}{{printf "%s name=%s source=%s destination=%s\n" .Type .Name .Source .Destination}}{{end}}' >&2 || true
+    error "Local WAL-G repository path ${WALG_RECOVER_STORAGE_PATH} is not mounted into PostgreSQL container ${PG_CONTAINER}"
 }
 
 print_recovery_volume_diagnostics() {
@@ -316,17 +407,25 @@ clear_data() {
 
 fetch_backup() {
     local fetch_started
+    local storage_env=()
 
     fetch_started=${SECONDS}
-    info "Fetching WAL-G backup ${WALG_RECOVER_BACKUP_NAME} from ${WALG_RECOVER_S3_PREFIX}"
+    info "Fetching WAL-G backup ${WALG_RECOVER_BACKUP_NAME} from ${WALG_RECOVER_STORAGE_PATH}"
+    if [ "${WALG_RECOVER_STORAGE}" = "s3" ]; then
+        storage_env=(
+            -e "AWS_ENDPOINT=${WALG_RECOVER_S3_ENDPOINT}"
+            -e "AWS_REGION=${WALG_RECOVER_S3_REGION}"
+            -e "AWS_ACCESS_KEY_ID=${WALG_RECOVER_S3_ACCESS_KEY}"
+            -e "AWS_SECRET_ACCESS_KEY=${WALG_RECOVER_S3_SECRET_KEY}"
+            -e "WALG_S3_PREFIX=${WALG_RECOVER_STORAGE_PATH}"
+        )
+    else
+        storage_env=(-e "WALG_FILE_PREFIX=${WALG_RECOVER_STORAGE_PATH}")
+    fi
     docker run --rm \
         --user "${POSTGRES_UID}:${POSTGRES_GID}" \
         --volumes-from "${PG_CONTAINER}" \
-        -e "AWS_ENDPOINT=${WALG_RECOVER_S3_ENDPOINT}" \
-        -e "AWS_REGION=${WALG_RECOVER_S3_REGION}" \
-        -e "AWS_ACCESS_KEY_ID=${WALG_RECOVER_S3_ACCESS_KEY}" \
-        -e "AWS_SECRET_ACCESS_KEY=${WALG_RECOVER_S3_SECRET_KEY}" \
-        -e "WALG_S3_PREFIX=${WALG_RECOVER_S3_PREFIX}" \
+        "${storage_env[@]}" \
         "${WALG_IMAGE}" \
         /usr/local/bin/wal-g backup-fetch "${WALG_DATA_DIR}" "${WALG_RECOVER_BACKUP_NAME}"
     info "Fetched WAL-G backup in $((SECONDS - fetch_started))s"
@@ -338,12 +437,13 @@ install_restore_command() {
         --user "${POSTGRES_UID}:${POSTGRES_GID}" \
         --volumes-from "${PG_CONTAINER}" \
         -e "RESTORE_SCRIPT=${RESTORE_SCRIPT}" \
+        -e "WALG_RECOVER_STORAGE=${WALG_RECOVER_STORAGE}" \
+        -e "WALG_RECOVER_STORAGE_PATH=${WALG_RECOVER_STORAGE_PATH}" \
         -e "WALG_RECOVER_PGUSER=${WALG_RECOVER_PGUSER}" \
         -e "WALG_RECOVER_S3_ENDPOINT=${WALG_RECOVER_S3_ENDPOINT}" \
         -e "WALG_RECOVER_S3_REGION=${WALG_RECOVER_S3_REGION}" \
         -e "WALG_RECOVER_S3_ACCESS_KEY=${WALG_RECOVER_S3_ACCESS_KEY}" \
         -e "WALG_RECOVER_S3_SECRET_KEY=${WALG_RECOVER_S3_SECRET_KEY}" \
-        -e "WALG_RECOVER_S3_PREFIX=${WALG_RECOVER_S3_PREFIX}" \
         "${WALG_UTILITY_IMAGE}" \
         sh -c '
             quote_env() {
@@ -358,11 +458,15 @@ install_restore_command() {
                 printf "%s\n" "#!/bin/sh"
                 printf "%s\n" "export PGHOST=\"/var/run/postgresql\""
                 printf "export PGUSER=%s\n" "$(quote_env "${WALG_RECOVER_PGUSER}")"
-                printf "export AWS_ENDPOINT=%s\n" "$(quote_env "${WALG_RECOVER_S3_ENDPOINT}")"
-                printf "export AWS_REGION=%s\n" "$(quote_env "${WALG_RECOVER_S3_REGION}")"
-                printf "export AWS_ACCESS_KEY_ID=%s\n" "$(quote_env "${WALG_RECOVER_S3_ACCESS_KEY}")"
-                printf "export AWS_SECRET_ACCESS_KEY=%s\n" "$(quote_env "${WALG_RECOVER_S3_SECRET_KEY}")"
-                printf "export WALG_S3_PREFIX=%s\n" "$(quote_env "${WALG_RECOVER_S3_PREFIX}")"
+                if [ "${WALG_RECOVER_STORAGE}" = "s3" ]; then
+                    printf "export AWS_ENDPOINT=%s\n" "$(quote_env "${WALG_RECOVER_S3_ENDPOINT}")"
+                    printf "export AWS_REGION=%s\n" "$(quote_env "${WALG_RECOVER_S3_REGION}")"
+                    printf "export AWS_ACCESS_KEY_ID=%s\n" "$(quote_env "${WALG_RECOVER_S3_ACCESS_KEY}")"
+                    printf "export AWS_SECRET_ACCESS_KEY=%s\n" "$(quote_env "${WALG_RECOVER_S3_SECRET_KEY}")"
+                    printf "export WALG_S3_PREFIX=%s\n" "$(quote_env "${WALG_RECOVER_STORAGE_PATH}")"
+                else
+                    printf "export WALG_FILE_PREFIX=%s\n" "$(quote_env "${WALG_RECOVER_STORAGE_PATH}")"
+                fi
                 printf "%s\n" "exec /usr/local/bin/wal-g \"\$@\""
             } >"${RESTORE_SCRIPT}"
             chmod 0700 "${RESTORE_SCRIPT}"
@@ -383,8 +487,24 @@ enable_recovery() {
         --user "${POSTGRES_UID}:${POSTGRES_GID}" \
         --volumes-from "${PG_CONTAINER}" \
         -e "RESTORE_COMMAND=restore_command = '${RESTORE_SCRIPT} wal-fetch \"%f\" \"%p\" >> ${WALG_DATA_DIR}/walg_restore.log 2>&1'" \
+        -e "WALG_RECOVER_TIME=${WALG_RECOVER_TIME}" \
         "${WALG_UTILITY_IMAGE}" \
-        sh -c 'printf "%s\n" "$RESTORE_COMMAND" >> "$1/postgresql.auto.conf" && touch "$1/recovery.signal" && : > "$1/walg_restore.log"' sh "${WALG_DATA_DIR}"
+        sh -c '
+            sq=$(printf "\047")
+            quote_conf() {
+                printf "%s" "$1" | sed "s/${sq}/${sq}${sq}/g"
+            }
+
+            {
+                printf "%s\n" "${RESTORE_COMMAND}"
+                if [ -n "${WALG_RECOVER_TIME}" ]; then
+                    printf "recovery_target_time = %s%s%s\n" "${sq}" "$(quote_conf "${WALG_RECOVER_TIME}")" "${sq}"
+                    printf "recovery_target_action = %spromote%s\n" "${sq}" "${sq}"
+                fi
+            } >> "$1/postgresql.auto.conf"
+            touch "$1/recovery.signal"
+            : > "$1/walg_restore.log"
+        ' sh "${WALG_DATA_DIR}"
     RESTORE_CONFIG_INSTALLED=true
 }
 
@@ -570,6 +690,11 @@ cleanup_recover_config() {
 
     info "Resetting temporary restore_command override"
     docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "ALTER SYSTEM RESET restore_command"
+    if [ -n "${WALG_RECOVER_TIME}" ]; then
+        info "Resetting temporary recovery target settings"
+        docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "ALTER SYSTEM RESET recovery_target_time"
+        docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "ALTER SYSTEM RESET recovery_target_action"
+    fi
     docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "SELECT pg_reload_conf()"
 
     if [ -n "${RESTORE_SCRIPT:-}" ]; then
@@ -590,6 +715,7 @@ main() {
     init_cleanup
     load_postgres_identity
     validate_postgres_container
+    validate_recover_path_access
     wait_before_recovery
     stop_postgres_container
     clear_data
