@@ -85,12 +85,23 @@ def test_docker_postgres_admin_credentials_are_required() -> None:
     assert "docker_postgres_walg_binary_url is match('^https?://.*/wal-g-pg[-_].*')" in validate_text
 
 
-def test_docker_postgres_walg_recovery_validates_fetched_data_before_start() -> None:
+def test_docker_postgres_walg_backup_and_recovery_contracts() -> None:
+    backup_text = (REPO_ROOT / "roles/docker_postgres/files/scripts/walg_backup.sh").read_text(encoding="utf-8")
     recover_text = (REPO_ROOT / "roles/docker_postgres/files/scripts/walg_recover.sh").read_text(encoding="utf-8")
+    env_text = (REPO_ROOT / "roles/docker_postgres/templates/postgres.env.j2").read_text(encoding="utf-8")
     recover_main = recover_text.split("main() {", maxsplit=1)[1].split("\n}", maxsplit=1)[0]
 
-    assert "Usage: walg_recover [--time <timestamp>]" in recover_text
-    assert "WALG_RECOVER_PATH" in recover_text
+    assert "Usage: walg_backup s3:key-or-prefix|s3://bucket/key-or-prefix|/mounted/walg/repo" in backup_text
+    assert (
+        "Usage: walg_recover [--time <timestamp>] s3:key-or-prefix|s3://bucket/key-or-prefix|/mounted/walg/repo"
+        in recover_text
+    )
+    assert "Expected exactly one backup path argument" in backup_text
+    assert "Recovery source argument is required" in recover_text
+    assert 'WALG_BACKUP_PATH="$1"' in backup_text
+    assert 'WALG_RECOVER_PATH="${WALG_RECOVER_SOURCE}"' in recover_text
+    assert 'WALG_BACKUP_PATH="{{ docker_postgres_walg_backup_path }}"' not in env_text
+    assert 'WALG_RECOVER_PATH="{{ docker_postgres_walg_recover_path }}"' not in env_text
     assert "WALG_RECOVER_S3_PREFIX" not in recover_text
     assert "WALG_FILE_PREFIX" in recover_text
     assert "WALG_S3_PREFIX=${WALG_RECOVER_STORAGE_PATH}" in recover_text
@@ -135,8 +146,6 @@ def test_docker_postgres_walg_follower_archives_to_backup_path() -> None:
     assert "WALG_FILE_PREFIX" in backup_text
     assert "WALG_S3_PREFIX=${WALG_BACKUP_STORAGE_PATH}" in backup_text
     assert "{% if docker_postgres_walg_backup_enabled | bool %}" in env_text
-    assert 'WALG_BACKUP_PATH="{{ docker_postgres_walg_backup_path }}"' in env_text
-    assert 'WALG_RECOVER_PATH="{{ docker_postgres_walg_recover_path }}"' in env_text
     assert "docker_postgres_walg_backup_s3_enabled | bool" in setup_text
     assert "WALG_FILE_PREFIX" in setup_text
     assert "docker_postgres_walg_backup_local_enabled" in setup_text

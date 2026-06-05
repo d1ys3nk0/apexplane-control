@@ -56,7 +56,7 @@ is_true() {
 
 usage() {
     cat >&2 <<'USAGE'
-Usage: walg_recover [--time <timestamp>] [s3:key-or-prefix|s3://bucket/key-or-prefix|/mounted/walg/repo]
+Usage: walg_recover [--time <timestamp>] s3:key-or-prefix|s3://bucket/key-or-prefix|/mounted/walg/repo
 
 Replaces the local Docker PostgreSQL data volume with a physical WAL-G backup
 and starts PostgreSQL archive recovery. This is a whole-cluster restore, not a
@@ -70,7 +70,6 @@ Required environment:
   WALG_DATA_VOLUME
   WALG_DATA_ROOT
   WALG_DATA_DIR
-  WALG_RECOVER_PATH
 
 Optional environment:
   PG_CONTAINER=postgres
@@ -93,10 +92,9 @@ Optional environment:
   WALG_RECOVER_S3_SECRET_KEY=<secret-key>
 
 Examples:
-  dotenv /opt/postgres/env /opt/postgres/bin/walg_recover
   dotenv /opt/postgres/env /opt/postgres/bin/walg_recover s3:<key-or-prefix>
   dotenv /opt/postgres/env /opt/postgres/bin/walg_recover s3://<bucket>/<key-or-prefix>
-  dotenv /opt/postgres/env /opt/postgres/bin/walg_recover --time '2026-06-05 12:00:00 UTC'
+  dotenv /opt/postgres/env /opt/postgres/bin/walg_recover --time '2026-06-05 12:00:00 UTC' s3:<key-or-prefix>
 USAGE
 }
 
@@ -136,6 +134,10 @@ parse_args() {
             ;;
         esac
     done
+
+    if [ -z "${WALG_RECOVER_SOURCE}" ]; then
+        usage_error "Recovery source argument is required"
+    fi
 }
 
 resolve_recover_path() {
@@ -186,7 +188,7 @@ init_config() {
     PG_PORT="${PG_PORT:-5432}"
     require_vars "WALG_IMAGE" "WALG_DATA_VOLUME" "WALG_DATA_ROOT" "WALG_DATA_DIR"
     WALG_UTILITY_IMAGE="${WALG_UTILITY_IMAGE:-busybox:1.37.0}"
-    WALG_RECOVER_PATH="${WALG_RECOVER_SOURCE:-${WALG_RECOVER_PATH:-}}"
+    WALG_RECOVER_PATH="${WALG_RECOVER_SOURCE}"
     WALG_RECOVER_BACKUP_NAME="${WALG_RECOVER_BACKUP_NAME:-LATEST}"
     WALG_RECOVER_PGUSER="${WALG_RECOVER_PGUSER:-admin}"
     WALG_RECOVER_START="${WALG_RECOVER_START:-true}"
@@ -202,8 +204,6 @@ init_config() {
     WALG_RECOVER_S3_ACCESS_KEY="${WALG_RECOVER_S3_ACCESS_KEY:-}"
     WALG_RECOVER_S3_SECRET_KEY="${WALG_RECOVER_S3_SECRET_KEY:-}"
 
-    require_vars \
-        "WALG_RECOVER_PATH"
     require_positive_integer "${WALG_RECOVER_STOP_WAIT_SECONDS}" WALG_RECOVER_STOP_WAIT_SECONDS
     require_positive_integer "${WALG_RECOVER_WAIT_SECONDS}" WALG_RECOVER_WAIT_SECONDS
     require_positive_integer "${WALG_RECOVER_PROGRESS_SECONDS}" WALG_RECOVER_PROGRESS_SECONDS

@@ -158,23 +158,19 @@ sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/snap_restore /o
 
 `snap_dump` stops `PG_CONTAINER` while archiving the data volume and starts it again if it was running. `snap_restore` is destructive: it stops `PG_CONTAINER`, clears `POSTGRES_DATA_VOLUME`, extracts the selected tarball into `POSTGRES_DATA_DIR`, and starts the container again.
 
-Create a physical PostgreSQL cluster backup with a standalone WAL-G container that mounts the configured data volume:
+Create a physical PostgreSQL cluster backup with a standalone WAL-G container that mounts the configured data volume. The first positional argument is always required and selects the repository path:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_backup
+sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_backup s3:<key-or-prefix>
+sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_backup s3://<bucket>/<key-or-prefix>
+sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_backup /mnt/walg/<repository>
 ```
 
-`docker_postgres_walg_backup_path` and `docker_postgres_walg_recover_path` accept `s3:<key-or-prefix>`, `s3://<bucket>/<key-or-prefix>`, or an absolute local WAL-G repository path such as an NFS mount. Relative S3 paths use the matching configured S3 bucket; absolute S3 paths include the bucket in the path. Local paths must already exist on the host before the role starts PostgreSQL, and the role bind-mounts them into the PostgreSQL WAL-G container at the same path. The role does not create local WAL-G paths, so a missing NFS mount fails instead of causing backups to write to local disk.
+`walg_backup`, `walg_recover`, `docker_postgres_walg_backup_path`, and `docker_postgres_walg_recover_path` accept the same repository path formats: `s3:<key-or-prefix>`, `s3://<bucket>/<key-or-prefix>`, or an absolute local WAL-G repository path such as an NFS mount. Relative S3 paths use the matching configured S3 bucket; absolute S3 paths include the bucket in the path. Local paths must already exist on the host before the role starts PostgreSQL, and the role bind-mounts them into the PostgreSQL WAL-G container at the same path. The role does not create local WAL-G paths, so a missing NFS mount fails instead of causing backups to write to local disk.
 
 When WAL-G backup storage is configured, `docker_postgres_walg_backup_enabled` gates backup environment variables and PostgreSQL archive settings. Set `docker_postgres_walg_backup_hostnames` to the inventory hosts that should own WAL-G backups. Leaders archive WAL with `archive_mode = on`; followers archive received WAL with `archive_mode = always`. A backup created from a standby must archive received WAL to the same WAL-G repository path, otherwise the base backup can be written but remain unrecoverable.
 
-Recover the local PostgreSQL Docker data volume from the default `WALG_RECOVER_PATH`:
-
-```sh
-sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_recover
-```
-
-Recover from another WAL-G repository path:
+Recover the local PostgreSQL Docker data volume from a WAL-G repository path. The first positional argument is always required and selects the repository path:
 
 ```sh
 sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_recover s3:<key-or-prefix>
@@ -185,8 +181,8 @@ sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_recover /m
 Recover a specific WAL-G backup name or a point in time:
 
 ```sh
-sudo /opt/toolbox/bin/dotenv /opt/postgres/env WALG_RECOVER_BACKUP_NAME=<backup-name> /opt/postgres/bin/walg_recover
-sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_recover --time '2026-06-05 12:00:00 UTC'
+sudo /opt/toolbox/bin/dotenv /opt/postgres/env WALG_RECOVER_BACKUP_NAME=<backup-name> /opt/postgres/bin/walg_recover s3:<key-or-prefix>
+sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_recover --time '2026-06-05 12:00:00 UTC' s3:<key-or-prefix>
 ```
 
 `walg_recover` is destructive at the PostgreSQL cluster level and does not create a local snapshot. Create one explicitly with `snap_dump` first when rollback to the current local state is needed. `walg_recover` prints a 10-second countdown, validates `PG_CONTAINER`, validates local WAL-G repository path visibility when local file storage is used, stops that container, clears `WALG_DATA_VOLUME`, fetches the requested WAL-G backup with a short-lived WAL-G container mounted from `PG_CONTAINER`, verifies the fetched `PG_VERSION` and `global/pg_control`, writes a temporary PostgreSQL restore command under `WALG_DATA_ROOT`, optionally writes `recovery_target_time` and `recovery_target_action = 'promote'`, verifies recovery config files, starts `PG_CONTAINER` for archive recovery, prints recovery progress every `WALG_RECOVER_PROGRESS_SECONDS` seconds while waiting, and removes the temporary restore command only after PostgreSQL leaves recovery and the container healthcheck is healthy. Recovery progress includes container state, health state, restart count, exit code, PostgreSQL readiness, `pg_is_in_recovery()`, recovered data size in KiB, WAL restore log size in bytes, and replay LSN when PostgreSQL is queryable. If recovery fails or the container restarts before health is confirmed, the temporary restore command is left in place and the script prints Docker, PostgreSQL, and WAL-G restore-log diagnostics. The recovered PostgreSQL cluster is left with the database and role names from the WAL-G backup.

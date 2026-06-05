@@ -42,7 +42,7 @@ require_vars() {
 
 usage() {
     cat >&2 <<'USAGE'
-Usage: walg_backup
+Usage: walg_backup s3:key-or-prefix|s3://bucket/key-or-prefix|/mounted/walg/repo
 
 Creates a physical PostgreSQL cluster backup with WAL-G from a standalone
 Docker container that mounts the configured PostgreSQL data volume.
@@ -52,7 +52,6 @@ Required environment:
   WALG_DATA_VOLUME
   WALG_DATA_ROOT
   WALG_DATA_DIR
-  WALG_BACKUP_PATH
 
 Optional environment:
   PG_HOST=127.0.0.1
@@ -76,8 +75,10 @@ Optional environment:
   WALG_BACKUP_S3_ACCESS_KEY=<access-key>
   WALG_BACKUP_S3_SECRET_KEY=<secret-key>
 
-Example:
-  dotenv /opt/postgres/env /opt/postgres/bin/walg_backup
+Examples:
+  dotenv /opt/postgres/env /opt/postgres/bin/walg_backup s3:<key-or-prefix>
+  dotenv /opt/postgres/env /opt/postgres/bin/walg_backup s3://<bucket>/<key-or-prefix>
+  dotenv /opt/postgres/env /opt/postgres/bin/walg_backup /mounted/walg/repo
 USAGE
 }
 
@@ -123,8 +124,8 @@ resolve_backup_path() {
 }
 
 init_config() {
-    if [ "$#" -ne 0 ]; then
-        usage_error "Expected 0 arguments, got $#"
+    if [ "$#" -ne 1 ]; then
+        usage_error "Expected exactly one backup path argument"
     fi
 
     PG_HOST="${PG_HOST:-127.0.0.1}"
@@ -142,7 +143,7 @@ init_config() {
     WALG_DISK_RATE_LIMIT="${WALG_DISK_RATE_LIMIT:-10485760}"
     WALG_UPLOAD_DISK_CONCURRENCY="${WALG_UPLOAD_DISK_CONCURRENCY:-1}"
     WALG_TAR_SIZE_THRESHOLD="${WALG_TAR_SIZE_THRESHOLD:-}"
-    WALG_BACKUP_PATH="${WALG_BACKUP_PATH:-}"
+    WALG_BACKUP_PATH="$1"
     WALG_BACKUP_S3_ENDPOINT="${WALG_BACKUP_S3_ENDPOINT:-}"
     WALG_BACKUP_S3_REGION="${WALG_BACKUP_S3_REGION:-}"
     WALG_BACKUP_S3_BUCKET="${WALG_BACKUP_S3_BUCKET:-}"
@@ -153,8 +154,7 @@ init_config() {
         "WALG_IMAGE" \
         "WALG_DATA_VOLUME" \
         "WALG_DATA_ROOT" \
-        "WALG_DATA_DIR" \
-        "WALG_BACKUP_PATH"
+        "WALG_DATA_DIR"
     resolve_backup_path
 }
 
