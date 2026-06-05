@@ -31,7 +31,7 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_debug_mode` | `<derived>` |
 | `docker_postgres_nolog` | `<derived>` |
 | `docker_postgres_dr_action` | `none` |
-| `docker_postgres_dr_mode` | `false` |
+| `docker_postgres_failover_enabled` | `false` |
 | `docker_postgres_max_wal_size` | `4GB` |
 | `docker_postgres_mem_res` | `1000M` |
 | `docker_postgres_mem_lim` | `1500M` |
@@ -39,13 +39,14 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_min_wal_size` | `2GB` |
 | `docker_postgres_pg_admin_pass` | `~` |
 | `docker_postgres_pg_admin_user` | `~` |
-| `docker_postgres_pg_fallback_host` | `''` |
-| `docker_postgres_pg_fallback_port` | `5432` |
-| `docker_postgres_pg_replicator_pass` | `''` |
-| `docker_postgres_pg_replicator_user` | `''` |
 | `docker_postgres_allowed_cidr` | `['0.0.0.0/0', '::/0']` |
 | `docker_postgres_port` | `5432` |
+| `docker_postgres_replica_host` | `''` |
+| `docker_postgres_replica_port` | `5432` |
 | `docker_postgres_replica_restore` | `<derived>` |
+| `docker_postgres_replica_ssl` | `prefer` |
+| `docker_postgres_replica_pass` | `''` |
+| `docker_postgres_replica_user` | `''` |
 | `docker_postgres_mode` | `~` |
 | `docker_postgres_utility_image_name` | `busybox` |
 | `docker_postgres_utility_image_tag` | `1.37.0` |

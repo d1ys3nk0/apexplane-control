@@ -24,14 +24,15 @@ docker_postgres_pg_admin_user: ~
 docker_postgres_allowed_cidr:
   - 0.0.0.0/0
   - ::/0
-docker_postgres_pg_replicator_pass: ''
-docker_postgres_pg_replicator_user: ''
-docker_postgres_pg_fallback_host: ''
-docker_postgres_pg_fallback_port: 5432
+docker_postgres_failover_enabled: false
 docker_postgres_dr_action: none
-docker_postgres_dr_mode: false
 docker_postgres_mode: ~
+docker_postgres_replica_host: ''
+docker_postgres_replica_port: 5432
 docker_postgres_replica_restore: "{{ docker_postgres_dr_action == 'restore' }}"
+docker_postgres_replica_ssl: prefer
+docker_postgres_replica_pass: ''
+docker_postgres_replica_user: ''
 docker_postgres_utility_image_name: busybox
 docker_postgres_utility_image_tag: 1.37.0
 docker_postgres_utility_image_full: '{{ docker_postgres_utility_image_name }}:{{ docker_postgres_utility_image_tag }}'

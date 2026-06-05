@@ -36,8 +36,8 @@
 
 - name: Create PostgreSQL replicator user
   community.postgresql.postgresql_user:
-    name: '{{ docker_postgres_pg_replicator_user }}'
-    password: '{{ docker_postgres_pg_replicator_pass }}'
+    name: '{{ docker_postgres_replica_user }}'
+    password: '{{ docker_postgres_replica_pass }}'
     role_attr_flags: REPLICATION
     login_host: 127.0.0.1
     login_port: '{{ docker_postgres_port }}'
@@ -88,9 +88,10 @@
     name: pg-basebackup
     hostname: pg-basebackup.{{ inventory_hostname }}
     image: '{{ docker_postgres_image_runtime }}'
-    command: pg_basebackup -vPR -X stream -c fast -h {{ docker_postgres_pg_fallback_host }} -p {{ docker_postgres_pg_fallback_port }} -U {{ docker_postgres_pg_replicator_user }} -D {{ docker_postgres_data_dir }}
+    command: pg_basebackup -vPR -X stream -c fast -h {{ docker_postgres_replica_host }} -p {{ docker_postgres_replica_port }} -U {{ docker_postgres_replica_user }} -D {{ docker_postgres_data_dir }}
     env:
-      PGPASSWORD: '{{ docker_postgres_pg_replicator_pass }}'
+      PGPASSWORD: '{{ docker_postgres_replica_pass }}'
+      PGSSLMODE: '{{ docker_postgres_replica_ssl }}'
     volumes:
       - '{{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }}'
     detach: false

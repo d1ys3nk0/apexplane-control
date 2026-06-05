@@ -7,7 +7,7 @@
   ansible.builtin.assert:
     that:
       - docker_postgres_dr_action in ['none', 'wait_synced', 'stop', 'promote', 'restore']
-      - docker_postgres_dr_action == 'none' or docker_postgres_dr_mode | bool
+      - docker_postgres_dr_action == 'none' or docker_postgres_failover_enabled | bool
     fail_msg: PostgreSQL DR actions require DR=1 and a valid docker_postgres_dr_action.
 
 - name: Run standalone PostgreSQL DR action

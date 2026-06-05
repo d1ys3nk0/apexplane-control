@@ -24,6 +24,9 @@
       - docker_postgres_allowed_cidr is sequence
       - docker_postgres_allowed_cidr is not string
       - docker_postgres_allowed_cidr | length > 0
+      - docker_postgres_replica_port | int >= 1
+      - docker_postgres_replica_port | int <= 65535
+      - docker_postgres_replica_ssl in ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full']
 
 - name: Validate Docker PostgreSQL source whitelist
   ansible.builtin.assert:
