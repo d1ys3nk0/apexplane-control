@@ -239,8 +239,8 @@ else
         CMD+=(-t "${T}")
     fi
 
-    if [ -n "${E:-}" ]; then
-        CMD+=(--skip-tags "${E}")
+    if [ -n "${S:-}" ]; then
+        CMD+=(--skip-tags "${S}")
     fi
 
     RUN_CMD=("${CMD[@]}")
