@@ -44,3 +44,51 @@ def test_global_variable_definitions_outside_global_file_fail(tmp_path: Path) ->
     (variables_dir / "app.yml").write_text("---\ngv_foo: value\niv_example: '{{ gv_foo }}'\n", encoding="utf-8")
 
     assert run(repo_root=tmp_path) == ["variables/app.yml:2: gv_foo must be defined only in _global.yml files"]
+
+
+def test_role_variable_assignment_cannot_reference_another_role_variable(tmp_path: Path) -> None:
+    variables_dir = tmp_path / "variables"
+    variables_dir.mkdir()
+    roles_dir = tmp_path / "roles"
+    (roles_dir / "crowdsec" / "defaults").mkdir(parents=True)
+    (roles_dir / "haproxy_alb" / "defaults").mkdir(parents=True)
+    (roles_dir / "crowdsec" / "defaults" / "main.yml").write_text("---\ncrowdsec_enabled: true\n", encoding="utf-8")
+    (roles_dir / "haproxy_alb" / "defaults" / "main.yml").write_text(
+        "---\nhaproxy_alb_crowdsec_enabled: false\n", encoding="utf-8"
+    )
+    (variables_dir / "bal.yml").write_text(
+        "---\n"
+        "# Role: crowdsec\n"
+        "crowdsec_enabled: true\n"
+        "# Role: haproxy_alb\n"
+        "haproxy_alb_crowdsec_enabled: '{{ crowdsec_enabled }}'\n",
+        encoding="utf-8",
+    )
+
+    assert run(repo_root=tmp_path) == [
+        "variables/bal.yml:5: haproxy_alb_crowdsec_enabled must not reference crowdsec_enabled; "
+        "use absolute values, _, gv_, iv_, vv_, ansible_, runtime, or haproxy_alb_ variables"
+    ]
+
+
+def test_role_variable_assignment_can_reference_global_variable(tmp_path: Path) -> None:
+    variables_dir = tmp_path / "variables"
+    variables_dir.mkdir()
+    roles_dir = tmp_path / "roles"
+    (roles_dir / "crowdsec" / "defaults").mkdir(parents=True)
+    (roles_dir / "haproxy_alb" / "defaults").mkdir(parents=True)
+    (roles_dir / "crowdsec" / "defaults" / "main.yml").write_text("---\ncrowdsec_enabled: true\n", encoding="utf-8")
+    (roles_dir / "haproxy_alb" / "defaults" / "main.yml").write_text(
+        "---\nhaproxy_alb_crowdsec_enabled: false\n", encoding="utf-8"
+    )
+    (variables_dir / "_global.yml").write_text("---\ngv_crowdsec_enabled: true\n", encoding="utf-8")
+    (variables_dir / "bal.yml").write_text(
+        "---\n"
+        "# Role: crowdsec\n"
+        "crowdsec_enabled: '{{ gv_crowdsec_enabled }}'\n"
+        "# Role: haproxy_alb\n"
+        "haproxy_alb_crowdsec_enabled: '{{ gv_crowdsec_enabled }}'\n",
+        encoding="utf-8",
+    )
+
+    assert run(repo_root=tmp_path) == []

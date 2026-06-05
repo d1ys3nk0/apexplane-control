@@ -289,14 +289,7 @@ def _role_variable_reference_errors(repo_root: Path) -> list[str]:
         for reference_name in sorted(_jinja_variable_references(raw_value)):
             if _is_allowed_role_reference(reference_name, target_role, role_names):
                 continue
-            reference_role = _role_name_for_variable(reference_name, role_names)
-            allowed_hint = f"_, gv_, iv_, vv_, ansible_, runtime, or {target_role}_ variables"
-            if reference_role is None:
-                errors.append(
-                    f"{_rel_path(path, repo_root)}:{line_number}: {target_name} must not reference "
-                    f"{reference_name}; use {allowed_hint}"
-                )
-                continue
+            allowed_hint = f"absolute values, _, gv_, iv_, vv_, ansible_, runtime, or {target_role}_ variables"
             errors.append(
                 f"{_rel_path(path, repo_root)}:{line_number}: {target_name} must not reference "
                 f"{reference_name}; use {allowed_hint}"
