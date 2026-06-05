@@ -61,6 +61,7 @@
     - docker
     - systemd-journal
   register: alloy_group_checks
+  check_mode: false
   failed_when: false
   changed_when: false
 

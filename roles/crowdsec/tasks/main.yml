@@ -84,14 +84,6 @@
         - /etc/crowdsec/appsec-configs
         - /etc/crowdsec/bouncers
 
-    - name: Deploy CrowdSec AppSec config
-      become: true
-      ansible.builtin.template:
-        src: appsec-config.yaml.j2
-        dest: /etc/crowdsec/appsec-configs/{{ crowdsec_appsec_config_filename }}
-        mode: '0644'
-      register: crowdsec_appsec_config_update
-
     - name: Deploy acquisition config for HAProxy logs
       become: true
       ansible.builtin.copy:
@@ -107,6 +99,17 @@
         dest: /etc/crowdsec/acquis.d/appsec.yaml
         mode: '0644'
       register: crowdsec_appsec_acquis_update
+
+    - name: Update CrowdSec Hub index
+      become: true
+      ansible.builtin.command:
+        argv:
+          - cscli
+          - hub
+          - update
+      register: crowdsec_hub_update
+      changed_when: false
+      when: not ansible_check_mode
 
     - name: Install CrowdSec collections
       become: true
@@ -148,7 +151,7 @@
       ansible.builtin.systemd:
         name: crowdsec
         state: reloaded
-      when: (crowdsec_appsec_config_update.changed or crowdsec_haproxy_acquis_update.changed or crowdsec_appsec_acquis_update.changed or (crowdsec_collection_install is defined and crowdsec_collection_install.changed)) and not ansible_check_mode
+      when: (crowdsec_haproxy_acquis_update.changed or crowdsec_appsec_acquis_update.changed or (crowdsec_collection_install is defined and crowdsec_collection_install.changed)) and not ansible_check_mode
 
     - name: Register HAProxy SPOA bouncer key with CrowdSec LAPI
       become: true

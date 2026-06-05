@@ -113,6 +113,15 @@ frontend web
 {% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
   http-request set-src hdr_ip(X-Forwarded-For,-1) if from_trusted_proxy { hdr_ip(X-Forwarded-For,-1) -m found }
 {% endif %}
+{% if haproxy_alb_crowdsec_enabled | bool %}
+  # CrowdSec
+  http-request send-spoe-group crowdsec crowdsec-http-body if !is_acme !has_request_body
+  http-request send-spoe-group crowdsec crowdsec-http-body if !is_acme has_request_body body_within_limit
+  http-request send-spoe-group crowdsec crowdsec-http-no-body if !is_acme has_request_body !body_within_limit
+  http-request redirect code 302 location %[url] if { var(txn.crowdsec.remediation) -m str "allow" } { var(txn.crowdsec.redirect) -m found }
+  http-request lua.crowdsec_handle if { var(txn.crowdsec.remediation) -m str "captcha" }
+  http-request lua.crowdsec_handle if { var(txn.crowdsec.remediation) -m str "ban" }
+{% endif %}
 {% if haproxy_alb_whitelists_enforced | default([]) | length > 0 %}
 {% for whitelist_name in haproxy_alb_whitelists_enforced | sort %}
   acl from_whitelist_{{ whitelist_name }} src -m ip -f /opt/haproxy/lists/{{ whitelist_name }}.lst
@@ -158,16 +167,6 @@ frontend web
 {{ auth_rule_line(auth_rule) }}
 {% endif %}
 {% endfor %}
-
-{% if haproxy_alb_crowdsec_enabled | bool %}
-  # CrowdSec
-  http-request send-spoe-group crowdsec crowdsec-http-body if !is_acme !has_request_body
-  http-request send-spoe-group crowdsec crowdsec-http-body if !is_acme has_request_body body_within_limit
-  http-request send-spoe-group crowdsec crowdsec-http-no-body if !is_acme has_request_body !body_within_limit
-  http-request redirect code 302 location %[url] if { var(txn.crowdsec.remediation) -m str "allow" } { var(txn.crowdsec.redirect) -m found }
-  http-request lua.crowdsec_handle if { var(txn.crowdsec.remediation) -m str "captcha" }
-  http-request lua.crowdsec_handle if { var(txn.crowdsec.remediation) -m str "ban" }
-{% endif %}
 
   # Forwarded Headers
   http-request set-header X-Forwarded-For %[src]

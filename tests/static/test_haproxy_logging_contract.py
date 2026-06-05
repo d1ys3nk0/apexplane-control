@@ -54,3 +54,16 @@ def test_haproxy_alb_internal_endpoints_do_not_emit_traffic_logs() -> None:
     assert "http-request set-log-level silent if { path /_health }" in frontend_template
     assert "http-request set-log-level silent if { path /_stats }" in main_template
     assert "http-request set-log-level silent if { path /metrics }" in main_template
+
+
+def test_haproxy_alb_crowdsec_inspects_requests_before_redirects_and_auth() -> None:
+    template = FE_WEB_TEMPLATE.read_text(encoding="utf-8")
+
+    set_src_index = template.index("http-request set-src hdr_ip(X-Forwarded-For,-1)")
+    crowdsec_index = template.index("http-request send-spoe-group crowdsec crowdsec-http-body")
+    redirect_index = template.index("http-request redirect scheme https")
+    auth_index = template.index("{{ auth_rule_line(auth_rule) }}")
+
+    assert set_src_index < crowdsec_index
+    assert crowdsec_index < redirect_index
+    assert crowdsec_index < auth_index

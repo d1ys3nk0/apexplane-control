@@ -27,7 +27,7 @@
 - name: Assert dnsmasq resolver addresses are valid
   ansible.builtin.assert:
     that:
-      - item | ansible.utils.ipaddr
+      - (item | ansible.utils.ipaddr) is not false
     fail_msg: Define dnsmasq bind, upstream, local resolver, and health check server values as IP addresses.
   loop: >-
     {{
@@ -45,7 +45,7 @@
       - item.domain | string | length > 0
       - "'*' not in item.domain"
       - item.ip is defined
-      - item.ip | ansible.utils.ipaddr
+      - (item.ip | ansible.utils.ipaddr) is not false
     fail_msg: Define every dnsmasq exact record with non-empty domain and valid ip values.
   loop: '{{ dnsmasq_exact_records }}'
 
@@ -58,7 +58,7 @@
       - "'*' not in item.domain"
       - not (item.domain | string).startswith('.')
       - item.ip is defined
-      - item.ip | ansible.utils.ipaddr
+      - (item.ip | ansible.utils.ipaddr) is not false
     fail_msg: Define every dnsmasq wildcard record with non-empty domain suffix and valid ip values.
   loop: '{{ dnsmasq_wildcard_records }}'
 
@@ -69,6 +69,6 @@
       - item.domain is defined
       - item.domain | string | length > 0
       - item.ip is defined
-      - item.ip | ansible.utils.ipaddr
+      - (item.ip | ansible.utils.ipaddr) is not false
     fail_msg: Define every dnsmasq health check with non-empty domain and valid ip values.
   loop: '{{ dnsmasq_health_checks }}'

@@ -12,14 +12,22 @@ crowdsec_apt_repo_component: main
 
 crowdsec_collections:
   - crowdsecurity/haproxy
+  - crowdsecurity/base-http-scenarios
   - crowdsecurity/http-cve
+  - crowdsecurity/wordpress
   - crowdsecurity/appsec-virtual-patching
+  - crowdsecurity/appsec-generic-rules
 
 crowdsec_spoa_system_group: crowdsec-spoa
 crowdsec_spoa_system_user: '{{ crowdsec_spoa_system_group }}'
 crowdsec_spoa_bouncer_name: haproxy-spoa-bouncer
 crowdsec_appsec_config: crowdsecurity/appsec-default
-crowdsec_appsec_config_filename: "{{ crowdsec_appsec_config | replace('/', '-') }}.yaml"
+crowdsec_appsec_url: http://127.0.0.1:7422
+crowdsec_appsec_timeout: 200ms
+crowdsec_spoa_hosts:
+  - host: '*'
+    appsec:
+      always_send: false
 
 crowdsec_bouncer_key: ~
 crowdsec_http_port: 8080

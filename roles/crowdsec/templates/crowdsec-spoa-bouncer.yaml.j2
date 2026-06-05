@@ -13,6 +13,24 @@ api_url: http://127.0.0.1:{{ crowdsec_http_port }}/
 api_key: '{{ crowdsec_bouncer_key }}'
 insecure_skip_verify: false
 
+appsec_url: '{{ crowdsec_appsec_url }}'
+appsec_timeout: '{{ crowdsec_appsec_timeout }}'
+
+hosts:
+{% for crowdsec_spoa_host in crowdsec_spoa_hosts %}
+  - host: '{{ crowdsec_spoa_host.host }}'
+{% if crowdsec_spoa_host.appsec is defined %}
+    appsec:
+      always_send: {{ crowdsec_spoa_host.appsec.always_send | bool | lower }}
+{% if crowdsec_spoa_host.appsec.url is defined %}
+      url: '{{ crowdsec_spoa_host.appsec.url }}'
+{% endif %}
+{% if crowdsec_spoa_host.appsec.api_key is defined %}
+      api_key: '{{ crowdsec_spoa_host.appsec.api_key }}'
+{% endif %}
+{% endif %}
+{% endfor %}
+
 listen_tcp: 127.0.0.1:{{ crowdsec_spoa_port }}
 listen_unix: /run/crowdsec-spoa/spoa.sock
 

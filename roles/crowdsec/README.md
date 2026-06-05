@@ -10,10 +10,11 @@ This role installs CrowdSec, AppSec collections, and the HAProxy SPOA bouncer co
 - Create CrowdSec SPOA bouncer user.
 - Install CrowdSec agent and HAProxy SPOA bouncer.
 - Ensure CrowdSec config directories exist.
-- Deploy CrowdSec AppSec config.
 - Deploy acquisition config for HAProxy logs.
 - Deploy acquisition config for CrowdSec AppSec.
-- Additional focused setup tasks for the same role-owned desired state.
+- Update CrowdSec Hub index.
+- Install CrowdSec Hub collections.
+- Deploy CrowdSec SPOA bouncer config with AppSec forwarding.
 
 ## Configuration
 Set these required inputs before applying the role: `crowdsec_bouncer_key`.
@@ -34,7 +35,9 @@ Set these required inputs before applying the role: `crowdsec_bouncer_key`.
 | `crowdsec_spoa_system_user` | `<derived>` |
 | `crowdsec_spoa_bouncer_name` | `haproxy-spoa-bouncer` |
 | `crowdsec_appsec_config` | `crowdsecurity/appsec-default` |
-| `crowdsec_appsec_config_filename` | `<derived>` |
+| `crowdsec_appsec_url` | `http://127.0.0.1:7422` |
+| `crowdsec_appsec_timeout` | `200ms` |
+| `crowdsec_spoa_hosts` | `<complex>` |
 | `crowdsec_bouncer_key` | `~` |
 | `crowdsec_http_port` | `8080` |
 | `crowdsec_spoa_port` | `9000` |
@@ -62,7 +65,8 @@ haproxy_alb_crowdsec_enabled: true
 
 - HTTP and HTTPS traffic that reaches HAProxy ALB.
 - HAProxy request inspection through SPOE/SPOA.
-- AppSec virtual patching and HTTP CVE rules installed through CrowdSec collections.
+- AppSec virtual patching, AppSec generic rules, HTTP CVE rules, and common HTTP scanner scenarios installed through CrowdSec collections.
+- WordPress scanner scenarios from CrowdSec Hub.
 - HAProxy log scenarios from journald acquisition.
 
 CrowdSec does not protect SSH, database, Redis, RabbitMQ, Docker overlay, or other non-HAProxy traffic unless a consuming repository adds another bouncer.
@@ -71,7 +75,7 @@ Apart from the HAProxy ALB bouncer and AppSec/WAF rules, the shared roles only i
 
 ### Blocking Risk
 
-CrowdSec can block legitimate clients if a real user shares an IP with abusive traffic, trips an HTTP scenario, or matches an AppSec rule. Enforcement is IP decision based at HAProxy ALB, so the practical impact is that requests from the decided IP can be denied until the decision expires or is deleted.
+CrowdSec can block legitimate clients if a real user shares an IP with abusive traffic, trips an HTTP scenario, or matches an AppSec rule. The default collection list includes WordPress scanner scenarios; repositories that proxy real WordPress workloads must review whether those scenarios are appropriate. Enforcement is IP decision based at HAProxy ALB, so the practical impact is that requests from the decided IP can be denied until the decision expires or is deleted.
 
 Before enabling it for production traffic, keep HAProxy logs visible, confirm the project toggle value, and be ready to inspect and delete decisions with `cscli`.
 
