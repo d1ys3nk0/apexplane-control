@@ -239,6 +239,10 @@ else
         CMD+=(-t "${T}")
     fi
 
+    if [ -n "${E:-}" ]; then
+        CMD+=(--skip-tags "${E}")
+    fi
+
     RUN_CMD=("${CMD[@]}")
 
     echo "> Running syntax check..."

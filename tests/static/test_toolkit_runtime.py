@@ -168,6 +168,28 @@ def test_runtime_run_resolves_remote_state_from_installed_runtime(tmp_path: Path
     assert not list((tmp_path / "log").glob("prd-app-*-setup.log"))
 
 
+def test_runtime_run_passes_role_include_and_exclude_tags(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "run")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+    env = runtime_env(tmp_path)
+    env["T"] = "runtime,crontab"
+    env["E"] = "docker,alloy"
+
+    result = subprocess.run(  # noqa: S603
+        [BASH, "bin/run", "prd", "ycl", "app", "setup"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert " -t runtime\\,crontab --skip-tags docker\\,alloy --syntax-check" in result.stdout
+    assert " -t runtime\\,crontab --skip-tags docker\\,alloy \n" in result.stdout
+
+
 def test_runtime_migrate_resolves_remote_state_from_installed_runtime(tmp_path: Path) -> None:
     write_runtime_fixture(tmp_path, "migrate")
     write_fake_uv(tmp_path)

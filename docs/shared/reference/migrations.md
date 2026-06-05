@@ -20,7 +20,7 @@ Migration playbooks handle one-time repository-history cleanup for consuming inf
 - Missing host state means no migrations have been applied, so all migrations for that cluster are pending for that host.
 - If a host has legacy state with only `migrate_tag`, migrations with timestamps less than or equal to that value are treated as applied. During the next non-dry migration run, the wrapper materializes those selected migration timestamps into `migrate_tags`.
 - Migrations update remote state only when `DRY=0` or `DRY=false` is set and the migration playbook succeeds. Dry/check mode never writes migration state.
-- `T=<tags>` belongs to `task apc:run --`; migration playbooks always run all their tasks.
+- `T=<tags>` and `E=<tags>` belong to `task apc:run --`; migration playbooks always run all their tasks.
 
 ## Cleanup
 
