@@ -258,8 +258,21 @@
 - name: Assert optional route prefix is valid when set
   ansible.builtin.assert:
     that:
-      - item.prefix is not defined or item.prefix is none or ( (item.prefix | string | trim | length) > 0 and (item.prefix | string | trim) is match('^/') )
-    fail_msg: 'Route {{ item.name }}: prefix must be a non-empty path starting with / when set'
+      - >-
+        item.prefix is not defined
+        or item.prefix is none
+        or (
+          item.prefix is string
+          and (item.prefix | trim | length) > 0
+          and (item.prefix | trim) is match('^/')
+        )
+        or (
+          item.prefix is iterable
+          and item.prefix is not string
+          and item.prefix | length > 0
+          and item.prefix | map('string') | map('trim') | select('match', '^/') | list | length == item.prefix | length
+        )
+    fail_msg: 'Route {{ item.name }}: prefix must be a non-empty path or non-empty path list starting with / when set'
   loop: '{{ haproxy_alb_routes }}'
   loop_control:
     label: '{{ item.name }}'
@@ -273,8 +286,8 @@
     haproxy_alb_route_domain_prefix_keys: '{{ haproxy_alb_route_domain_prefix_keys + _keys }}'
   vars:
     _domains: "{{ [item.domain] if item.domain is string else item.domain }}"
-    _trimmed_prefix: "{{ item.prefix | default('', true) | string | trim }}"
-    _keys: "{{ _domains | map('regex_replace', '$', '::' ~ _trimmed_prefix) | list }}"
+    _prefixes: "{{ [''] if item.prefix is not defined or item.prefix is none or (item.prefix is string and item.prefix | trim | length == 0) else ([item.prefix | string | trim] if item.prefix is string else (item.prefix | map('string') | map('trim') | list)) }}"
+    _keys: "{{ _domains | product(_prefixes) | map('join', '::') | list }}"
   loop: '{{ haproxy_alb_routes }}'
   loop_control:
     label: '{{ item.name }}'

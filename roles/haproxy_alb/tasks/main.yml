@@ -3,8 +3,19 @@
 - name: Validate HAProxy ALB variable contract
   ansible.builtin.include_tasks: validate.yml
 
+- name: Inspect HAProxy config fragment directory
+  become: true
+  ansible.builtin.stat:
+    path: /etc/haproxy/conf.d
+  register: haproxy_alb_config_fragment_dir
+
+- name: Calculate HAProxy ALB config directory readiness
+  ansible.builtin.set_fact:
+    haproxy_alb_config_dir_ready: '{{ haproxy_alb_not_check_mode | bool or haproxy_alb_config_fragment_dir.stat.exists | bool }}'
+
 - name: Configure self-signed SSL certificate
   ansible.builtin.include_tasks: setup_ssl.yml
+  when: haproxy_alb_config_dir_ready | bool
 
 - name: Create HAProxy ALB list directory
   become: true
@@ -14,6 +25,7 @@
     owner: root
     group: haproxy
     mode: '0750'
+  register: haproxy_alb_list_dir_update
 
 - name: Upload HAProxy ALB whitelist files
   become: true
@@ -27,6 +39,7 @@
   loop_control:
     label: '{{ item.key }}'
   register: haproxy_alb_whitelist_upload
+  when: haproxy_alb_not_check_mode | bool or not haproxy_alb_list_dir_update.changed
 
 - name: Find HAProxy ALB backend fragments
   become: true
@@ -35,6 +48,7 @@
     patterns: be_*.cfg
     file_type: file
   register: haproxy_alb_backend_files_before_clean
+  when: haproxy_alb_config_dir_ready | bool
 
 - name: Store desired HAProxy ALB backend fragment paths
   ansible.builtin.set_fact:
@@ -63,7 +77,9 @@
   loop_control:
     label: '{{ item.path }}'
   register: haproxy_alb_backend_fragment_cleanup
-  when: item.path not in haproxy_alb_desired_backend_fragment_paths
+  when:
+    - haproxy_alb_config_dir_ready | bool
+    - item.path not in haproxy_alb_desired_backend_fragment_paths
 
 - name: Update HAProxy system backend fragment
   become: true
@@ -72,6 +88,7 @@
     dest: /etc/haproxy/conf.d/be_system.cfg
     mode: '0644'
   register: haproxy_alb_be_system_update
+  when: haproxy_alb_config_dir_ready | bool
 
 - name: Update HAProxy local backend fragment
   become: true
@@ -80,6 +97,7 @@
     dest: /etc/haproxy/conf.d/be_local.cfg
     mode: '0644'
   register: haproxy_alb_be_local_update
+  when: haproxy_alb_config_dir_ready | bool
 
 - name: Update HAProxy backend fragments per target group
   become: true
@@ -93,6 +111,7 @@
   vars:
     haproxy_alb_backend_group: '{{ item }}'
   register: haproxy_alb_be_group_update
+  when: haproxy_alb_config_dir_ready | bool
 
 - name: Update HAProxy throttle backend fragments
   become: true
@@ -106,6 +125,7 @@
   vars:
     haproxy_alb_throttle: '{{ item }}'
   register: haproxy_alb_be_throttle_update
+  when: haproxy_alb_config_dir_ready | bool
 
 - name: Update HAProxy frontend config
   become: true
@@ -117,6 +137,7 @@
     group: haproxy
   register: haproxy_alb_fe_web_update
   no_log: '{{ haproxy_alb_nolog }}'
+  when: haproxy_alb_config_dir_ready | bool
 
 - name: Update HAProxy CrowdSec SPOE config
   become: true
@@ -125,7 +146,9 @@
     dest: /etc/haproxy/crowdsec.cfg
     mode: '0644'
   register: haproxy_alb_config_crowdsec_update
-  when: haproxy_alb_crowdsec_enabled | bool
+  when:
+    - haproxy_alb_config_dir_ready | bool
+    - haproxy_alb_crowdsec_enabled | bool
 
 - name: Remove HAProxy CrowdSec SPOE config
   become: true
@@ -133,7 +156,9 @@
     path: /etc/haproxy/crowdsec.cfg
     state: absent
   register: haproxy_alb_config_crowdsec_remove
-  when: haproxy_alb_crowdsec_disabled | bool
+  when:
+    - haproxy_alb_config_dir_ready | bool
+    - haproxy_alb_crowdsec_disabled | bool
 
 - name: Update HAProxy main config
   become: true
@@ -145,6 +170,7 @@
     group: haproxy
   register: haproxy_alb_config_main_update
   no_log: '{{ haproxy_alb_nolog }}'
+  when: haproxy_alb_config_dir_ready | bool
 
 - name: Validate HAProxy configs together after all changes
   become: true
@@ -153,6 +179,7 @@
   register: haproxy_alb_conf_check
   changed_when: false
   failed_when: false
+  when: haproxy_alb_config_dir_ready | bool
 
 - name: Assert HAProxy validation output is correct
   ansible.builtin.assert:
@@ -161,7 +188,9 @@
       - haproxy_alb_conf_check.stderr | trim == ""
     fail_msg: "HAProxy check returned extra output:\n\nstdout: '{{ haproxy_alb_conf_check.stdout }}'\n\nstderr: '{{ haproxy_alb_conf_check.stderr }}'"
     success_msg: HAProxy check returned no extra output
-  when: haproxy_alb_not_check_mode | bool
+  when:
+    - haproxy_alb_config_dir_ready | bool
+    - haproxy_alb_not_check_mode | bool
 
 - name: Reload HAProxy
   become: true

@@ -30,4 +30,6 @@
     data_path_addr: '{{ docker_swarm_advertise_ip }}'
     join_token: '{{ docker_swarm_leader_host.docker_swarm_init.swarm_facts.JoinTokens[docker_swarm_join_token] }}'
     remote_addrs: '{{ docker_swarm_leader_ip }}:2377'
-  when: docker_swarm_leader_host.docker_swarm_init is defined
+  when:
+    - not ansible_check_mode
+    - docker_swarm_leader_host.docker_swarm_init is defined

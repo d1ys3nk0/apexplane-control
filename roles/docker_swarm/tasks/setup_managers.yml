@@ -7,6 +7,7 @@
     listen_addr: '{{ docker_swarm_advertise_ip }}:2377'
     data_path_addr: '{{ docker_swarm_advertise_ip }}'
   register: docker_swarm_init
+  when: not ansible_check_mode
 
 # - name: Add node labels
 #   community.docker.docker_node:

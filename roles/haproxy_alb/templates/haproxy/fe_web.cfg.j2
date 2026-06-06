@@ -1,7 +1,7 @@
-{% macro route_match(route) -%}
+{% macro route_match(route, prefixes=none) -%}
 {%- set route_domains = [route.domain] if route.domain is string else route.domain -%}
-{%- set route_prefix = route.prefix | default('', true) | string | trim -%}
-{ hdr(host) -i {{ route_domains | join(' ') }} }{%- if route_prefix | length > 0 %} { path_beg {{ route_prefix }} }{%- endif -%}
+{%- set route_prefixes = prefixes if prefixes is not none else ([] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list))) -%}
+{ hdr(host) -i {{ route_domains | join(' ') }} }{%- if route_prefixes | length > 0 %} { path_beg {{ route_prefixes | join(' ') }} }{%- endif -%}
 {%- endmacro %}
 
 {% macro auth_more_specific_exclusions(auth_rule) -%}
@@ -57,10 +57,12 @@
 
 {% set haproxy_route_prefix_lengths = namespace(values=[]) %}
 {% for route in haproxy_alb_routes %}
-{% set route_prefix = route.prefix | default('', true) | string | trim %}
+{% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
+{% for route_prefix in route_prefixes %}
 {% if route_prefix | length > 0 and route_prefix | length not in haproxy_route_prefix_lengths.values %}
 {% set haproxy_route_prefix_lengths.values = haproxy_route_prefix_lengths.values + [route_prefix | length] %}
 {% endif %}
+{% endfor %}
 {% endfor %}
 
 {% set haproxy_auth_prefix_lengths = namespace(values=[]) %}
@@ -133,15 +135,17 @@ frontend web
 {% endif %}
 {% for prefix_length in haproxy_route_prefix_lengths.values | sort(reverse=true) %}
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
-{% set route_prefix = route.prefix | default('', true) | string | trim %}
+{% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
+{% for route_prefix in route_prefixes | sort %}
 {% if not haproxy_alb_redirect_all_http | default(false) | bool and route_prefix | length == prefix_length and (route.proto | default('https')) != 'both' and (route.force_https | default(true)) | bool %}
-  http-request redirect scheme https code 301 if !{ ssl_fc } !is_acme {{ route_match(route) }}
+  http-request redirect scheme https code 301 if !{ ssl_fc } !is_acme {{ route_match(route, [route_prefix]) }}
 {% endif %}
 {% endfor %}
 {% endfor %}
+{% endfor %}
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
-{% set route_prefix = route.prefix | default('', true) | string | trim %}
-{% if not haproxy_alb_redirect_all_http | default(false) | bool and route_prefix | length == 0 and (route.proto | default('https')) != 'both' and (route.force_https | default(true)) | bool %}
+{% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
+{% if not haproxy_alb_redirect_all_http | default(false) | bool and route_prefixes | length == 0 and (route.proto | default('https')) != 'both' and (route.force_https | default(true)) | bool %}
   http-request redirect scheme https code 301 if !{ ssl_fc } !is_acme {{ route_match(route) }}
 {% endif %}
 {% endfor %}
@@ -188,15 +192,17 @@ frontend web
   use_backend certbot if is_acme
 {% for prefix_length in haproxy_route_prefix_lengths.values | sort(reverse=true) %}
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
-{% set route_prefix = route.prefix | default('', true) | string | trim %}
+{% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
+{% for route_prefix in route_prefixes | sort %}
 {% if route_prefix | length == prefix_length %}
-  use_backend {{ route.name }} if {{ route_match(route) }}
+  use_backend {{ route.name }} if {{ route_match(route, [route_prefix]) }}
 {% endif %}
 {% endfor %}
 {% endfor %}
+{% endfor %}
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
-{% set route_prefix = route.prefix | default('', true) | string | trim %}
-{% if route_prefix | length == 0 %}
+{% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
+{% if route_prefixes | length == 0 %}
   use_backend {{ route.name }} if {{ route_match(route) }}
 {% endif %}
 {% endfor %}
