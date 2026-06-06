@@ -34,6 +34,26 @@ docker_prometheus_blackbox_modules:
       preferred_ip_protocol: ip4
       tls_config:
         insecure_skip_verify: true
+  http_2xx_get:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      tls_config:
+        insecure_skip_verify: true
+  http_post_json_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: POST
+      preferred_ip_protocol: ip4
+      tls_config:
+        insecure_skip_verify: true
+      headers:
+        Content-Type: application/json
+        User-Agent: blackbox-exporter
+      body: '{}'
 docker_prometheus_blackbox_relabel_configs:
   - source_labels:
       - __address__
