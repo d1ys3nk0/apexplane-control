@@ -50,7 +50,7 @@
 
 - name: Create docker volumes
   community.docker.docker_volume:
-    name: prometheus-data
+    name: '{{ docker_prometheus_data_volume }}'
 
 - name: Check config
   become: true
@@ -114,7 +114,7 @@
     volumes:
       - /opt/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - /opt/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
-      - prometheus-data:/prometheus
+      - '{{ docker_prometheus_data_volume }}:/prometheus'
 
 - name: Configure blackbox exporter
   ansible.builtin.include_tasks: setup_blackbox.yml

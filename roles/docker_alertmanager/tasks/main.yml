@@ -46,7 +46,7 @@
 
 - name: Create docker volumes
   community.docker.docker_volume:
-    name: alertmanager-data
+    name: '{{ docker_alertmanager_data_volume }}'
 
 - name: Start alertmanager container
   community.docker.docker_container:
@@ -67,7 +67,7 @@
     network_mode: host
     volumes:
       - /opt/alertmanager/alertmanager.yml:/config/alertmanager.yml:ro
-      - alertmanager-data:/data
+      - '{{ docker_alertmanager_data_volume }}:/data'
 
 - name: Verify alertmanager container is running
   community.docker.docker_container_info:

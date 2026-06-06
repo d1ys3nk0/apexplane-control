@@ -23,7 +23,7 @@
     name: '{{ item }}'
     driver: local
   loop:
-    - jaeger-data
+    - '{{ docker_jaeger_data_volume }}'
 
 - name: Start jaeger container
   community.docker.docker_container:
@@ -39,7 +39,7 @@
     network_mode: host
     volumes:
       - /opt/jaeger/config.yaml:/jaeger/config.yaml:ro
-      - jaeger-data:/var/jaeger
+      - '{{ docker_jaeger_data_volume }}:/var/jaeger'
 
 - name: Verify jaeger container is running
   community.docker.docker_container_info:

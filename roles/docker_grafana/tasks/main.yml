@@ -54,7 +54,7 @@
 
 - name: Create docker volumes
   community.docker.docker_volume:
-    name: grafana-data
+    name: '{{ docker_grafana_data_volume }}'
 
 - name: Start grafana container
   community.docker.docker_container:
@@ -76,7 +76,7 @@
       - /opt/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
       - /opt/grafana/provisioning:/etc/grafana/provisioning:ro
       - /opt/grafana/dashboards:/etc/grafana/dashboards:ro
-      - grafana-data:/var/lib/grafana
+      - '{{ docker_grafana_data_volume }}:/var/lib/grafana'
 
 - name: Verify grafana container is running
   community.docker.docker_container_info:

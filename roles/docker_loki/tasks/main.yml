@@ -19,7 +19,7 @@
 
 - name: Create docker volumes
   community.docker.docker_volume:
-    name: loki-data
+    name: '{{ docker_loki_data_volume }}'
 
 - name: Start loki container
   community.docker.docker_container:
@@ -35,7 +35,7 @@
     network_mode: host
     volumes:
       - /opt/loki/loki-config.yaml:/mnt/config/loki-config.yaml:ro
-      - loki-data:/loki
+      - '{{ docker_loki_data_volume }}:/loki'
 
 - name: Verify loki container is running
   community.docker.docker_container_info:

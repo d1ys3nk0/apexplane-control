@@ -1,8 +1,9 @@
 ---
 
 docker_grafana_image_name: grafana/grafana-oss
-docker_grafana_image_tag: 13.0.1
+docker_grafana_image_tag: 13.0.2
 docker_grafana_image_full: '{{ docker_grafana_image_name }}:{{ docker_grafana_image_tag }}'
+docker_grafana_data_volume: grafana-data
 docker_grafana_http_listen_port: 3000
 docker_grafana_loki_port: 3100
 docker_grafana_tempo_port: 3200

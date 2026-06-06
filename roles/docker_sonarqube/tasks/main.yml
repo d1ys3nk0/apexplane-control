@@ -20,10 +20,10 @@
   community.docker.docker_volume:
     name: '{{ item }}'
   loop:
-    - sonarqube-data
-    - sonarqube-logs
-    - sonarqube-extensions
-    - sonarqube-pg-data
+    - '{{ docker_sonarqube_data_volume }}'
+    - '{{ docker_sonarqube_logs_volume }}'
+    - '{{ docker_sonarqube_extensions_volume }}'
+    - '{{ docker_sonarqube_postgres_data_volume }}'
 
 - name: Start PostgreSQL container
   community.docker.docker_container:
@@ -41,7 +41,7 @@
     memory_swap: '{{ docker_sonarqube_postgres_mem_swp }}'
     network_mode: host
     volumes:
-      - sonarqube-pg-data:/var/lib/postgresql/data
+      - '{{ docker_sonarqube_postgres_data_volume }}:/var/lib/postgresql/data'
     healthcheck:
       test: [CMD, pg_isready, -d, '{{ docker_sonarqube_postgres_database }}', -U, '{{ docker_sonarqube_postgres_user }}']
       timeout: 2s
@@ -89,9 +89,9 @@
       - nofile:65536:65536
       - nproc:4096:4096
     volumes:
-      - sonarqube-data:/opt/sonarqube/data
-      - sonarqube-extensions:/opt/sonarqube/extensions
-      - sonarqube-logs:/opt/sonarqube/logs
+      - '{{ docker_sonarqube_data_volume }}:/opt/sonarqube/data'
+      - '{{ docker_sonarqube_extensions_volume }}:/opt/sonarqube/extensions'
+      - '{{ docker_sonarqube_logs_volume }}:/opt/sonarqube/logs'
     healthcheck:
       test: [CMD, 'curl', '-fsS', 'http://127.0.0.1:9000/api/system/status']
       timeout: 2s

@@ -26,7 +26,7 @@
     name: '{{ item }}'
     driver: local
   loop:
-    - tempo-data
+    - '{{ docker_tempo_data_volume }}'
   register: docker_tempo_create_volumes
 
 - name: Ensure Tempo volume permissions
@@ -42,7 +42,7 @@
       - 10001:10001
       - /var/tempo
     volumes:
-      - tempo-data:/var/tempo
+      - '{{ docker_tempo_data_volume }}:/var/tempo'
     detach: false
     cleanup: true
   when: docker_tempo_create_volumes.changed
@@ -61,7 +61,7 @@
     network_mode: host
     volumes:
       - /opt/tempo/config.yaml:/etc/tempo.yaml:ro
-      - tempo-data:/var/tempo
+      - '{{ docker_tempo_data_volume }}:/var/tempo'
 
 - name: Verify tempo container is running
   community.docker.docker_container_info:
