@@ -31,6 +31,7 @@
         data: '{{ docker_swarm_pghero_config_data }}'
         state: present
       no_log: '{{ docker_swarm_pghero_nolog }}'
+      when: not ansible_check_mode
 
     - name: Ensure PgHero swarm service created
       community.docker.docker_swarm_service:

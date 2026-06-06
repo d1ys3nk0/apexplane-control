@@ -12,6 +12,24 @@
   loop_control:
     label: '{{ item.name }}'
 
+- name: Inspect service home directories
+  become: true
+  ansible.builtin.stat:
+    path: /home/{{ item.name }}
+  register: iam_service_home_dirs
+  loop: '{{ iam_service_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+  check_mode: false
+
+- name: Store service home directory readiness
+  ansible.builtin.set_fact:
+    iam_service_home_exists_by_user: "{{ iam_service_home_exists_by_user | default({}) | combine({item.item.name: item.stat.exists | bool}) }}"
+  loop: '{{ iam_service_home_dirs.results }}'
+  loop_control:
+    label: '{{ item.item.name }}'
+  changed_when: false
+
 - name: Restrict service home directories
   become: true
   ansible.builtin.file:
@@ -23,6 +41,7 @@
   loop: '{{ iam_service_users }}'
   loop_control:
     label: '{{ item.name }}'
+  when: not ansible_check_mode or iam_service_home_exists_by_user[item.name] | default(false) | bool
 
 - name: Ensure service ssh directories exist
   become: true
@@ -35,10 +54,12 @@
   loop: '{{ iam_service_users }}'
   loop_control:
     label: '{{ item.name }}'
-  when: >
-    item.private_key_file | default('', true) | string | length > 0
-    or item.public_key_file | default('', true) | string | length > 0
-    or item.authorized_key_files | default([], true) | length > 0
+  when:
+    - >
+      item.private_key_file | default('', true) | string | length > 0
+      or item.public_key_file | default('', true) | string | length > 0
+      or item.authorized_key_files | default([], true) | length > 0
+    - not ansible_check_mode or iam_service_home_exists_by_user[item.name] | default(false) | bool
 
 - name: Install service ssh private keys
   become: true
@@ -49,10 +70,13 @@
     group: '{{ item.name }}'
     mode: '0600'
   no_log: '{{ iam_nolog }}'
+  diff: false
   loop: '{{ iam_service_users }}'
   loop_control:
     label: '{{ item.name }}'
-  when: item.private_key_file | default('', true) | string | length > 0
+  when:
+    - item.private_key_file | default('', true) | string | length > 0
+    - not ansible_check_mode or iam_service_home_exists_by_user[item.name] | default(false) | bool
 
 - name: Install service ssh public keys
   become: true
@@ -65,7 +89,9 @@
   loop: '{{ iam_service_users }}'
   loop_control:
     label: '{{ item.name }}'
-  when: item.public_key_file | default('', true) | string | length > 0
+  when:
+    - item.public_key_file | default('', true) | string | length > 0
+    - not ansible_check_mode or iam_service_home_exists_by_user[item.name] | default(false) | bool
 
 - name: Grant service sudo commands
   become: true
@@ -93,3 +119,4 @@
   loop: '{{ iam_service_users }}'
   loop_control:
     label: '{{ item.name }}'
+  when: not ansible_check_mode or iam_service_home_exists_by_user[item.name] | default(false) | bool

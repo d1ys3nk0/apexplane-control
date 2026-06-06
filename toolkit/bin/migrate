@@ -74,6 +74,20 @@ if [ -n "${ANSIBLE_SSH_KEY_PATH:-}" ]; then
     SSH_ARGS+=(--private-key "${ANSIBLE_SSH_KEY_PATH}")
 fi
 
+timestamped_log_path() {
+    local prefix="$1"
+    local path
+
+    while true; do
+        path="${LOG_DIR}/${prefix}$(date -u +%y%m%d%H%M%S).log"
+        if (set -C; : >"${path}") 2>/dev/null; then
+            printf '%s\n' "${path}"
+            return 0
+        fi
+        sleep 1
+    done
+}
+
 archive_current_migration_changed_log() {
     local changed_log_extract_path
 
@@ -81,7 +95,7 @@ archive_current_migration_changed_log() {
         return 0
     fi
 
-    changed_log_extract_path="$(mktemp "${LOG_DIR}/.${TARGET_REALM}-${TARGET_CLUSTER}-migrate-changed.XXXXXX.log")"
+    changed_log_extract_path="$(timestamped_log_path ".${TARGET_REALM}-${TARGET_CLUSTER}-migrate-changed-")"
     if grep -F 'changed:' "${CURRENT_MIGRATION_LOG_PATH}" >"${changed_log_extract_path}"; then
         cat "${changed_log_extract_path}" >>"${CURRENT_MIGRATION_CHANGED_LOG_PATH}"
     fi
@@ -99,7 +113,7 @@ archive_current_migration_changed_log_on_exit() {
 
 start_migration_log() {
     mkdir -p "${LOG_DIR}"
-    CURRENT_MIGRATION_LOG_PATH="$(mktemp "${LOG_DIR}/.${TARGET_REALM}-${TARGET_CLUSTER}-migrate-run.XXXXXX.log")"
+    CURRENT_MIGRATION_LOG_PATH="$(timestamped_log_path ".${TARGET_REALM}-${TARGET_CLUSTER}-migrate-run-")"
     CURRENT_MIGRATION_CHANGED_LOG_PATH="${LOG_DIR}/${TARGET_REALM}-${TARGET_CLUSTER}-migrate.log"
     CURRENT_MIGRATION_CHANGED_ARCHIVED=0
     export ANSIBLE_LOG_PATH="${CURRENT_MIGRATION_LOG_PATH}"

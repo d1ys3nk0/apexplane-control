@@ -26,6 +26,24 @@
   loop_control:
     label: '{{ item.name }}'
 
+- name: Inspect admin home directories
+  become: true
+  ansible.builtin.stat:
+    path: /home/{{ item.name }}
+  register: iam_admin_home_dirs
+  loop: '{{ iam_admin_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+  check_mode: false
+
+- name: Store admin home directory readiness
+  ansible.builtin.set_fact:
+    iam_admin_home_exists_by_user: "{{ iam_admin_home_exists_by_user | default({}) | combine({item.item.name: item.stat.exists | bool}) }}"
+  loop: '{{ iam_admin_home_dirs.results }}'
+  loop_control:
+    label: '{{ item.item.name }}'
+  changed_when: false
+
 - name: Check admin ssh private keys
   become: true
   ansible.builtin.stat:
@@ -46,7 +64,9 @@
   loop: '{{ iam_admin_ssh_private_keys.results }}'
   loop_control:
     label: '{{ item.item.name }}'
-  when: not item.stat.exists
+  when:
+    - not item.stat.exists
+    - not ansible_check_mode or iam_admin_home_exists_by_user[item.item.name] | default(false) | bool
 
 - name: Apply admin .bashrc
   become: true
@@ -60,6 +80,7 @@
   loop: '{{ iam_admin_users }}'
   loop_control:
     label: '{{ item.name }}'
+  when: not ansible_check_mode or iam_admin_home_exists_by_user[item.name] | default(false) | bool
 
 - name: Enable lingering for admin accounts
   become: true

@@ -26,6 +26,7 @@
     group: haproxy
     mode: '0750'
   register: haproxy_alb_list_dir_update
+  when: haproxy_alb_config_dir_ready | bool
 
 - name: Upload HAProxy ALB whitelist files
   become: true
@@ -39,7 +40,9 @@
   loop_control:
     label: '{{ item.key }}'
   register: haproxy_alb_whitelist_upload
-  when: haproxy_alb_not_check_mode | bool or not haproxy_alb_list_dir_update.changed
+  when:
+    - haproxy_alb_config_dir_ready | bool
+    - haproxy_alb_not_check_mode | bool or not haproxy_alb_list_dir_update.changed
 
 - name: Find HAProxy ALB backend fragments
   become: true

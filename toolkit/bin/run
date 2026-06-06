@@ -44,6 +44,20 @@ REMOTE_LOCK_ACQUIRED=0
 REMOTE_LOCKED_BY=""
 export ANSIBLE_FORCE_COLOR="${ANSIBLE_FORCE_COLOR:-1}"
 
+timestamped_log_path() {
+    local prefix="$1"
+    local path
+
+    while true; do
+        path="${LOG_DIR}/${prefix}$(date -u +%y%m%d%H%M%S).log"
+        if (set -C; : >"${path}") 2>/dev/null; then
+            printf '%s\n' "${path}"
+            return 0
+        fi
+        sleep 1
+    done
+}
+
 cleanup() {
     local status=$?
     local changed_log_extract_path
@@ -56,7 +70,7 @@ cleanup() {
         exit "${status}"
     fi
 
-    changed_log_extract_path="$(mktemp "${LOG_DIR}/.${TARGET_REALM}-${TARGET_CLUSTER}-${TARGET_ACTION}-changed.XXXXXX.log")"
+    changed_log_extract_path="$(timestamped_log_path ".${TARGET_REALM}-${TARGET_CLUSTER}-${TARGET_ACTION}-changed-")"
     if grep -F 'changed:' "${RUN_LOG_PATH}" >"${changed_log_extract_path}"; then
         cat "${changed_log_extract_path}" >>"${CHANGED_LOG_PATH}"
     fi
@@ -69,7 +83,7 @@ trap cleanup EXIT
 
 start_run_log() {
     mkdir -p "${LOG_DIR}"
-    RUN_LOG_PATH="$(mktemp "${LOG_DIR}/.${TARGET_REALM}-${TARGET_CLUSTER}-${TARGET_ACTION}-run.XXXXXX.log")"
+    RUN_LOG_PATH="$(timestamped_log_path ".${TARGET_REALM}-${TARGET_CLUSTER}-${TARGET_ACTION}-run-")"
     LOG_STARTED=1
     export ANSIBLE_LOG_PATH="${RUN_LOG_PATH}"
 }

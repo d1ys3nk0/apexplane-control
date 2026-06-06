@@ -141,6 +141,24 @@
         - iam_interactive_mode | bool
         - iam_authorized_keys_destructive_users | length > 0
 
+    - name: Inspect managed authorized SSH key home directories
+      become: true
+      ansible.builtin.stat:
+        path: /home/{{ item }}
+      register: iam_authorized_keys_home_dirs
+      loop: '{{ iam_authorized_keys_install_users }}'
+      loop_control:
+        label: '{{ item }}'
+      check_mode: false
+
+    - name: Store managed authorized SSH key home directory readiness
+      ansible.builtin.set_fact:
+        iam_authorized_keys_home_exists_by_user: "{{ iam_authorized_keys_home_exists_by_user | default({}) | combine({item.item: item.stat.exists | bool}) }}"
+      loop: '{{ iam_authorized_keys_home_dirs.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+      changed_when: false
+
     - name: Ensure managed SSH directories exist
       become: true
       ansible.builtin.file:
@@ -152,6 +170,7 @@
       loop: '{{ iam_authorized_keys_install_users }}'
       loop_control:
         label: '{{ item }}'
+      when: not ansible_check_mode or iam_authorized_keys_home_exists_by_user[item] | default(false) | bool
 
     - name: Install managed authorized SSH keys
       become: true
@@ -164,6 +183,7 @@
       loop: '{{ iam_authorized_keys_install_users }}'
       loop_control:
         label: '{{ item }}'
+      when: not ansible_check_mode or iam_authorized_keys_home_exists_by_user[item] | default(false) | bool
 
     - name: Remove empty managed authorized SSH keys
       become: true
