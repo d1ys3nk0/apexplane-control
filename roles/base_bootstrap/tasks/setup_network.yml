@@ -34,7 +34,11 @@
   when: base_bootstrap_dns_resolver | string | trim | length > 0
 
 - name: Probe configured domains using configured DNS resolver before applying it locally
-  ansible.builtin.command: resolvectl query --legend=no --type=A --server={{ base_bootstrap_dns_resolver }} {{ item.domain }}
+  ansible.builtin.command:
+    argv:
+      - nslookup
+      - '{{ item.domain }}'
+      - '{{ base_bootstrap_dns_resolver }}'
   loop: '{{ base_bootstrap_dns_resolver_checks }}'
   register: base_bootstrap_resolvectl_custom_dns_probe
   failed_when: (item.ip | string) not in base_bootstrap_resolvectl_custom_dns_probe.stdout
