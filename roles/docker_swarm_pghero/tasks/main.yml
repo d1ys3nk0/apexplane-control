@@ -12,6 +12,7 @@
     - docker_swarm_pghero_pg_pass | string | length > 0
 
 - name: Deploy PGHero service from generated config file
+  become: true
   run_once: true
   when: docker_swarm_pghero_enabled | bool
   block:
