@@ -9,8 +9,8 @@
 
 - name: Deploy blackbox exporter configuration
   become: true
-  ansible.builtin.copy:
-    src: blackbox/config.yml
+  ansible.builtin.template:
+    src: blackbox.yml.j2
     dest: /opt/prometheus/blackbox_exporter/config.yml
     owner: '65534'
     group: '65534'

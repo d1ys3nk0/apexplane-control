@@ -50,3 +50,9 @@ scrape_configs:
 
 {{ docker_prometheus_targets | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(2, true) }}
 {% endif %}
+{% if docker_prometheus_blackbox_targets | length > 0 %}
+
+{% for item in docker_prometheus_blackbox_targets %}
+{{ [item | combine({'relabel_configs': item.relabel_configs | default(docker_prometheus_blackbox_relabel_configs)})] | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(2, true) }}
+{% endfor %}
+{% endif %}

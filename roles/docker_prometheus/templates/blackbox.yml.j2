@@ -1,0 +1,4 @@
+---
+
+modules:
+{{ docker_prometheus_blackbox_modules | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(2, true) }}

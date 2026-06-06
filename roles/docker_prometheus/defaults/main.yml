@@ -24,6 +24,27 @@ docker_prometheus_blackbox_image_full: '{{ docker_prometheus_blackbox_image_name
 docker_prometheus_data_volume: prometheus-data
 docker_prometheus_blackbox_container_name: blackbox-exporter
 docker_prometheus_blackbox_config_content: ''
+docker_prometheus_blackbox_targets: []
+docker_prometheus_blackbox_modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: HEAD
+      preferred_ip_protocol: ip4
+      tls_config:
+        insecure_skip_verify: true
+docker_prometheus_blackbox_relabel_configs:
+  - source_labels:
+      - __address__
+    target_label: __param_target
+
+  - source_labels:
+      - __param_target
+    target_label: instance
+
+  - target_label: __address__
+    replacement: 127.0.0.1:9115
 docker_prometheus_loki_host: 127.0.0.1
 docker_prometheus_loki_http_port: 3100
 docker_prometheus_mem_res: 1000M
