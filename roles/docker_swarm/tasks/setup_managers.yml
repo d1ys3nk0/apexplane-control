@@ -1,6 +1,7 @@
 ---
 
 - name: Init a new swarm with default parameters
+  become: true
   community.docker.docker_swarm:
     state: present
     advertise_addr: '{{ docker_swarm_advertise_ip }}'
