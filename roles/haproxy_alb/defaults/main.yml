@@ -4,8 +4,8 @@ haproxy_alb_crowdsec_enabled: false
 haproxy_alb_crowdsec_body_limit: 51200
 haproxy_alb_crowdsec_spoa_port: 9000
 haproxy_alb_certbot_http_port: 40404
-haproxy_alb_certbot_http_dns_wait_retries: 12
-haproxy_alb_certbot_http_dns_wait_delay: 5
+haproxy_alb_certbot_http_dns_wait_retries: 3
+haproxy_alb_certbot_http_dns_wait_delay: 10
 haproxy_alb_stats_port: 8404
 haproxy_alb_prometheus_exporter_port: 8405
 haproxy_alb_redirect_all_http: false
