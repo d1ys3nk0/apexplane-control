@@ -11,6 +11,38 @@
     groups: '{{ iam_provision_user_groups }}'
   no_log: '{{ iam_nolog }}'
 
+- name: Set provision user soft nofile limit
+  become: true
+  community.general.pam_limits:
+    domain: '{{ iam_provision_user_name }}'
+    limit_type: soft
+    limit_item: nofile
+    value: 131072
+
+- name: Set provision user hard nofile limit
+  become: true
+  community.general.pam_limits:
+    domain: '{{ iam_provision_user_name }}'
+    limit_type: hard
+    limit_item: nofile
+    value: 131072
+
+- name: Set provision user soft nproc limit
+  become: true
+  community.general.pam_limits:
+    domain: '{{ iam_provision_user_name }}'
+    limit_type: soft
+    limit_item: nproc
+    value: 8192
+
+- name: Set provision user hard nproc limit
+  become: true
+  community.general.pam_limits:
+    domain: '{{ iam_provision_user_name }}'
+    limit_type: hard
+    limit_item: nproc
+    value: 8192
+
 - name: Inspect provision home directory
   become: true
   ansible.builtin.stat:

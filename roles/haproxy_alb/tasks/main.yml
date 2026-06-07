@@ -195,11 +195,23 @@
     - haproxy_alb_config_dir_ready | bool
     - haproxy_alb_not_check_mode | bool
 
+- name: Gather service facts for legacy HAProxy container migration
+  become: true
+  ansible.builtin.service_facts:
+
+- name: Inspect legacy HAProxy container # TODO: Remove after migration
+  community.docker.docker_container_info:
+    name: haproxy
+  register: haproxy_alb_legacy_container_info
+  when: haproxy_alb_docker_available | bool
+
 - name: Stop legacy HAProxy container # TODO: Remove after migration
   community.docker.docker_container:
     name: haproxy
     state: stopped
-  ignore_errors: true # noqa: ignore-errors
+  when:
+    - haproxy_alb_docker_available | bool
+    - haproxy_alb_legacy_container_info.exists | default(false) | bool
 
 - name: Reload HAProxy
   become: true

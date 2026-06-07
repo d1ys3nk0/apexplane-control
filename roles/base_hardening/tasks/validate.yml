@@ -3,8 +3,6 @@
 - name: Assert base hardening variable contract
   ansible.builtin.assert:
     that:
-      - base_hardening_limits_user is not none
-      - base_hardening_limits_user | string | length > 0
       - base_hardening_user_process_persistence_enabled | type_debug == 'bool'
       - base_hardening_ssh_port | string | length > 0
       - base_hardening_ssh_users is iterable

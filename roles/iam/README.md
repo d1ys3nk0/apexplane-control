@@ -5,6 +5,7 @@ This role manages local administrative, service, and root account state.
 ## Features
 - Configure root user.
 - Configure provision user.
+- Configure provision user PAM resource limits.
 - Configure admin users.
 - Configure service users.
 - Reconcile managed authorized SSH keys.

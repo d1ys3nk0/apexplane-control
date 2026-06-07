@@ -8,35 +8,3 @@
     state: present
     reload: true
   loop: '{{ base_hardening_sysctl_config }}'
-
-- name: Set soft nofile limit
-  become: true
-  community.general.pam_limits:
-    domain: '{{ base_hardening_limits_user }}'
-    limit_type: soft
-    limit_item: nofile
-    value: 131072
-
-- name: Set hard nofile limit
-  become: true
-  community.general.pam_limits:
-    domain: '{{ base_hardening_limits_user }}'
-    limit_type: hard
-    limit_item: nofile
-    value: 131072
-
-- name: Set soft nproc limit
-  become: true
-  community.general.pam_limits:
-    domain: '{{ base_hardening_limits_user }}'
-    limit_type: soft
-    limit_item: nproc
-    value: 8192
-
-- name: Set hard nproc limit
-  become: true
-  community.general.pam_limits:
-    domain: '{{ base_hardening_limits_user }}'
-    limit_type: hard
-    limit_item: nproc
-    value: 8192
