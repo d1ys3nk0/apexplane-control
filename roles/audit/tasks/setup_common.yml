@@ -47,51 +47,147 @@
 
 - name: Check if critical service units exist
   become: true
-  ansible.builtin.stat:
-    path: "/lib/systemd/system/{{ item }}.service"
-  register: audit_service_units
-  loop:
-    - fail2ban
-    - auditd
-    - unattended-upgrades
-    - docker
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - cat
+      - '{{ item }}'
+  register: audit_critical_service_units
+  changed_when: false
+  failed_when: audit_critical_service_units.rc not in [0, 1]
+  loop: '{{ audit_critical_systemd_units }}'
+
+- name: Assert critical service units are installed
+  ansible.builtin.assert:
+    that:
+      - audit_critical_service_unit.rc == 0
+    fail_msg: "{{ audit_critical_service_unit.item }} service unit is not installed."
+  loop: '{{ audit_critical_service_units.results }}'
+  loop_control:
+    loop_var: audit_critical_service_unit
+    label: '{{ audit_critical_service_unit.item }}'
 
 - name: Remember whether Docker service unit exists
   ansible.builtin.set_fact:
     audit_docker_service_unit_exists: >-
       {{
-        audit_service_units.results
+        audit_critical_service_units.results
         | selectattr('item', 'equalto', 'docker')
-        | map(attribute='stat.exists')
+        | map(attribute='rc')
         | first
-        | default(false)
-        | bool
+        | default(1)
+        == 0
       }}
 
-- name: Probe critical service status
+- name: Gather installed systemd service units
   become: true
-  ansible.builtin.systemd:
-    name: "{{ audit_service_unit.item }}"
-    state: started
-    enabled: true
-  check_mode: true
-  register: audit_service_status
-  when: audit_service_unit.stat.exists
-  loop: "{{ audit_service_units.results }}"
-  loop_control:
-    loop_var: audit_service_unit
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - list-unit-files
+      - --type=service
+      - --no-legend
+      - --no-pager
+  register: audit_systemd_unit_files
+  changed_when: false
 
-- name: Assert critical services are active and enabled
+- name: Verify auto-started installed services are active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - '{{ audit_service_unit_file.split()[0] }}'
+  register: audit_service_active
+  changed_when: false
+  failed_when: false
+  when:
+    - audit_service_unit_file.split() | length >= 2
+    - audit_service_unit_file.split()[1] in audit_running_systemd_unit_file_states
+  loop: '{{ audit_systemd_unit_files.stdout_lines }}'
+  loop_control:
+    loop_var: audit_service_unit_file
+    label: '{{ audit_service_unit_file.split()[0] }}'
+
+- name: Assert auto-started installed services are active
   ansible.builtin.assert:
     that:
-      - not audit_service_status_result.changed
-    fail_msg: "{{ audit_service_status_result.audit_service_unit.item }} is not active or not enabled."
-  loop: "{{ audit_service_status.results }}"
+      - audit_service_active_result.rc == 0
+    fail_msg: "{{ audit_service_active_result.audit_service_unit_file.split()[0] }} is configured to start but is not active."
+  loop: '{{ audit_service_active.results }}'
   loop_control:
-    loop_var: audit_service_status_result
+    loop_var: audit_service_active_result
+    label: '{{ audit_service_active_result.audit_service_unit_file.split()[0] }}'
   when:
     - not ansible_check_mode
-    - audit_service_status_result.audit_service_unit.stat.exists
+    - not audit_service_active_result.skipped | default(false)
+
+- name: Check installed services failed state
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-failed
+      - '{{ audit_service_unit_file.split()[0] }}'
+  register: audit_service_failed_state
+  changed_when: false
+  failed_when: audit_service_failed_state.rc not in [0, 1]
+  when: audit_service_unit_file.split() | length >= 2
+  loop: '{{ audit_systemd_unit_files.stdout_lines }}'
+  loop_control:
+    loop_var: audit_service_unit_file
+    label: '{{ audit_service_unit_file.split()[0] }}'
+
+- name: Assert installed services are not failed
+  ansible.builtin.assert:
+    that:
+      - audit_service_failed_state_result.rc == 1
+    fail_msg: "{{ audit_service_failed_state_result.audit_service_unit_file.split()[0] }} is failed."
+  loop: "{{ audit_service_failed_state.results }}"
+  loop_control:
+    loop_var: audit_service_failed_state_result
+    label: '{{ audit_service_failed_state_result.audit_service_unit_file.split()[0] }}'
+  when:
+    - not ansible_check_mode
+    - not audit_service_failed_state_result.skipped | default(false)
+
+- name: Gather recent installed service journal logs
+  become: true
+  ansible.builtin.command:
+    argv:
+      - journalctl
+      - -u
+      - '{{ audit_service_unit_file.split()[0] }}'
+      - --since
+      - '{{ audit_systemd_log_since_journal }}'
+      - --no-pager
+      - -o
+      - short-iso
+  register: audit_service_journal_logs
+  failed_when: audit_service_journal_logs.rc not in [0, 1]
+  changed_when: false
+  when: audit_service_unit_file.split() | length >= 2
+  loop: '{{ audit_systemd_unit_files.stdout_lines }}'
+  loop_control:
+    loop_var: audit_service_unit_file
+    label: '{{ audit_service_unit_file.split()[0] }}'
+
+- name: Assert recent installed service journals contain no error patterns
+  ansible.builtin.assert:
+    that:
+      - _audit_log_matches | length == 0
+    fail_msg: |-
+      Recent journal logs for {{ item.audit_service_unit_file.split()[0] }} contain error patterns:
+      {{ (_audit_log_matches[: audit_log_match_limit | int]) | join('\n') }}
+  vars:
+    _audit_log_matches: >-
+      {{ item.stdout_lines | select('search', audit_log_error_regex) | reject('search', audit_log_ignore_regex) | list }}
+  loop: '{{ audit_service_journal_logs.results | default([]) }}'
+  loop_control:
+    label: '{{ item.audit_service_unit_file.split()[0] }}'
+  when:
+    - not ansible_check_mode
+    - not item.skipped | default(false)
 
 - name: Check if apt-daily-upgrade timer unit exists
   become: true
