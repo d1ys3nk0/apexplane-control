@@ -104,6 +104,7 @@
   changed_when: false
   when:
     - audit_service_unit_file.split() | length >= 2
+    - "'@.' not in audit_service_unit_file.split()[0]"
     - audit_service_unit_file.split()[1] in audit_running_systemd_unit_file_states
   loop: '{{ audit_systemd_unit_files.stdout_lines }}'
   loop_control:
@@ -153,7 +154,9 @@
   register: audit_service_failed_state
   changed_when: false
   failed_when: audit_service_failed_state.rc not in [0, 1]
-  when: audit_service_unit_file.split() | length >= 2
+  when:
+    - audit_service_unit_file.split() | length >= 2
+    - "'@.' not in audit_service_unit_file.split()[0]"
   loop: '{{ audit_systemd_unit_files.stdout_lines }}'
   loop_control:
     loop_var: audit_service_unit_file
@@ -187,7 +190,9 @@
   register: audit_service_journal_logs
   failed_when: audit_service_journal_logs.rc not in [0, 1]
   changed_when: false
-  when: audit_service_unit_file.split() | length >= 2
+  when:
+    - audit_service_unit_file.split() | length >= 2
+    - "'@.' not in audit_service_unit_file.split()[0]"
   loop: '{{ audit_systemd_unit_files.stdout_lines }}'
   loop_control:
     loop_var: audit_service_unit_file
