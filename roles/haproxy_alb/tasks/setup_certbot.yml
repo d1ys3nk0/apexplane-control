@@ -126,7 +126,9 @@
       - --domains
       - '{{ haproxy_alb_http_cert_item.domain_arg }}'
       - --no-directory-hooks
-  changed_when: true
+  register: haproxy_alb_certbot_http_issue
+  changed_when: haproxy_alb_certbot_http_issue.rc == 0
+  failed_when: false
   loop: '{{ haproxy_alb_automatic_ssl_cert_items | default([]) }}'
   loop_control:
     extended: true
