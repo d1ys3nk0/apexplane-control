@@ -128,7 +128,7 @@
       - --no-directory-hooks
   register: haproxy_alb_certbot_http_issue
   changed_when: haproxy_alb_certbot_http_issue.rc == 0
-  failed_when: false
+  ignore_errors: true # noqa: ignore-errors
   loop: '{{ haproxy_alb_automatic_ssl_cert_items | default([]) }}'
   loop_control:
     extended: true
@@ -217,6 +217,11 @@
   ansible.builtin.shell:
     cmd: |
       set -euo pipefail
+      if [ ! -f "{{ item.lineage_path }}/privkey.pem" ] || [ ! -f "{{ item.lineage_path }}/fullchain.pem" ]; then
+          echo SKIPPED_MISSING_LINEAGE
+          exit 0
+      fi
+
       tmp_file=$(mktemp "{{ item.path }}.tmp.XXXXXX")
       trap 'rm -f "${tmp_file}"' EXIT
       sed '/^$/d' "{{ item.lineage_path }}/privkey.pem" "{{ item.lineage_path }}/fullchain.pem" >"${tmp_file}"
@@ -300,12 +305,24 @@
           | map('basename')
           | reject('match', '^_')
           | sort
-        ) == (haproxy_alb_ssl_cert_items | map(attribute='basename') | list | sort)
+        ) | difference(haproxy_alb_ssl_cert_items | map(attribute='basename') | list) | length == 0
     fail_msg: >-
-      /etc/ssl/haproxy must contain exactly the desired HAProxy SSL certificate files.
-      Expected: {{ haproxy_alb_ssl_cert_items | map(attribute='basename') | list | sort }}.
+      /etc/ssl/haproxy contains files unmanaged by haproxy_alb_certs.
+      Expected subset of: {{ haproxy_alb_ssl_cert_items | map(attribute='basename') | list | sort }}.
       Found: {{ haproxy_alb_ssl_cert_files_after_cleanup.files | map(attribute='path') | map('basename') | reject('match', '^_') | sort }}.
   when: haproxy_alb_manage_certs_now | bool
+
+- name: Print missing automatic HAProxy SSL certificate lineages
+  ansible.builtin.debug:
+    msg: >-
+      Skipping HAProxy PEM install for {{ item.item.name }} because Certbot did not provide
+      {{ item.item.lineage_path }}/privkey.pem and {{ item.item.lineage_path }}/fullchain.pem.
+  loop: '{{ haproxy_alb_ssl_cert_install.results | default([]) }}'
+  loop_control:
+    label: '{{ item.item.name }}'
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - "'SKIPPED_MISSING_LINEAGE' in (item.stdout | default(''))"
 
 - name: Check HAProxy SSL certificate domain coverage
   become: true
@@ -340,7 +357,7 @@
   register: haproxy_alb_ssl_cert_domain_checks
   changed_when: false
   failed_when: false
-  loop: '{{ haproxy_alb_ssl_cert_items | default([]) }}'
+  loop: '{{ haproxy_alb_installed_ssl_cert_items | default([]) }}'
   loop_control:
     label: '{{ item.path }}'
   when: haproxy_alb_manage_certs_now | bool
@@ -350,9 +367,11 @@
     that:
       - haproxy_alb_ssl_cert_domain_checks.results | map(attribute='stdout') | map('trim') | list | difference(['MATCH']) | length == 0
     fail_msg: >-
-      Every HAProxy SSL certificate in haproxy_alb_certs must cover its configured domains.
+      Every installed HAProxy SSL certificate managed by haproxy_alb_certs must cover its configured domains.
       Results: {{ haproxy_alb_ssl_cert_domain_checks.results | map(attribute='stdout_lines') | list }}.
-  when: haproxy_alb_manage_certs_now | bool
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_installed_ssl_cert_items | length > 0
 
 - name: Validate HAProxy configs after SSL certificate changes
   become: true
@@ -404,7 +423,7 @@
       - -enddate
       - -checkend
       - '2592000'
-  loop: '{{ haproxy_alb_ssl_cert_items | default([]) }}'
+  loop: '{{ haproxy_alb_installed_ssl_cert_items | default([]) }}'
   loop_control:
     label: '{{ item.path }}'
   register: haproxy_alb_ssl_cert_expiry_checks
@@ -424,5 +443,7 @@
   ansible.builtin.assert:
     that:
       - haproxy_alb_ssl_cert_expiry_checks.results | map(attribute='rc') | max == 0
-    fail_msg: "Every HAProxy SSL certificate in haproxy_alb_certs must exist in /etc/ssl/haproxy and expire in more than 30 days. Results: {{ haproxy_alb_ssl_cert_expiry_checks.results | map(attribute='stdout_lines') | list }}"
-  when: haproxy_alb_manage_certs_now | bool
+    fail_msg: "Every installed HAProxy SSL certificate managed by haproxy_alb_certs must expire in more than 30 days. Results: {{ haproxy_alb_ssl_cert_expiry_checks.results | map(attribute='stdout_lines') | list }}"
+  when:
+    - haproxy_alb_manage_certs_now | bool
+    - haproxy_alb_installed_ssl_cert_items | length > 0

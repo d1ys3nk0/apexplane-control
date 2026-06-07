@@ -90,3 +90,20 @@ def test_haproxy_alb_wildcard_certs_are_existing_pem_contract() -> None:
     assert 'openssl x509 -in "{{ item.path }}" -noout -ext subjectAltName' in setup_certbot
     assert "loop: '{{ haproxy_alb_automatic_ssl_cert_items | default([]) }}'" in setup_certbot
     assert "certbot_dns.yml" not in setup_certbot
+
+
+def test_haproxy_alb_http_certbot_failures_are_ignored_after_reporting_failure() -> None:
+    tasks = yaml.safe_load((HAPROXY_ALB_DIR / "tasks" / "setup_certbot.yml").read_text(encoding="utf-8"))
+    certbot_task = next(
+        task for task in tasks if task["name"] == "Obtain non-wildcard Let's Encrypt certificates using http challenge"
+    )
+
+    assert certbot_task["ignore_errors"] is True
+    assert "failed_when" not in certbot_task
+
+
+def test_haproxy_alb_installs_only_existing_automatic_certbot_lineages() -> None:
+    setup_certbot = (HAPROXY_ALB_DIR / "tasks" / "setup_certbot.yml").read_text(encoding="utf-8")
+
+    assert "SKIPPED_MISSING_LINEAGE" in setup_certbot
+    assert "loop: '{{ haproxy_alb_installed_ssl_cert_items | default([]) }}'" in setup_certbot

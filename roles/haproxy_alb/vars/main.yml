@@ -116,3 +116,5 @@ haproxy_alb_ssl_cert_changed: '{{ (haproxy_alb_ssl_cert_install is defined and h
 haproxy_alb_ssl_cert_changed_now: '{{ haproxy_alb_ssl_cert_changed | bool and haproxy_alb_not_check_mode | bool }}'
 haproxy_alb_manual_ssl_cert_reload_needed: '{{ haproxy_alb_manage_certs_now | bool and (haproxy_alb_manual_ssl_cert_items | default([]) | length > 0) }}'
 haproxy_alb_ssl_cert_reload_needed: '{{ haproxy_alb_ssl_cert_changed_now | bool or haproxy_alb_manual_ssl_cert_reload_needed | bool }}'
+haproxy_alb_installed_ssl_cert_basenames: "{{ haproxy_alb_ssl_cert_files_after_cleanup.files | default([]) | map(attribute='path') | map('basename') | list }}"
+haproxy_alb_installed_ssl_cert_items: "{{ haproxy_alb_ssl_cert_items | selectattr('basename', 'in', haproxy_alb_installed_ssl_cert_basenames) | list }}"
