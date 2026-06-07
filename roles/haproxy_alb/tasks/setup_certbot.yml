@@ -1,58 +1,5 @@
 ---
 
-- name: Initialize HAProxy SSL certificate metadata
-  ansible.builtin.set_fact:
-    haproxy_alb_ssl_cert_items: []
-  when: haproxy_alb_manage_certs | bool
-
-- name: Derive HAProxy SSL certificate metadata
-  ansible.builtin.set_fact:
-    haproxy_alb_ssl_cert_items: '{{ haproxy_alb_ssl_cert_items + [_cert_item] }}'
-  vars:
-    _cert_domains: "{{ ([item.value] if item.value is string else item.value) | sort }}"
-    _cert_domain_arg: '{{ _cert_domains | join(",") }}'
-    _cert_hash: '{{ _cert_domain_arg | hash("md5") }}'
-    _cert_basename: '{{ item.key }}-{{ _cert_hash }}.pem'
-    _cert_item:
-      name: '{{ item.key }}'
-      domains: '{{ _cert_domains }}'
-      domain_arg: '{{ _cert_domain_arg }}'
-      has_wildcard: "{{ (_cert_domains | select('match', '^[*][.]') | list | length) > 0 }}"
-      hash: '{{ _cert_hash }}'
-      basename: '{{ _cert_basename }}'
-      path: /etc/ssl/haproxy/{{ _cert_basename }}
-      lineage_path: /etc/letsencrypt/live/{{ item.key }}
-  loop: "{{ haproxy_alb_certs | dict2items | sort(attribute='key') }}"
-  loop_control:
-    label: '{{ item.key }}'
-  when: haproxy_alb_manage_certs | bool
-
-- name: Initialize HAProxy SSL certificate management groups
-  ansible.builtin.set_fact:
-    haproxy_alb_automatic_ssl_cert_items: []
-    haproxy_alb_manual_ssl_cert_items: []
-  when: haproxy_alb_manage_certs | bool
-
-- name: Store automatic HAProxy SSL certificate metadata
-  ansible.builtin.set_fact:
-    haproxy_alb_automatic_ssl_cert_items: '{{ haproxy_alb_automatic_ssl_cert_items + [item] }}'
-  loop: '{{ haproxy_alb_ssl_cert_items | default([]) }}'
-  loop_control:
-    label: '{{ item.name }}'
-  when:
-    - haproxy_alb_manage_certs | bool
-    - not (item.has_wildcard | bool)
-
-- name: Store manually managed HAProxy SSL certificate metadata
-  ansible.builtin.set_fact:
-    haproxy_alb_manual_ssl_cert_items: '{{ haproxy_alb_manual_ssl_cert_items + [item] }}'
-  loop: '{{ haproxy_alb_ssl_cert_items | default([]) }}'
-  loop_control:
-    label: '{{ item.name }}'
-  when:
-    - haproxy_alb_manage_certs | bool
-    - item.has_wildcard | bool
-
 - name: Install Certbot for automatic HAProxy certificates
   become: true
   ansible.builtin.apt:
@@ -161,7 +108,25 @@
     - haproxy_alb_current_renewal_conf_exists | bool
 
 - name: Obtain non-wildcard Let's Encrypt certificates using http challenge
-  ansible.builtin.include_tasks: certbot_http.yml
+  become: true
+  ansible.builtin.command:
+    argv:
+      - certbot
+      - certonly
+      - --non-interactive
+      - --keep-until-expiring
+      - --renew-with-new-domains
+      - --agree-tos
+      - --standalone
+      - --http-01-port={{ haproxy_alb_certbot_http_port }}
+      - --email
+      - '{{ haproxy_alb_certbot_email }}'
+      - --cert-name
+      - '{{ haproxy_alb_http_cert_item.name }}'
+      - --domains
+      - '{{ haproxy_alb_http_cert_item.domain_arg }}'
+      - --no-directory-hooks
+  changed_when: true
   loop: '{{ haproxy_alb_automatic_ssl_cert_items | default([]) }}'
   loop_control:
     extended: true

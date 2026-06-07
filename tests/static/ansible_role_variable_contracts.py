@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
@@ -139,6 +140,7 @@ IGNORED_JINJA_NAMES = {
     "salt",
     "select",
     "selectattr",
+    "set",
     "sort",
     "subelements",
     "string",
@@ -314,11 +316,38 @@ def _set_fact_keys(task: Mapping[object, object]) -> set[str]:
     return keys
 
 
+def _set_fact_items(task: Mapping[object, object]) -> Iterator[tuple[str, object]]:
+    for module_name in ("ansible.builtin.set_fact", "set_fact"):
+        module_args = task.get(module_name)
+        if isinstance(module_args, Mapping):
+            yield from (
+                (key, value)
+                for key, value in cast("Mapping[object, object]", module_args).items()
+                if isinstance(key, str) and key != "cacheable"
+            )
+
+
 def _top_level_yaml_keys(path: Path) -> set[str]:
+    if not path.is_file():
+        return set()
     data = _load_yaml(path)
     if not isinstance(data, Mapping):
         return set()
     return {key for key in data if isinstance(key, str)}
+
+
+def _iter_task_mappings(value: object) -> Iterator[Mapping[object, object]]:
+    if isinstance(value, list):
+        for item in value:
+            yield from _iter_task_mappings(item)
+        return
+    if not isinstance(value, Mapping):
+        return
+
+    task = cast("Mapping[object, object]", value)
+    yield task
+    for nested_key in ("block", "rescue", "always"):
+        yield from _iter_task_mappings(task.get(nested_key))
 
 
 def _collect_local_variables(value: object) -> set[str]:
@@ -554,6 +583,34 @@ def _nolog_contract_errors(role_dir: Path, repo_root: Path, defaults: DefaultsCo
     return errors
 
 
+def _task_accumulation_errors(role_dir: Path, repo_root: Path) -> list[str]:
+    vars_declared = _top_level_yaml_keys(role_dir / "vars" / "main.yml")
+    accumulation_counts: Counter[str] = Counter()
+    accumulation_paths: dict[str, Path] = {}
+
+    for path in _iter_role_files(role_dir):
+        if "tasks" not in path.relative_to(role_dir).parts or path.suffix not in YAML_SUFFIXES:
+            continue
+        data = _load_yaml(path)
+        if data is None:
+            continue
+        for task in _iter_task_mappings(data):
+            for name, value in _set_fact_items(task):
+                if not isinstance(value, str):
+                    continue
+                if re.search(rf"\b{re.escape(name)}\b\s*\+", value) is None:
+                    continue
+                accumulation_counts[name] += 1
+                accumulation_paths.setdefault(name, path)
+
+    return [
+        f"{_rel_path(accumulation_paths[name], repo_root)}:{_line_number_for(accumulation_paths[name], name)}: "
+        f"derive repeated accumulated variable {name} in roles/{role_dir.name}/vars/main.yml"
+        for name, count in sorted(accumulation_counts.items())
+        if count > 1 and name not in vars_declared
+    ]
+
+
 def _role_errors(role_dir: Path, repo_root: Path, env: Environment) -> list[str]:
     role_name = role_dir.name
     role_prefix = f"{role_name}_"
@@ -596,6 +653,7 @@ def _role_errors(role_dir: Path, repo_root: Path, env: Environment) -> list[str]
     errors.extend(_cluster_context_naming_errors(role_dir, repo_root, defaults))
     errors.extend(_swarm_service_mode_contract_errors(role_dir, repo_root, defaults))
     errors.extend(_nolog_contract_errors(role_dir, repo_root, defaults))
+    errors.extend(_task_accumulation_errors(role_dir, repo_root))
     return errors
 
 

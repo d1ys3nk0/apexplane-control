@@ -47,6 +47,7 @@ Prefer these role task files when relevant:
 - Define role-prefixed variables, then map global values into them where needed.
 - Define user-provided role inputs in the role's `defaults/main.yml`.
 - Define dynamic or derived role variables in `vars/main.yml`; keep `defaults/main.yml` limited to values expected to be passed by a caller.
+- Derive deterministic lists, maps, and other dynamic values in `vars/main.yml` when task files need the value more than once; avoid repeated task-side `set_fact` accumulation for the same derived value.
 - Put reusable or complex task conditions in dynamic role variables under `vars/main.yml`, then reference those variables directly from `when:` clauses.
 - For grouped optional feature inputs, derive both `<feature>_requested` and `<feature>_enabled` in `vars/main.yml`: requested means any grouped input is set, enabled means every required grouped input is set. Validate that the booleans are equal in `tasks/validate.yml`, and gate feature tasks/templates on `<feature>_enabled`.
 - Give required variables `~` defaults and validate them in `tasks/validate.yml`.

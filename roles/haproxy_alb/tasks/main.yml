@@ -195,6 +195,11 @@
     - haproxy_alb_config_dir_ready | bool
     - haproxy_alb_not_check_mode | bool
 
+- name: Stop legacy HAProxy container # TODO: Remove after migration
+  community.docker.docker_container:
+    name: haproxy
+    state: stopped
+
 - name: Reload HAProxy
   become: true
   ansible.builtin.systemd:
@@ -211,6 +216,10 @@
       - haproxy
   register: haproxy_alb_reload_service_health
   changed_when: false
+  when: haproxy_alb_config_changed | bool
+
+- name: Verify HAProxy ALB
+  ansible.builtin.include_tasks: verify.yml
   when: haproxy_alb_config_changed | bool
 
 - name: Get Let's Encrypt certificates using Certbot

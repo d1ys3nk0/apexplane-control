@@ -6,6 +6,86 @@ haproxy_alb_nolog: '{{ (haproxy_alb_ci_mode | bool) and not (haproxy_alb_debug_m
 haproxy_alb_interactive_mode: "{{ lookup('env', 'INTERACTIVE') | default('1', true) | lower not in ['0', 'false'] }}"
 haproxy_alb_letsencrypt_enabled: '{{ haproxy_alb_certs | default({}) | length > 0 }}'
 haproxy_alb_manage_certs: '{{ haproxy_alb_certs is defined and haproxy_alb_certs | length > 0 }}'
+haproxy_alb_ssl_cert_items: >-
+  {%- set _cert_items = [] -%}
+  {%- for _cert in haproxy_alb_certs | default({}) | dict2items | sort(attribute='key') -%}
+    {%- set _cert_domains = ([_cert.value] if _cert.value is string else _cert.value) | map('string') | sort -%}
+    {%- set _cert_domain_arg = _cert_domains | join(',') -%}
+    {%- set _cert_hash = _cert_domain_arg | hash('md5') -%}
+    {%- set _cert_basename = _cert.key ~ '-' ~ _cert_hash ~ '.pem' -%}
+    {%- set _ = _cert_items.append({
+      'name': _cert.key,
+      'domains': _cert_domains,
+      'domain_arg': _cert_domain_arg,
+      'has_wildcard': (_cert_domains | select('match', '^[*][.]') | list | length) > 0,
+      'hash': _cert_hash,
+      'basename': _cert_basename,
+      'path': '/etc/ssl/haproxy/' ~ _cert_basename,
+      'lineage_path': '/etc/letsencrypt/live/' ~ _cert.key,
+    }) -%}
+  {%- endfor -%}
+  {{ _cert_items }}
+haproxy_alb_automatic_ssl_cert_items: "{{ haproxy_alb_ssl_cert_items | rejectattr('has_wildcard') | list }}"
+haproxy_alb_manual_ssl_cert_items: "{{ haproxy_alb_ssl_cert_items | selectattr('has_wildcard') | list }}"
+haproxy_alb_has_automatic_cert: '{{ haproxy_alb_automatic_ssl_cert_items | length > 0 }}'
+haproxy_alb_domain_prefix_key_separator: '::'
+haproxy_alb_route_domain_prefix_keys: >-
+  {%- set _keys = [] -%}
+  {%- for _route in haproxy_alb_routes | default([]) -%}
+    {%- set _domains = [_route.domain] if _route.domain is string else _route.domain -%}
+    {%- set _prefixes = [''] if _route.prefix is not defined or _route.prefix is none or (_route.prefix is string and _route.prefix | trim | length == 0) else ([_route.prefix | string | trim] if _route.prefix is string else (_route.prefix | map('string') | map('trim') | list)) -%}
+    {%- for _key in _domains | product(_prefixes) | map('join', haproxy_alb_domain_prefix_key_separator) | list -%}
+      {%- set _ = _keys.append(_key) -%}
+    {%- endfor -%}
+  {%- endfor -%}
+  {{ _keys }}
+haproxy_alb_auth_domain_prefix_keys: >-
+  {%- set _keys = [] -%}
+  {%- for _auth_rule in haproxy_alb_auth | default([]) -%}
+    {%- set _domains = [_auth_rule.domain] if _auth_rule.domain is string else _auth_rule.domain -%}
+    {%- set _trimmed_prefix = _auth_rule.prefix | default('', true) | string | trim -%}
+    {%- for _key in _domains | map('regex_replace', '$', haproxy_alb_domain_prefix_key_separator ~ _trimmed_prefix) | list -%}
+      {%- set _ = _keys.append(_key) -%}
+    {%- endfor -%}
+  {%- endfor -%}
+  {{ _keys }}
+haproxy_alb_throttle_domain_prefix_keys: >-
+  {%- set _keys = [] -%}
+  {%- for _throttle in haproxy_alb_throttles | default([]) -%}
+    {%- set _domains = [_throttle.domain] if _throttle.domain is string else _throttle.domain -%}
+    {%- set _trimmed_prefix = _throttle.prefix | string | trim -%}
+    {%- for _key in _domains | map('regex_replace', '$', haproxy_alb_domain_prefix_key_separator ~ _trimmed_prefix) | list -%}
+      {%- set _ = _keys.append(_key) -%}
+    {%- endfor -%}
+  {%- endfor -%}
+  {{ _keys }}
+haproxy_alb_dns_validation_domains: >-
+  {%- set _domains = [] -%}
+  {%- for _cert in haproxy_alb_certs | default({}) | dict2items | sort(attribute='key') -%}
+    {%- set _cert_domains = ([_cert.value] if _cert.value is string else _cert.value) | map('string') | map('trim') | reject('match', '^[*][.]') | list -%}
+    {%- for _domain in _cert_domains -%}
+      {%- set _ = _domains.append(_domain) -%}
+    {%- endfor -%}
+  {%- endfor -%}
+  {%- for _route in haproxy_alb_routes | default([]) -%}
+    {%- set _route_domains = ([_route.domain] if _route.domain is string else _route.domain) | map('string') | map('trim') | list -%}
+    {%- for _domain in _route_domains -%}
+      {%- set _ = _domains.append(_domain) -%}
+    {%- endfor -%}
+  {%- endfor -%}
+  {%- for _auth_rule in haproxy_alb_auth | default([]) -%}
+    {%- set _auth_domains = ([_auth_rule.domain] if _auth_rule.domain is string else _auth_rule.domain) | map('string') | map('trim') | list -%}
+    {%- for _domain in _auth_domains -%}
+      {%- set _ = _domains.append(_domain) -%}
+    {%- endfor -%}
+  {%- endfor -%}
+  {%- for _throttle in haproxy_alb_throttles | default([]) -%}
+    {%- set _throttle_domains = ([_throttle.domain] if _throttle.domain is string else _throttle.domain) | map('string') | map('trim') | list -%}
+    {%- for _domain in _throttle_domains -%}
+      {%- set _ = _domains.append(_domain) -%}
+    {%- endfor -%}
+  {%- endfor -%}
+  {{ _domains | unique | sort }}
 haproxy_alb_not_check_mode: '{{ not ansible_check_mode }}'
 haproxy_alb_manage_certs_now: '{{ haproxy_alb_manage_certs | bool and haproxy_alb_not_check_mode | bool }}'
 haproxy_alb_crowdsec_disabled: '{{ not (haproxy_alb_crowdsec_enabled | bool) }}'

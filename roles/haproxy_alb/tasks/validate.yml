@@ -190,23 +190,6 @@
   loop_control:
     label: '{{ item }}'
 
-- name: Initialize HAProxy ALB automatic certificate flag
-  ansible.builtin.set_fact:
-    haproxy_alb_has_automatic_cert: false
-  when: haproxy_alb_letsencrypt_enabled | bool
-
-- name: Detect HAProxy ALB automatic certificate entries
-  ansible.builtin.set_fact:
-    haproxy_alb_has_automatic_cert: true
-  vars:
-    _cert_domains: "{{ [haproxy_alb_certs[item]] if haproxy_alb_certs[item] is string else haproxy_alb_certs[item] }}"
-  loop: '{{ haproxy_alb_certs.keys() | sort }}'
-  loop_control:
-    label: '{{ item }}'
-  when:
-    - haproxy_alb_letsencrypt_enabled | bool
-    - (_cert_domains | select('match', '^[*][.]') | list | length) == 0
-
 - name: Assert HAProxy ALB Certbot variables are set for automatic certificates
   ansible.builtin.assert:
     that:
@@ -277,21 +260,6 @@
   loop_control:
     label: '{{ item.name }}'
 
-- name: Initialize route identity key list
-  ansible.builtin.set_fact:
-    haproxy_alb_route_domain_prefix_keys: []
-
-- name: Accumulate route (domain, prefix) identity keys
-  ansible.builtin.set_fact:
-    haproxy_alb_route_domain_prefix_keys: '{{ haproxy_alb_route_domain_prefix_keys + _keys }}'
-  vars:
-    _domains: "{{ [item.domain] if item.domain is string else item.domain }}"
-    _prefixes: "{{ [''] if item.prefix is not defined or item.prefix is none or (item.prefix is string and item.prefix | trim | length == 0) else ([item.prefix | string | trim] if item.prefix is string else (item.prefix | map('string') | map('trim') | list)) }}"
-    _keys: "{{ _domains | product(_prefixes) | map('join', '::') | list }}"
-  loop: '{{ haproxy_alb_routes }}'
-  loop_control:
-    label: '{{ item.name }}'
-
 - name: Assert route (domain, prefix) pairs are unique
   ansible.builtin.assert:
     that:
@@ -353,21 +321,6 @@
     label: '{{ item.domain | default("?") }}'
   no_log: '{{ haproxy_alb_nolog }}'
 
-- name: Initialize auth identity key list
-  ansible.builtin.set_fact:
-    haproxy_alb_auth_domain_prefix_keys: []
-
-- name: Accumulate auth (domain, prefix) identity keys
-  ansible.builtin.set_fact:
-    haproxy_alb_auth_domain_prefix_keys: '{{ haproxy_alb_auth_domain_prefix_keys + _keys }}'
-  vars:
-    _domains: "{{ [item.domain] if item.domain is string else item.domain }}"
-    _trimmed_prefix: "{{ item.prefix | default('', true) | string | trim }}"
-    _keys: "{{ _domains | map('regex_replace', '$', '::' ~ _trimmed_prefix) | list }}"
-  loop: '{{ haproxy_alb_auth | default([]) }}'
-  loop_control:
-    label: '{{ item.domain | default("?") }}'
-
 - name: Assert auth (domain, prefix) pairs are unique
   ansible.builtin.assert:
     that:
@@ -410,26 +363,26 @@
       - haproxy_alb_throttles | map(attribute='name') | list | unique | length == haproxy_alb_throttles | length
     fail_msg: haproxy_alb_throttles contains duplicate name values
 
-- name: Initialize throttle identity key list
-  ansible.builtin.set_fact:
-    haproxy_alb_throttle_domain_prefix_keys: []
-
-- name: Accumulate throttle (domain, prefix) identity keys
-  ansible.builtin.set_fact:
-    haproxy_alb_throttle_domain_prefix_keys: '{{ haproxy_alb_throttle_domain_prefix_keys + _keys }}'
-  vars:
-    _domains: "{{ [item.domain] if item.domain is string else item.domain }}"
-    _trimmed_prefix: "{{ item.prefix | string | trim }}"
-    _keys: "{{ _domains | map('regex_replace', '$', '::' ~ _trimmed_prefix) | list }}"
-  loop: '{{ haproxy_alb_throttles }}'
-  loop_control:
-    label: '{{ item.name }}'
-
 - name: Assert throttle (domain, prefix) pairs are unique
   ansible.builtin.assert:
     that:
       - haproxy_alb_throttle_domain_prefix_keys | length == haproxy_alb_throttle_domain_prefix_keys | unique | length
     fail_msg: haproxy_alb_throttles contains duplicate (domain, prefix) combinations
+
+- name: Wait for HAProxy ALB domains to resolve using public DNS
+  ansible.builtin.command:
+    argv:
+      - nslookup
+      - '{{ item }}'
+      - 1.1.1.1
+  register: haproxy_alb_dns_validation_lookup
+  changed_when: false
+  until: haproxy_alb_dns_validation_lookup.rc == 0
+  retries: '{{ haproxy_alb_certbot_http_dns_wait_retries }}'
+  delay: '{{ haproxy_alb_certbot_http_dns_wait_delay }}'
+  loop: '{{ haproxy_alb_dns_validation_domains }}'
+  loop_control:
+    label: '{{ item }}'
 
 - name: Assert auth rule headers are non-empty mappings when set
   ansible.builtin.assert:

@@ -1,0 +1,40 @@
+---
+
+- name: Verify HAProxy ALB owns public HTTP and HTTPS listeners
+  become: true
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: |
+      set -euo pipefail
+
+      for port in 80 443; do
+          listener_lines=$(ss -H -ltnp "sport = :${port}" || true)
+          if [ -z "${listener_lines}" ]; then
+              echo "Port ${port} has no TCP listener."
+              exit 1
+          fi
+
+          listener_pids=$(printf '%s\n' "${listener_lines}" | grep -o 'pid=[0-9]\+' | cut -d= -f2 | sort -u)
+          if [ -z "${listener_pids}" ]; then
+              echo "Port ${port} listener process is not visible:"
+              printf '%s\n' "${listener_lines}"
+              exit 1
+          fi
+
+          for listener_pid in ${listener_pids}; do
+              listener_comm=$(cat "/proc/${listener_pid}/comm" 2>/dev/null || true)
+              listener_cgroup=$(cat "/proc/${listener_pid}/cgroup" 2>/dev/null || true)
+              if [ "${listener_comm}" != "haproxy" ] || ! grep -q '/system.slice/haproxy.service' <<<"${listener_cgroup}"; then
+                  echo "Port ${port} is not owned by haproxy.service:"
+                  printf '%s\n' "${listener_lines}"
+                  echo "PID ${listener_pid} command: ${listener_comm:-unknown}"
+                  echo "PID ${listener_pid} cgroup:"
+                  printf '%s\n' "${listener_cgroup:-unknown}"
+                  exit 1
+              fi
+          done
+      done
+
+      echo "haproxy.service owns public listeners on ports 80 and 443."
+  register: haproxy_alb_public_listener_ownership
+  changed_when: false

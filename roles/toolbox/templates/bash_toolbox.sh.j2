@@ -24,6 +24,7 @@ alias mem='free -m'                                                             
 alias vmq='vmstat 1 3'                                                                      # CPU/memory run queue, 1 s x 3
 alias ula='ulimit -a'                                                                       # All shell resource limits
 alias ssnl='ss -lntp'                                                                       # Listening TCP with PIDs
+alias prt='port_info'                                                                       # Show listening socket and process details for a port
 alias ssh-prune='w | awk '\''$5 ~ /days/ {print "/dev/" $2}'\'' | xargs -r sudo fuser -k'   # Kill stale SSH sessions
 alias ftb-unban='sudo fail2ban-client unban --all'
 alias ftb-ssh='sudo fail2ban-client status sshd'
@@ -53,6 +54,62 @@ crontab-list() {
     sudo find /var/spool/cron/crontabs -type f ! -name '.*' -printf '%f\n' 2>/dev/null | sort | while IFS= read -r user; do
         printf '### %s\n' "$user"
         sudo crontab -l -u "$user"
+    done
+}
+
+port_info() {
+    local cmd_prefix=()
+    local info_path
+    local pid
+    local pids
+    local port
+    local sockets
+
+    if [ "$#" -ne 1 ]; then
+        printf 'usage: port_info <port>\n' >&2
+        return 2
+    fi
+
+    port=$1
+    if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        printf 'port_info: expected TCP/UDP port number from 1 to 65535: %s\n' "$port" >&2
+        return 2
+    fi
+
+    if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+        cmd_prefix=(sudo)
+    fi
+
+    sockets=$("${cmd_prefix[@]}" ss -H -ltnup "sport = :$port" 2>/dev/null)
+    if [ -z "$sockets" ]; then
+        printf 'No listening TCP/UDP socket found on port %s.\n' "$port"
+        return 1
+    fi
+
+    printf 'Listening sockets on port %s:\n' "$port"
+    printf '%s\n' "$sockets"
+
+    pids=$(printf '%s\n' "$sockets" | grep -o 'pid=[0-9]\+' | cut -d= -f2 | sort -un)
+    if [ -z "$pids" ]; then
+        printf '\nNo process details were visible. Run as root if socket owners are hidden.\n'
+        return 0
+    fi
+
+    printf '\nProcesses:\n'
+    printf '%s\n' "$pids" | while IFS= read -r pid; do
+        [ -n "$pid" ] || continue
+        ps -p "$pid" -o pid=,ppid=,user=,stat=,etime=,comm=,args= -ww
+
+        for info_path in exe cwd root; do
+            if [ -L "/proc/$pid/$info_path" ]; then
+                printf '  %s: %s\n' "$info_path" "$(readlink -f "/proc/$pid/$info_path" 2>/dev/null || true)"
+            fi
+        done
+
+        if [ -r "/proc/$pid/cgroup" ]; then
+            sed 's/^/  cgroup: /' "/proc/$pid/cgroup"
+        fi
+        printf '\n'
     done
 }
 
