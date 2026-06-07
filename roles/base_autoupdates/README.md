@@ -17,6 +17,7 @@ This role configures unattended package updates.
 ## Configuration
 | Variable | Default |
 | --- | --- |
+| `base_autoupdates_automatic_reboot_enabled` | `false` |
 | `base_autoupdates_maintenance_window` | `''` |
 
 ## Usage

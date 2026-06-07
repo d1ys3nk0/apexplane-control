@@ -91,16 +91,17 @@
   register: audit_systemd_unit_files
   changed_when: false
 
-- name: Verify auto-started installed services are active
+- name: Gather auto-started installed service types
   become: true
   ansible.builtin.command:
     argv:
       - systemctl
-      - is-active
+      - show
+      - --property=Type
+      - --value
       - '{{ audit_service_unit_file.split()[0] }}'
-  register: audit_service_active
+  register: audit_auto_started_service_types
   changed_when: false
-  failed_when: false
   when:
     - audit_service_unit_file.split() | length >= 2
     - audit_service_unit_file.split()[1] in audit_running_systemd_unit_file_states
@@ -109,15 +110,35 @@
     loop_var: audit_service_unit_file
     label: '{{ audit_service_unit_file.split()[0] }}'
 
-- name: Assert auto-started installed services are active
+- name: Verify auto-started long-running installed services are active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - '{{ audit_service_type_result.audit_service_unit_file.split()[0] }}'
+  register: audit_service_active
+  changed_when: false
+  failed_when: false
+  when:
+    - not audit_service_type_result.skipped | default(false)
+    - audit_service_type_result.stdout | trim != 'oneshot'
+  loop: '{{ audit_auto_started_service_types.results }}'
+  loop_control:
+    loop_var: audit_service_type_result
+    label: '{{ audit_service_type_result.audit_service_unit_file.split()[0] }}'
+
+- name: Assert auto-started long-running installed services are active
   ansible.builtin.assert:
     that:
       - audit_service_active_result.rc == 0
-    fail_msg: "{{ audit_service_active_result.audit_service_unit_file.split()[0] }} is configured to start but is not active."
+    fail_msg: >-
+      {{ audit_service_active_result.audit_service_type_result.audit_service_unit_file.split()[0] }}
+      is configured to start but is not active.
   loop: '{{ audit_service_active.results }}'
   loop_control:
     loop_var: audit_service_active_result
-    label: '{{ audit_service_active_result.audit_service_unit_file.split()[0] }}'
+    label: '{{ audit_service_active_result.audit_service_type_result.audit_service_unit_file.split()[0] }}'
   when:
     - not ansible_check_mode
     - not audit_service_active_result.skipped | default(false)

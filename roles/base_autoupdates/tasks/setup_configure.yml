@@ -78,7 +78,7 @@
       };
       Unattended-Upgrade::Remove-Unused-Dependencies "true";
       Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
-      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot "{{ base_autoupdates_automatic_reboot_enabled | bool | ternary('true', 'false') }}";
       Unattended-Upgrade::Automatic-Reboot-Time "{{ base_autoupdates_maintenance_window | regex_search('[0-9]{1,2}:[0-9]{2}') }}";
 
 - name: Configure needrestart to auto-restart services

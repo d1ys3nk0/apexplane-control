@@ -7,7 +7,7 @@ This role installs baseline audit tooling and configuration.
 - Gather effective SSH configuration.
 - Remember whether Docker service unit exists.
 - Assert critical service units are installed.
-- Discover installed service units and assert auto-started services are active.
+- Discover installed service units and assert auto-started long-running services are active.
 - Scan recent installed service journal logs for errors.
 - Probe apt-daily-upgrade timer status.
 - Get current local users from /home.
