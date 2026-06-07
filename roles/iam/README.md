@@ -4,6 +4,7 @@ This role manages local administrative, service, and root account state.
 
 ## Features
 - Configure root user.
+- Configure provision user.
 - Configure admin users.
 - Configure service users.
 - Reconcile managed authorized SSH keys.
@@ -24,8 +25,14 @@ This role manages local administrative, service, and root account state.
 | `iam_admin_linger_enabled` | `false` |
 | `iam_cleanup_mode` | `true` |
 | `iam_interactive_mode` | `<derived>` |
-| `iam_master_pass` | `''` |
-| `iam_master_salt` | `''` |
+| `iam_master_pass` | `~` |
+| `iam_master_salt` | `~` |
+| `iam_provision_user_name` | `iac` |
+| `iam_provision_user_groups` | `[]` |
+| `iam_provision_user_authorized_key_files` | `[]` |
+| `iam_provision_user_private_key_file` | `~` |
+| `iam_provision_user_public_key_file` | `~` |
+| `iam_provision_user_sudo_commands` | `[]` |
 | `iam_admin_users` | `[]` |
 | `iam_service_users` | `[]` |
 

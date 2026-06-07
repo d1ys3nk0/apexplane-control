@@ -2,7 +2,7 @@
 
 - name: Store managed authorized key users
   ansible.builtin.set_fact:
-    iam_authorized_key_users: "{{ iam_admin_users + iam_service_users }}"
+    iam_authorized_key_users: "{{ iam_admin_users + [iam_provision_user] + iam_service_users }}"
 
 - name: Reconcile managed authorized SSH keys
   when: iam_authorized_key_users | length > 0

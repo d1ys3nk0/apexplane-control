@@ -7,13 +7,27 @@
       - iam_admin_linger_enabled | type_debug == 'bool'
       - iam_cleanup_mode | type_debug == 'bool'
       - iam_interactive_mode | type_debug == 'bool'
+      - iam_master_pass is not none
       - iam_master_pass is string
+      - iam_master_salt is not none
       - iam_master_salt is string
+      - iam_master_pass | string | length > 0
+      - iam_master_salt | string | length > 0
+      - iam_provision_user_name is string
+      - iam_provision_user_name | length > 0
+      - iam_provision_user_groups is sequence
+      - iam_provision_user_groups is not string
+      - iam_provision_user_authorized_key_files is sequence
+      - iam_provision_user_authorized_key_files is not string
+      - iam_provision_user_private_key_file is none or iam_provision_user_private_key_file | string | length > 0
+      - iam_provision_user_public_key_file is none or iam_provision_user_public_key_file | string | length > 0
+      - iam_provision_user_sudo_commands is sequence
+      - iam_provision_user_sudo_commands is not string
       - iam_admin_users is iterable
       - iam_admin_users is not string
       - iam_service_users is iterable
       - iam_service_users is not string
-    fail_msg: Define IAM root, admin user, service user, cleanup, and interactive settings before running role iam.
+    fail_msg: Define IAM root, provision user, admin user, service user, cleanup, and interactive settings before running role iam.
 
 - name: Validate IAM admin users
   ansible.builtin.assert:
@@ -26,6 +40,7 @@
       - item.groups | default([], true) is not string
       - item.authorized_key_files | default([], true) is sequence
       - item.authorized_key_files | default([], true) is not string
+      - item.name != iam_provision_user_name
     fail_msg: Each iam_admin_users item must define name, optional groups, and optional authorized_key_files.
   loop: '{{ iam_admin_users }}'
   loop_control:
@@ -46,6 +61,7 @@
       - item.sudo_commands | default([], true) is not string
       - item.private_key_file is not defined or item.private_key_file is none or item.private_key_file | string | length > 0
       - item.public_key_file is not defined or item.public_key_file is none or item.public_key_file | string | length > 0
+      - item.name != iam_provision_user_name
     fail_msg: Each iam_service_users item must define name, optional groups, optional key files, and optional sudo_commands.
   loop: '{{ iam_service_users }}'
   loop_control:

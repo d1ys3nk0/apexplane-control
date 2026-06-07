@@ -4,7 +4,7 @@
   become: true
   ansible.builtin.user:
     name: root
-    password: "{{ (iam_master_pass | string | length > 0 and iam_master_salt | string | length > 0) | ternary(iam_master_pass | password_hash(hashtype='sha512', salt=iam_master_salt), omit) }}"
+    password: '{{ iam_master_password_hash }}'
     shell: /bin/bash
   no_log: '{{ iam_nolog }}'
 

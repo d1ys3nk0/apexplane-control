@@ -4,13 +4,16 @@
   ansible.builtin.include_tasks: validate.yml
 
 - name: Configure root user
-  ansible.builtin.include_tasks: setup_root.yml
+  ansible.builtin.include_tasks: setup_root_user.yml
 
-- name: Configure admin users
-  ansible.builtin.include_tasks: setup_admin_users.yml
+- name: Configure provision user
+  ansible.builtin.include_tasks: setup_provision_user.yml
 
 - name: Configure service users
   ansible.builtin.include_tasks: setup_service_users.yml
+
+- name: Configure admin users
+  ansible.builtin.include_tasks: setup_admin_users.yml
 
 - name: Reconcile authorized SSH keys
   ansible.builtin.include_tasks: setup_authorized_keys.yml

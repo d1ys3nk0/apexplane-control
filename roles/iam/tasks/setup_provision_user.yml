@@ -1,0 +1,92 @@
+---
+
+- name: Create provision account
+  become: true
+  ansible.builtin.user:
+    name: '{{ iam_provision_user_name }}'
+    shell: /bin/bash
+    create_home: true
+    password: '{{ iam_master_password_hash }}'
+    append: true
+    groups: '{{ iam_provision_user_groups }}'
+  no_log: '{{ iam_nolog }}'
+
+- name: Inspect provision home directory
+  become: true
+  ansible.builtin.stat:
+    path: /home/{{ iam_provision_user_name }}
+  register: iam_provision_home_dir
+  check_mode: false
+
+- name: Restrict provision home directory
+  become: true
+  ansible.builtin.file:
+    path: /home/{{ iam_provision_user_name }}
+    state: directory
+    mode: '0750'
+    owner: '{{ iam_provision_user_name }}'
+    group: '{{ iam_provision_user_name }}'
+  when: not ansible_check_mode or iam_provision_home_dir.stat.exists | bool
+
+- name: Ensure provision ssh directory exists
+  become: true
+  ansible.builtin.file:
+    path: /home/{{ iam_provision_user_name }}/.ssh
+    state: directory
+    mode: '0700'
+    owner: '{{ iam_provision_user_name }}'
+    group: '{{ iam_provision_user_name }}'
+  when:
+    - >
+      iam_provision_user_private_key_file | default('', true) | string | length > 0
+      or iam_provision_user_public_key_file | default('', true) | string | length > 0
+      or iam_provision_user_authorized_key_files | length > 0
+    - not ansible_check_mode or iam_provision_home_dir.stat.exists | bool
+
+- name: Install provision ssh private key
+  become: true
+  ansible.builtin.copy:
+    src: '{{ iam_provision_user_private_key_file }}'
+    dest: /home/{{ iam_provision_user_name }}/.ssh/id_rsa
+    owner: '{{ iam_provision_user_name }}'
+    group: '{{ iam_provision_user_name }}'
+    mode: '0600'
+  no_log: '{{ iam_nolog }}'
+  diff: false
+  when:
+    - iam_provision_user_private_key_file | default('', true) | string | length > 0
+    - not ansible_check_mode or iam_provision_home_dir.stat.exists | bool
+
+- name: Install provision ssh public key
+  become: true
+  ansible.builtin.copy:
+    src: '{{ iam_provision_user_public_key_file }}'
+    dest: /home/{{ iam_provision_user_name }}/.ssh/id_rsa.pub
+    owner: '{{ iam_provision_user_name }}'
+    group: '{{ iam_provision_user_name }}'
+    mode: '0644'
+  when:
+    - iam_provision_user_public_key_file | default('', true) | string | length > 0
+    - not ansible_check_mode or iam_provision_home_dir.stat.exists | bool
+
+- name: Grant provision sudo commands
+  become: true
+  ansible.builtin.copy:
+    content: "{{ iam_provision_user_name }} ALL=(ALL) NOPASSWD:{{ iam_provision_user_sudo_commands | join(',') }}\n"
+    dest: /etc/sudoers.d/{{ iam_provision_user_name }}
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+  when: iam_provision_user_sudo_commands | length > 0
+
+- name: Apply provision .bashrc
+  become: true
+  ansible.builtin.copy:
+    remote_src: true
+    src: /etc/skel/.bashrc
+    dest: /home/{{ iam_provision_user_name }}/.bashrc
+    mode: '0644'
+    owner: '{{ iam_provision_user_name }}'
+    group: '{{ iam_provision_user_name }}'
+  when: not ansible_check_mode or iam_provision_home_dir.stat.exists | bool
