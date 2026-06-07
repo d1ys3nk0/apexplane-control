@@ -199,6 +199,7 @@
   community.docker.docker_container:
     name: haproxy
     state: stopped
+  ignore_errors: true # noqa: ignore-errors
 
 - name: Reload HAProxy
   become: true
