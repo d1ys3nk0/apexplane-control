@@ -8,8 +8,6 @@ runtime_pg_backup_s3_enabled: "{{ runtime_pg_backup_s3_access_key | string | len
 runtime_pg_recover_s3_enabled: "{{ runtime_pg_recover_s3_access_key | string | length > 0 and runtime_pg_recover_s3_secret_key | string | length > 0 }}"
 runtime_selected_apps: "{{ runtime_apps | default([], true) | selectattr('enabled', 'undefined') | list + runtime_apps | default([], true) | selectattr('enabled', 'defined') | selectattr('enabled') | list }}"
 runtime_pg_base_items: "{{ runtime_pg_bases | default([], true) }}"
-runtime_pg_provision_items: "{{ runtime_pg_base_items | selectattr('provision', 'undefined') | list + runtime_pg_base_items | selectattr('provision', 'defined') | selectattr('provision') | list }}"
-runtime_pg_provision_requested: "{{ runtime_pg_provision_items | length > 0 }}"
 runtime_unit_secret_items: >-
   {%- set runtime_secret_items = [] -%}
   {%- for runtime_secret_app in runtime_selected_apps -%}

@@ -15,7 +15,7 @@
     ssl_mode: "{{ item.sslmode | default(runtime_pg_sslmode, true) }}"
   run_once: true
   no_log: '{{ runtime_nolog }}'
-  loop: '{{ runtime_pg_provision_items }}'
+  loop: '{{ runtime_pg_base_items }}'
   loop_control:
     label: "{{ item.user | default('<missing-user>', true) }}"
   when:
@@ -38,7 +38,7 @@
     ssl_mode: "{{ item.sslmode | default(runtime_pg_sslmode, true) }}"
   run_once: true
   no_log: '{{ runtime_nolog }}'
-  loop: '{{ runtime_pg_provision_items }}'
+  loop: '{{ runtime_pg_base_items }}'
   loop_control:
     label: "{{ item.base | default('<missing-base>', true) }}"
   when:

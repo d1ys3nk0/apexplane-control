@@ -95,36 +95,8 @@
       - item.recover_s3_prefix_template is not defined or item.recover_s3_prefix_template is string
       - item.recover_s3_prefix_template is not defined or item.recover_s3_prefix_template | length > 0
       - item.backup is not defined or item.backup is boolean
-      - item.provision is not defined or item.provision is boolean
     fail_msg: Each runtime PostgreSQL base must define app, base, user, and pass.
   loop: '{{ runtime_pg_base_items }}'
-  loop_control:
-    label: "{{ item.base | default('<missing-base>', true) }}"
-  when: runtime_enabled | bool
-
-- name: Validate runtime PostgreSQL admin credentials
-  ansible.builtin.assert:
-    that:
-      - runtime_pg_admin_user | string | length > 0
-      - runtime_pg_admin_pass | string | length > 0
-    fail_msg: Define runtime PostgreSQL admin user and pass when PostgreSQL provisioning is requested.
-  when:
-    - runtime_enabled | bool
-    - runtime_pg_provision_requested | bool
-
-- name: Validate runtime PostgreSQL provision target credentials
-  ansible.builtin.assert:
-    that:
-      - item.app is defined
-      - item.app | string | length > 0
-      - item.base is defined
-      - item.base | string | length > 0
-      - item.user is defined
-      - item.user | string | length > 0
-      - item.pass is defined
-      - item.pass | string | length > 0
-    fail_msg: Each runtime PostgreSQL provision target must define app, base, user, and pass.
-  loop: '{{ runtime_pg_provision_items }}'
   loop_control:
     label: "{{ item.base | default('<missing-base>', true) }}"
   when: runtime_enabled | bool

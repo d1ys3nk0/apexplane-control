@@ -7,7 +7,7 @@ This role prepares application runtime host resources, Docker secrets, and appli
 - Create `/home/<app>/postgres` directories.
 - Create versioned Docker Swarm secrets with dotenv payloads for resolved app environment unit secret mappings as `<app>-<realm>-<env>-<unit>-<YYMMDDHHMMSS>-<hash>`.
 - Render resolved PostgreSQL base mappings to `/home/<app>/postgres/<base>.env`.
-- Create PostgreSQL users and databases from resolved PostgreSQL base mappings when provisioning is requested and admin credentials are provided.
+- Create PostgreSQL users and databases from resolved PostgreSQL base mappings when complete admin credentials are provided.
 
 ## Configuration
 Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_bases`, `runtime_cluster_realm`, and `runtime_pg_host`.
@@ -44,7 +44,7 @@ Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_
 | `runtime_pg_recover_s3_access_key` | `''` |
 | `runtime_pg_recover_s3_secret_key` | `''` |
 
-`runtime_apps` entries define app accounts, environments, and resolved per-service secret mappings. Service `secrets` mappings create Docker Swarm secrets with a timestamp and content hash suffix; the role creates a new Docker secret when the latest matching secret hash differs from the current canonical dotenv payload and does not remove old versions. Secret keys must be valid dotenv variable names, and secret values must be scalar. `runtime_pg_bases` entries define resolved application PostgreSQL env files and optional provisioning inputs; each entry must define `app`, `base`, `user`, and `pass`.
+`runtime_apps` entries define app accounts, environments, and resolved per-service secret mappings. Service `secrets` mappings create Docker Swarm secrets with a timestamp and content hash suffix; the role creates a new Docker secret when the latest matching secret hash differs from the current canonical dotenv payload and does not remove old versions. Secret keys must be valid dotenv variable names, and secret values must be scalar. `runtime_pg_bases` entries define resolved application PostgreSQL env files and optional provisioning inputs; each entry must define `app`, `base`, `user`, and `pass`. Empty PostgreSQL admin credentials render client env files without provisioning users or databases. Complete PostgreSQL admin credentials enable provisioning for all runtime bases.
 
 ## Usage
 
