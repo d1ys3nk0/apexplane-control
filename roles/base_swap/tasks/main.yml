@@ -43,6 +43,15 @@
     - base_swap_file_size_mismatch | bool
     - base_swap_is_active | bool
 
+- name: Clear swap file filesystem attributes before resizing
+  become: true
+  ansible.builtin.file:
+    path: '{{ base_swap_path }}'
+    attributes: -ia
+  when:
+    - not ansible_check_mode
+    - base_swap_file_size_mismatch | bool
+
 - name: Remove incorrectly sized swap file
   become: true
   ansible.builtin.file:

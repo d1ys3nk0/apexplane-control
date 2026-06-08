@@ -9,6 +9,7 @@ This role configures host swap.
 - Inspect active swap devices.
 - Calculate current swap state.
 - Disable swap file before resizing.
+- Clear swap file filesystem attributes before resizing.
 - Remove incorrectly sized swap file.
 - Create swap file.
 - Inspect swap file signature.
