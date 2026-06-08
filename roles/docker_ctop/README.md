@@ -3,7 +3,8 @@
 This role installs the ctop Docker monitoring utility.
 
 ## Features
-- Download ctop binary.
+- Install ctop from a persistent controller-side cache.
+- Skip network and content checks when the target binary already exists.
 
 ## Configuration
 | Variable | Default |
@@ -15,6 +16,8 @@ This role installs the ctop Docker monitoring utility.
 | `docker_ctop_binary_name` | `<derived>` |
 | `docker_ctop_binary_path` | `/usr/local/bin/ctop` |
 | `docker_ctop_binary_checksum` | `<derived>` |
+| `docker_ctop_cache_dir` | `<controller home>/.cache/apexplane-control/docker_ctop` |
+| `docker_ctop_cache_path` | `<derived>` |
 
 ## Usage
 ```yaml

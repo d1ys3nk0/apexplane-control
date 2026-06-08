@@ -11,3 +11,5 @@ docker_ctop_arch: '{{ docker_ctop_arch_map.get(ansible_architecture, ansible_arc
 docker_ctop_binary_name: ctop-{{ docker_ctop_version }}-linux-{{ docker_ctop_arch }}
 docker_ctop_binary_path: /usr/local/bin/ctop
 docker_ctop_binary_checksum: sha256:{{ docker_ctop_download_base_url }}/v{{ docker_ctop_version }}/sha256sums.txt
+docker_ctop_cache_dir: "{{ lookup('env', 'HOME') }}/.cache/apexplane-control/docker_ctop"
+docker_ctop_cache_path: '{{ docker_ctop_cache_dir }}/{{ docker_ctop_binary_name }}'

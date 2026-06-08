@@ -1,11 +1,47 @@
 ---
 
-- name: Download ctop binary
+- name: Check installed ctop binary
   become: true
+  ansible.builtin.stat:
+    path: '{{ docker_ctop_binary_path }}'
+  register: docker_ctop_binary_stat
+
+- name: Check cached ctop binary
+  become: false
+  ansible.builtin.stat:
+    path: '{{ docker_ctop_cache_path }}'
+  delegate_to: localhost
+  throttle: 1
+  register: docker_ctop_cache_stat
+  when: not docker_ctop_binary_stat.stat.exists
+
+- name: Ensure ctop cache directory exists
+  become: false
+  ansible.builtin.file:
+    path: '{{ docker_ctop_cache_dir }}'
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  throttle: 1
+  when: not docker_ctop_binary_stat.stat.exists and not docker_ctop_cache_stat.stat.exists
+
+- name: Download ctop binary
+  become: false
   ansible.builtin.get_url:
     url: '{{ docker_ctop_download_base_url }}/v{{ docker_ctop_version }}/{{ docker_ctop_binary_name }}'
-    dest: '{{ docker_ctop_binary_path }}'
+    dest: '{{ docker_ctop_cache_path }}'
     checksum: "{{ docker_ctop_binary_checksum if docker_ctop_binary_checksum | string | length > 0 else omit }}"
+    mode: '0755'
+  delegate_to: localhost
+  throttle: 1
+  when: not docker_ctop_binary_stat.stat.exists and not docker_ctop_cache_stat.stat.exists
+
+- name: Install ctop binary
+  become: true
+  ansible.builtin.copy:
+    src: '{{ docker_ctop_cache_path }}'
+    dest: '{{ docker_ctop_binary_path }}'
     owner: root
     group: root
     mode: '0755'
+  when: not docker_ctop_binary_stat.stat.exists
