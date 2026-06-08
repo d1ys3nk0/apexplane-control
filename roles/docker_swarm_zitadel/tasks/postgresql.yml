@@ -1,6 +1,7 @@
 ---
 
 - name: Create Zitadel PostgreSQL env directory
+  become: true
   ansible.builtin.file:
     path: /opt/zitadel/postgres
     state: directory
@@ -9,6 +10,7 @@
     group: root
 
 - name: Create Zitadel PostgreSQL client env file
+  become: true
   ansible.builtin.template:
     src: pg.env.j2
     dest: /opt/zitadel/postgres/{{ docker_swarm_zitadel_pg_base }}.env
