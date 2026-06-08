@@ -49,6 +49,7 @@
   when: docker_prometheus_rules_content | string | length > 0
 
 - name: Create docker volumes
+  become: true
   community.docker.docker_volume:
     name: '{{ docker_prometheus_data_volume }}'
 
@@ -81,6 +82,7 @@
   changed_when: false
 
 - name: Start prometheus container
+  become: true
   community.docker.docker_container:
     hostname: prometheus.{{ inventory_hostname }}
     name: prometheus
@@ -120,6 +122,7 @@
   ansible.builtin.include_tasks: setup_blackbox.yml
 
 - name: Verify prometheus container is running
+  become: true
   community.docker.docker_container_info:
     name: prometheus
   register: docker_prometheus_container_info

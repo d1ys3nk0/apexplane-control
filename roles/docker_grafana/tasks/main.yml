@@ -53,10 +53,12 @@
     - service_logs.json
 
 - name: Create docker volumes
+  become: true
   community.docker.docker_volume:
     name: '{{ docker_grafana_data_volume }}'
 
 - name: Start grafana container
+  become: true
   community.docker.docker_container:
     hostname: grafana.{{ inventory_hostname }}
     name: grafana
@@ -79,6 +81,7 @@
       - '{{ docker_grafana_data_volume }}:/var/lib/grafana'
 
 - name: Verify grafana container is running
+  become: true
   community.docker.docker_container_info:
     name: grafana
   register: docker_grafana_container_info

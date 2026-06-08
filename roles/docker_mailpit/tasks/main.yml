@@ -10,6 +10,7 @@
     - '{{ docker_mailpit_data_dir }}'
 
 - name: Deploy mailpit container
+  become: true
   community.docker.docker_container:
     hostname: mailpit.{{ inventory_hostname }}
     name: mailpit
@@ -30,6 +31,7 @@
       - '{{ docker_mailpit_data_dir }}:/data'
 
 - name: Verify mailpit container is running
+  become: true
   community.docker.docker_container_info:
     name: mailpit
   register: docker_mailpit_container_info

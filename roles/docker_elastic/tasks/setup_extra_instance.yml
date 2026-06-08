@@ -1,10 +1,12 @@
 ---
 
 - name: Create extra elastic docker volume
+  become: true
   community.docker.docker_volume:
     name: "{{ docker_elastic_extra_instance.volume | default('elastic-data-' ~ docker_elastic_extra_instance.name, true) }}"
 
 - name: Start extra elastic container
+  become: true
   community.docker.docker_container:
     hostname: "elastic-{{ docker_elastic_extra_instance.name }}.{{ inventory_hostname }}"
     name: "elastic-{{ docker_elastic_extra_instance.name }}"
@@ -32,6 +34,7 @@
   no_log: '{{ docker_elastic_nolog }}'
 
 - name: Verify extra elastic container is running
+  become: true
   community.docker.docker_container_info:
     name: "elastic-{{ docker_elastic_extra_instance.name }}"
   register: docker_elastic_extra_container_info

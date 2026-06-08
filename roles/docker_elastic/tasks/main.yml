@@ -5,10 +5,12 @@
     var: docker_elastic_mem_lim
 
 - name: Create docker volumes
+  become: true
   community.docker.docker_volume:
     name: '{{ docker_elastic_data_volume }}'
 
 - name: Start elastic container
+  become: true
   community.docker.docker_container:
     hostname: elastic.{{ inventory_hostname }}
     name: elastic
@@ -29,6 +31,7 @@
   no_log: '{{ docker_elastic_nolog }}'
 
 - name: Verify elastic container is running
+  become: true
   community.docker.docker_container_info:
     name: elastic
   register: docker_elastic_container_info

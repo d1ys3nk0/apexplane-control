@@ -4,10 +4,12 @@
   ansible.builtin.include_tasks: validate.yml
 
 - name: Create docker volumes
+  become: true
   community.docker.docker_volume:
     name: '{{ docker_rabbit_data_volume }}'
 
 - name: Start rabbit container
+  become: true
   community.docker.docker_container:
     name: rabbit
     hostname: rabbit.{{ inventory_hostname }}
@@ -30,6 +32,7 @@
   no_log: '{{ docker_rabbit_nolog }}'
 
 - name: Verify rabbit container is running
+  become: true
   community.docker.docker_container_info:
     name: rabbit
   register: docker_rabbit_container_info

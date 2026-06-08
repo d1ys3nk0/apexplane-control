@@ -57,5 +57,6 @@
     force: false
 
 - name: Create Docker volume
+  become: true
   community.docker.docker_volume:
     name: '{{ docker_postgres_data_volume }}'

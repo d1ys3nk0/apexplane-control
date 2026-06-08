@@ -32,6 +32,7 @@
   when: docker_prometheus_blackbox_config_content | string | length > 0
 
 - name: Start blackbox exporter container
+  become: true
   community.docker.docker_container:
     name: '{{ docker_prometheus_blackbox_container_name }}'
     hostname: '{{ docker_prometheus_blackbox_container_name }}.{{ inventory_hostname }}'
@@ -50,6 +51,7 @@
       - /opt/prometheus/blackbox_exporter/config.yml:/etc/blackbox_exporter/config.yml:ro
 
 - name: Verify blackbox exporter container is running
+  become: true
   community.docker.docker_container_info:
     name: '{{ docker_prometheus_blackbox_container_name }}'
   register: docker_prometheus_blackbox_container_info

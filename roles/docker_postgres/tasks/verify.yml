@@ -1,6 +1,7 @@
 ---
 
 - name: Verify PostgreSQL container is running
+  become: true
   community.docker.docker_container_info:
     name: '{{ docker_postgres_container }}'
   register: docker_postgres_container_info
@@ -21,6 +22,7 @@
   when: not ansible_check_mode
 
 - name: Reload PostgreSQL config
+  become: true
   ansible.builtin.command: docker exec {{ docker_postgres_container }} psql -p {{ docker_postgres_port }} -U {{ docker_postgres_pg_admin_user }} -c "SELECT pg_reload_conf()"
   changed_when: false
   when: not ansible_check_mode

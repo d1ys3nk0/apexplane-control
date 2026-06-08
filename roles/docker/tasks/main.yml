@@ -53,17 +53,3 @@
   register: docker_service_health
   changed_when: false
   when: not ansible_check_mode and docker_update_config.changed and docker_force_mode
-
-- name: Allow configured users to manage Docker without sudo
-  become: true
-  ansible.builtin.user:
-    name: '{{ item }}'
-    append: true
-    groups:
-      - docker
-  loop: '{{ docker_users }}'
-  loop_control:
-    label: '{{ item }}'
-
-- name: Take the newly added docker group into account
-  ansible.builtin.meta: reset_connection

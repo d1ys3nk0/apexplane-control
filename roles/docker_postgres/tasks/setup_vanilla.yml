@@ -1,6 +1,7 @@
 ---
 
 - name: Start vanilla PostgreSQL container
+  become: true
   community.docker.docker_container:
     hostname: postgres.{{ inventory_hostname }}
     name: '{{ docker_postgres_container }}'

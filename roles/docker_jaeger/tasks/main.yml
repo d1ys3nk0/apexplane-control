@@ -26,6 +26,7 @@
     - '{{ docker_jaeger_data_volume }}'
 
 - name: Start jaeger container
+  become: true
   community.docker.docker_container:
     hostname: jaeger.{{ inventory_hostname }}
     name: jaeger
@@ -42,6 +43,7 @@
       - '{{ docker_jaeger_data_volume }}:/var/jaeger'
 
 - name: Verify jaeger container is running
+  become: true
   community.docker.docker_container_info:
     name: jaeger
   register: docker_jaeger_container_info

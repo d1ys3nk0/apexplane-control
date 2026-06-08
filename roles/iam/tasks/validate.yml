@@ -17,6 +17,7 @@
       - iam_provision_user_name | length > 0
       - iam_provision_user_groups is sequence
       - iam_provision_user_groups is not string
+      - "'docker' not in iam_provision_user_groups"
       - iam_provision_user_authorized_key_files is sequence
       - iam_provision_user_authorized_key_files is not string
       - iam_provision_user_private_key_file is none or iam_provision_user_private_key_file | string | length > 0
@@ -38,6 +39,7 @@
       - item.name | string | length > 0
       - item.groups | default([], true) is sequence
       - item.groups | default([], true) is not string
+      - "'docker' not in (item.groups | default([], true))"
       - item.authorized_key_files | default([], true) is sequence
       - item.authorized_key_files | default([], true) is not string
       - item.name != iam_provision_user_name
@@ -55,6 +57,7 @@
       - item.name | string | length > 0
       - item.groups | default([], true) is sequence
       - item.groups | default([], true) is not string
+      - "'docker' not in (item.groups | default([], true))"
       - item.authorized_key_files | default([], true) is sequence
       - item.authorized_key_files | default([], true) is not string
       - item.sudo_commands | default([], true) is sequence

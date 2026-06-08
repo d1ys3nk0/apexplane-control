@@ -28,6 +28,23 @@ def iter_tasks(value: object) -> Iterator[Mapping[str, object]]:
         yield from iter_tasks(task.get(nested_key))
 
 
+def iter_tasks_with_become(
+    value: object, *, inherited_become: bool = False
+) -> Iterator[tuple[Mapping[str, object], bool]]:
+    if isinstance(value, list):
+        for item in value:
+            yield from iter_tasks_with_become(item, inherited_become=inherited_become)
+        return
+    if not isinstance(value, Mapping):
+        return
+
+    task = cast("Mapping[str, object]", value)
+    effective_become = inherited_become or task.get("become") is True
+    yield task, effective_become
+    for nested_key in ("block", "rescue", "always"):
+        yield from iter_tasks_with_become(task.get(nested_key), inherited_become=effective_become)
+
+
 def rel(path: Path) -> str:
     return str(path.relative_to(REPO_ROOT))
 
@@ -93,6 +110,39 @@ def has_hostname_placement_constraint(module: Mapping[str, object]) -> bool:
         return False
 
     return any(isinstance(constraint, str) and "node.hostname" in constraint for constraint in constraints)
+
+
+def uses_docker_cli(task: Mapping[str, object]) -> bool:
+    for module_name in ("ansible.builtin.command", "ansible.builtin.shell", "command", "shell"):
+        module = task.get(module_name)
+        if isinstance(module, str) and module.strip().startswith("docker "):
+            return True
+        if not isinstance(module, Mapping):
+            continue
+        module = cast("Mapping[str, object]", module)
+        cmd = module.get("cmd")
+        argv = module.get("argv")
+        if isinstance(cmd, str) and cmd.strip().startswith("docker "):
+            return True
+        if isinstance(argv, list) and argv[:1] == ["docker"]:
+            return True
+    return False
+
+
+def test_docker_api_tasks_escalate_privileges() -> None:
+    errors: list[str] = []
+
+    for task_path in sorted((REPO_ROOT / "roles").glob("**/tasks/*.yml")):
+        for task, effective_become in iter_tasks_with_become(load_yaml(task_path)):
+            uses_docker_module = any(isinstance(key, str) and key.startswith("community.docker.") for key in task)
+            if not uses_docker_module and not uses_docker_cli(task):
+                continue
+            if effective_become:
+                continue
+            task_name = task.get("name", "<unnamed>")
+            errors.append(f"{rel(task_path)}: {task_name}: Docker API/CLI tasks must use become")
+
+    assert errors == []
 
 
 def test_docker_container_mounts_use_module_parameter_names() -> None:

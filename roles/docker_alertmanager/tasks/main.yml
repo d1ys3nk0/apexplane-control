@@ -45,10 +45,12 @@
   when: docker_alertmanager_config_content | string | length > 0
 
 - name: Create docker volumes
+  become: true
   community.docker.docker_volume:
     name: '{{ docker_alertmanager_data_volume }}'
 
 - name: Start alertmanager container
+  become: true
   community.docker.docker_container:
     hostname: alertmanager.{{ inventory_hostname }}
     name: alertmanager
@@ -70,6 +72,7 @@
       - '{{ docker_alertmanager_data_volume }}:/data'
 
 - name: Verify alertmanager container is running
+  become: true
   community.docker.docker_container_info:
     name: alertmanager
   register: docker_alertmanager_container_info

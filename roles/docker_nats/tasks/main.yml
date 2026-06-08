@@ -16,6 +16,7 @@
     - nats-data
 
 - name: Start nats container
+  become: true
   community.docker.docker_container:
     hostname: nats.{{ inventory_hostname }}
     name: nats
@@ -32,6 +33,7 @@
     command: -js -sd /data -m {{ docker_nats_http_port }}
 
 - name: Verify nats container is running
+  become: true
   community.docker.docker_container_info:
     name: nats
   register: docker_nats_container_info

@@ -1,6 +1,7 @@
 ---
 
 - name: Check if PostgreSQL is in recovery mode
+  become: true
   ansible.builtin.command: docker exec {{ docker_postgres_container }} psql -p {{ docker_postgres_port }} -U {{ docker_postgres_pg_admin_user }} -tAc "SELECT pg_is_in_recovery()"
   register: docker_postgres_recovery_status
   changed_when: false
@@ -9,6 +10,7 @@
   when: docker_postgres_dr_action in ['wait_synced', 'promote']
 
 - name: Wait until PostgreSQL replica is fully synced
+  become: true
   ansible.builtin.command: docker exec {{ docker_postgres_container }} psql -p {{ docker_postgres_port }} -U {{ docker_postgres_pg_admin_user }} -tAc "SELECT pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() AS synced"
   register: docker_postgres_sync_status
   retries: 10
@@ -21,12 +23,14 @@
     - docker_postgres_recovery_status.stdout | default('') | trim == 't'
 
 - name: Stop PostgreSQL container during DR
+  become: true
   community.docker.docker_container:
     name: '{{ docker_postgres_container }}'
     state: stopped
   when: docker_postgres_dr_action == 'stop'
 
 - name: Promote PostgreSQL to leader
+  become: true
   ansible.builtin.command: docker run --rm -v {{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }} -u postgres {{ docker_postgres_image_runtime }} pg_ctl promote -t 300 -D {{ docker_postgres_data_dir }}
   changed_when: true
   when:
@@ -49,12 +53,14 @@
     - not ansible_check_mode
 
 - name: Stop PostgreSQL container before replica restore
+  become: true
   community.docker.docker_container:
     name: '{{ docker_postgres_container }}'
     state: stopped
   when: docker_postgres_replica_restore | bool
 
 - name: Snapshot PostgreSQL data before replica restore
+  become: true
   community.docker.docker_container:
     name: pg-basebackup-snapshot
     hostname: pg-basebackup-snapshot.{{ inventory_hostname }}
@@ -70,6 +76,7 @@
     - not ansible_check_mode
 
 - name: Clear PostgreSQL data before replica restore
+  become: true
   community.docker.docker_container:
     name: pg-basebackup-clear
     hostname: pg-basebackup-clear.{{ inventory_hostname }}
@@ -84,6 +91,7 @@
     - not ansible_check_mode
 
 - name: Restore PostgreSQL replica from active leader
+  become: true
   community.docker.docker_container:
     name: pg-basebackup
     hostname: pg-basebackup.{{ inventory_hostname }}

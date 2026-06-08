@@ -18,10 +18,12 @@
   register: docker_loki_update_configs
 
 - name: Create docker volumes
+  become: true
   community.docker.docker_volume:
     name: '{{ docker_loki_data_volume }}'
 
 - name: Start loki container
+  become: true
   community.docker.docker_container:
     hostname: loki.{{ inventory_hostname }}
     name: loki
@@ -38,6 +40,7 @@
       - '{{ docker_loki_data_volume }}:/loki'
 
 - name: Verify loki container is running
+  become: true
   community.docker.docker_container_info:
     name: loki
   register: docker_loki_container_info

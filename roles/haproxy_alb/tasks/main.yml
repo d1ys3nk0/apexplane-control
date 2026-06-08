@@ -200,12 +200,14 @@
   ansible.builtin.service_facts:
 
 - name: Inspect legacy HAProxy container # TODO: Remove after migration
+  become: true
   community.docker.docker_container_info:
     name: haproxy
   register: haproxy_alb_legacy_container_info
   when: haproxy_alb_docker_available | bool
 
 - name: Stop legacy HAProxy container # TODO: Remove after migration
+  become: true
   community.docker.docker_container:
     name: haproxy
     state: stopped

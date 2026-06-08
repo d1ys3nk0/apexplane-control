@@ -4,7 +4,6 @@ docker_deb_repo: https://download.docker.com/linux/ubuntu
 docker_mirrors: ['https://cr.yandex/mirror', 'https://dockerhub.timeweb.cloud']
 docker_force_mode: "{{ lookup('env', 'FORCE') | default('0', true) in ['1', 'true'] }}"
 
-docker_users: []
 docker_arch_map:
   aarch64: arm64
   x86_64: amd64

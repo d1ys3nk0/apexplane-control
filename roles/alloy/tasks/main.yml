@@ -50,6 +50,28 @@
     group: root
     mode: '0755'
 
+- name: Ensure Alloy data directory is writable by Alloy
+  become: true
+  ansible.builtin.file:
+    path: /var/lib/alloy
+    state: directory
+    owner: alloy
+    group: alloy
+    mode: '0750'
+  register: alloy_data_directory_update
+  when: not ansible_check_mode
+
+- name: Ensure Alloy data tree is owned by Alloy
+  become: true
+  ansible.builtin.file:
+    path: /var/lib/alloy
+    state: directory
+    owner: alloy
+    group: alloy
+    recurse: true
+  register: alloy_data_tree_update
+  when: not ansible_check_mode
+
 - name: Gather service facts for Alloy optional integrations
   ansible.builtin.service_facts:
 
@@ -61,7 +83,6 @@
       - '{{ item }}'
   loop:
     - adm
-    - docker
     - systemd-journal
   register: alloy_group_checks
   check_mode: false
@@ -80,11 +101,7 @@
 
 - name: Store effective Alloy supplemental groups
   ansible.builtin.set_fact:
-    alloy_supplemental_groups: >-
-      {{
-        (alloy_detected_supplemental_groups | reject('equalto', 'docker') | list)
-        + (['docker'] if alloy_docker_enabled | bool and 'docker' in alloy_detected_supplemental_groups else [])
-      }}
+    alloy_supplemental_groups: '{{ alloy_detected_supplemental_groups }}'
 
 - name: Add Alloy user to supplemental groups
   become: true
@@ -143,6 +160,28 @@
     mode: '0644'
   register: alloy_defaults_update
 
+- name: Store Alloy permission update state
+  ansible.builtin.set_fact:
+    alloy_permissions_changed: >-
+      {{
+        (alloy_data_directory_update is defined and alloy_data_directory_update.changed)
+        or (alloy_data_tree_update is defined and alloy_data_tree_update.changed)
+        or (alloy_user_groups is defined and alloy_user_groups.changed)
+      }}
+  changed_when: false
+
+- name: Reset Alloy failed state after permissions change
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - reset-failed
+      - alloy
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - alloy_permissions_changed | bool
+
 - name: Restart Alloy after environment or permissions change
   become: true
   ansible.builtin.systemd:
@@ -152,7 +191,7 @@
     state: restarted
   when:
     - not ansible_check_mode
-    - alloy_defaults_update.changed or alloy_systemd_override_update.changed or (alloy_user_groups is defined and alloy_user_groups.changed)
+    - alloy_defaults_update.changed or alloy_systemd_override_update.changed or alloy_permissions_changed | bool
 
 - name: Enable and start Alloy service
   become: true

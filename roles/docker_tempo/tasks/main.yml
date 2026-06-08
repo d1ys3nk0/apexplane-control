@@ -48,6 +48,7 @@
   when: docker_tempo_create_volumes.changed
 
 - name: Start tempo container
+  become: true
   community.docker.docker_container:
     hostname: tempo.{{ inventory_hostname }}
     name: tempo
@@ -64,6 +65,7 @@
       - '{{ docker_tempo_data_volume }}:/var/tempo'
 
 - name: Verify tempo container is running
+  become: true
   community.docker.docker_container_info:
     name: tempo
   register: docker_tempo_container_info

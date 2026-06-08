@@ -4,6 +4,7 @@
   ansible.builtin.include_tasks: validate.yml
 
 - name: Deploy Gramax service from leader
+  become: true
   when: docker_swarm_gramax_enabled | bool
   block:
     - name: Gramax is started in swarm cluster

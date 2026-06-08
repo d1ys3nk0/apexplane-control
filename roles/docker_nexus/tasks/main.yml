@@ -1,10 +1,12 @@
 ---
 
 - name: Create docker volumes
+  become: true
   community.docker.docker_volume:
     name: nexus-data
 
 - name: Start nexus container
+  become: true
   community.docker.docker_container:
     hostname: nexus.{{ inventory_hostname }}
     name: nexus
@@ -18,6 +20,7 @@
       - nexus-data:/nexus-data
 
 - name: Verify nexus container is running
+  become: true
   community.docker.docker_container_info:
     name: nexus
   register: docker_nexus_container_info

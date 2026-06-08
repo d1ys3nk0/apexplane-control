@@ -25,6 +25,7 @@
     - backup
 
 - name: Start MinIO container
+  become: true
   community.docker.docker_container:
     hostname: minio.{{ inventory_hostname }}
     name: minio
@@ -50,6 +51,7 @@
   no_log: '{{ docker_minio_nolog }}'
 
 - name: Verify MinIO container is running
+  become: true
   community.docker.docker_container_info:
     name: minio
   register: docker_minio_container_info

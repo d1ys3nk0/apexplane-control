@@ -17,6 +17,7 @@
     - /opt/sonarqube/logs
 
 - name: Create Docker volumes for SonarQube
+  become: true
   community.docker.docker_volume:
     name: '{{ item }}'
   loop:
@@ -26,6 +27,7 @@
     - '{{ docker_sonarqube_postgres_data_volume }}'
 
 - name: Start PostgreSQL container
+  become: true
   community.docker.docker_container:
     hostname: sonarqube-postgres.{{ inventory_hostname }}
     name: sonarqube-postgres
@@ -50,6 +52,7 @@
   no_log: '{{ docker_sonarqube_nolog }}'
 
 - name: Verify SonarQube PostgreSQL container is running
+  become: true
   community.docker.docker_container_info:
     name: sonarqube-postgres
   register: docker_sonarqube_postgres_container_info
@@ -69,6 +72,7 @@
   when: not ansible_check_mode
 
 - name: Start SonarQube container
+  become: true
   community.docker.docker_container:
     hostname: sonarqube.{{ inventory_hostname }}
     name: sonarqube
@@ -100,6 +104,7 @@
   no_log: '{{ docker_sonarqube_nolog }}'
 
 - name: Verify SonarQube container is running
+  become: true
   community.docker.docker_container_info:
     name: sonarqube
   register: docker_sonarqube_container_info
