@@ -65,6 +65,13 @@ Set `QUIET=1` or `QUIET=true` to suppress toolbox helper `_info`, `_warn`, and `
 Docker scripts are installed when `toolbox_docker_enabled` is true:
 
 - `/opt/toolbox/bin/docker_cleanup`
+- `/opt/toolbox/bin/docker_resource_report`
+
+Report Swarm reservation pressure, configured service limits, and live local container usage:
+
+```sh
+sudo /opt/toolbox/bin/docker_resource_report
+```
 
 HAProxy scripts are installed when `toolbox_haproxy_enabled` is true:
 

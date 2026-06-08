@@ -20,6 +20,9 @@ toolbox_docker_scripts:
   - name: docker_cleanup
     src: docker_cleanup.sh
 
+  - name: docker_resource_report
+    src: docker_resource_report.sh
+
 toolbox_haproxy_scripts:
   - name: certbot_dns_auth
     src: certbot_dns_auth.sh
