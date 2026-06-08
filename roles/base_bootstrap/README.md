@@ -8,6 +8,7 @@ This role applies baseline host locale, time, network, system, and service setti
 - Run system network tasks.
 - Run system locale tasks.
 - Run system time and timezone tasks.
+- Stop and disable configured installed system services.
 - Generate locale.
 - Set locale.
 - Read eth0 MTU from netplan.

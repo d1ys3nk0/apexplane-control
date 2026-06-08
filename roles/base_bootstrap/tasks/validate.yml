@@ -28,3 +28,10 @@
       - item.ip | string | length > 0
     fail_msg: Define every base_bootstrap_dns_resolver_checks item with non-empty domain and ip values.
   loop: '{{ base_bootstrap_dns_resolver_checks }}'
+
+- name: Assert base bootstrap disabled services are valid
+  ansible.builtin.assert:
+    that:
+      - item | string | trim | length > 0
+    fail_msg: Define every base_bootstrap_disabled_services item as a non-empty service name.
+  loop: '{{ base_bootstrap_disabled_services }}'

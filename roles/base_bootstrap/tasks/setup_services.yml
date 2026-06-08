@@ -1,9 +1,14 @@
 ---
 
-- name: Stop and disable configured system services
+- name: Gather service facts for configured disabled services
+  become: true
+  ansible.builtin.service_facts:
+  when: base_bootstrap_disabled_services | length > 0
+
+- name: Stop and disable configured installed system services
   become: true
   ansible.builtin.service:
     name: '{{ item }}'
     state: stopped
     enabled: false
-  loop: '{{ base_bootstrap_disabled_services }}'
+  loop: "{{ base_bootstrap_disabled_services | select('in', ansible_facts.services | default({})) | list }}"
