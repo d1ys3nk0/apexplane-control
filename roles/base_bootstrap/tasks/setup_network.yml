@@ -45,14 +45,14 @@
   changed_when: false
   when: base_bootstrap_dns_resolver | string | trim | length > 0
 
-- name: Set DNS resolver for eth0 interface
+- name: Set DNS resolver list for eth0 interface
   become: true
   ansible.builtin.command: netplan set ethernets.eth0.nameservers.addresses=[{{ base_bootstrap_dns_resolver }}]
   register: base_bootstrap_netplan_dns_config
   changed_when: true
   when:
     - base_bootstrap_dns_resolver | string | trim | length > 0
-    - (base_bootstrap_dns_resolver | string | trim) not in (base_bootstrap_netplan_dns_current.stdout | default(''))
+    - base_bootstrap_netplan_dns_current.stdout | default('', true) | string | trim != '[' ~ base_bootstrap_dns_resolver | string | trim ~ ']'
 
 - name: Apply netplan
   become: true

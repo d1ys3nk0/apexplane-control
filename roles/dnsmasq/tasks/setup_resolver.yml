@@ -14,12 +14,12 @@
     timeout: 5
     connect_timeout: 5
 
-- name: Set local DNS resolver for eth0 interface
+- name: Set local DNS resolver list for eth0 interface
   become: true
   ansible.builtin.command: netplan set ethernets.eth0.nameservers.addresses=[{{ dnsmasq_local_resolver }}]
   register: dnsmasq_netplan_dns_config
   changed_when: true
-  when: (dnsmasq_local_resolver | string | trim) not in (dnsmasq_netplan_dns_current.stdout | default(''))
+  when: dnsmasq_netplan_dns_current.stdout | default('', true) | string | trim != '[' ~ dnsmasq_local_resolver | string | trim ~ ']'
 
 - name: Apply netplan after local DNS resolver changes
   become: true
