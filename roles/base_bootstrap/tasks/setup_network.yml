@@ -62,6 +62,12 @@
     base_bootstrap_netplan_mtu_config.changed | default(false)
     or base_bootstrap_netplan_dns_config.changed | default(false)
 
+- name: Flush local DNS resolver caches before validation
+  become: true
+  ansible.builtin.command: resolvectl flush-caches
+  changed_when: false
+  when: base_bootstrap_dns_resolver_checks | length > 0
+
 - name: Check configured domains using local DNS resolution
   ansible.builtin.command: resolvectl query --legend=no --type=A {{ item.domain }}
   loop: '{{ base_bootstrap_dns_resolver_checks }}'
