@@ -50,28 +50,6 @@
     group: root
     mode: '0755'
 
-- name: Ensure Alloy data directory is writable by the Alloy service runtime user
-  become: true
-  ansible.builtin.file:
-    path: /var/lib/alloy
-    state: directory
-    owner: '{{ alloy_service_user }}'
-    group: '{{ alloy_service_group }}'
-    mode: '0750'
-  register: alloy_data_directory_update
-  when: not ansible_check_mode
-
-- name: Ensure Alloy data tree is owned by the Alloy service runtime user
-  become: true
-  ansible.builtin.file:
-    path: /var/lib/alloy
-    state: directory
-    owner: '{{ alloy_service_user }}'
-    group: '{{ alloy_service_group }}'
-    recurse: true
-  register: alloy_data_tree_update
-  when: not ansible_check_mode
-
 - name: Gather service facts for Alloy optional integrations
   ansible.builtin.service_facts:
 
@@ -101,6 +79,28 @@
 - name: Store effective Alloy supplemental groups
   ansible.builtin.set_fact:
     alloy_supplemental_groups: '{{ alloy_detected_supplemental_groups }}'
+
+- name: Ensure Alloy data directory is writable by the Alloy service runtime user
+  become: true
+  ansible.builtin.file:
+    path: /var/lib/alloy
+    state: directory
+    owner: '{{ alloy_service_user }}'
+    group: '{{ alloy_service_group }}'
+    mode: '0750'
+  register: alloy_data_directory_update
+  when: not ansible_check_mode
+
+- name: Ensure Alloy data tree is owned by the Alloy service runtime user
+  become: true
+  ansible.builtin.file:
+    path: /var/lib/alloy
+    state: directory
+    owner: '{{ alloy_service_user }}'
+    group: '{{ alloy_service_group }}'
+    recurse: true
+  register: alloy_data_tree_update
+  when: not ansible_check_mode
 
 - name: Add Alloy user to supplemental groups
   become: true
