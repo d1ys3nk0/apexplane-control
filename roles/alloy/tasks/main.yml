@@ -50,24 +50,24 @@
     group: root
     mode: '0755'
 
-- name: Ensure Alloy data directory is writable by Alloy
+- name: Ensure Alloy data directory is writable by the Alloy service runtime user
   become: true
   ansible.builtin.file:
     path: /var/lib/alloy
     state: directory
-    owner: alloy
-    group: alloy
+    owner: '{{ alloy_service_user }}'
+    group: '{{ alloy_service_group }}'
     mode: '0750'
   register: alloy_data_directory_update
   when: not ansible_check_mode
 
-- name: Ensure Alloy data tree is owned by Alloy
+- name: Ensure Alloy data tree is owned by the Alloy service runtime user
   become: true
   ansible.builtin.file:
     path: /var/lib/alloy
     state: directory
-    owner: alloy
-    group: alloy
+    owner: '{{ alloy_service_user }}'
+    group: '{{ alloy_service_group }}'
     recurse: true
   register: alloy_data_tree_update
   when: not ansible_check_mode

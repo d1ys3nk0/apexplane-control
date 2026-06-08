@@ -1,13 +1,10 @@
 [Service]
-{% if alloy_docker_enabled | bool %}
+{% if alloy_service_user == 'root' %}
 # The embedded cAdvisor exporter needs container runtime socket access that the
 # package's unprivileged alloy user does not have on Docker/containerd hosts.
-User=root
-Group=root
-{% else %}
-User=alloy
-Group=alloy
 {% endif %}
+User={{ alloy_service_user }}
+Group={{ alloy_service_group }}
 {% if alloy_supplemental_groups | length > 0 %}
 SupplementaryGroups={{ alloy_supplemental_groups | join(' ') }}
 {% else %}

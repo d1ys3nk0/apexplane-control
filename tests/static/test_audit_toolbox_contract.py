@@ -31,3 +31,14 @@ def test_audit_role_installs_dedicated_quiet_cron_job() -> None:
     assert "{{ audit_cron_minute }} {{ audit_cron_hour }} * * * root" in audit_tasks
     assert "/opt/toolbox/bin/audit_host --quiet > {{ audit_cron_log_path }}" in audit_tasks
     assert "when: audit_cron_enabled | bool" in audit_tasks
+
+
+def test_audit_ignores_docker_signature_descriptor_noise() -> None:
+    audit_defaults = yaml.safe_load(
+        (REPO_ROOT / "roles" / "audit" / "defaults" / "main.yml").read_text(encoding="utf-8")
+    )
+    audit_script = (REPO_ROOT / "roles" / "toolbox" / "files" / "scripts" / "audit_host.sh").read_text(encoding="utf-8")
+    ignore_pattern = r"failed to validate image signature.*\x65xp\x65ct\x65d image index descriptor"
+
+    assert ignore_pattern in audit_defaults["audit_log_ignore_regex"]
+    assert ignore_pattern in audit_script

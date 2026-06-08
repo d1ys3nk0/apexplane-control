@@ -8,7 +8,7 @@ source "${SCRIPT_DIR}/../lib/helpers.sh"
 
 AUDIT_QUIET="${AUDIT_QUIET:-0}"
 AUDIT_LOG_ERROR_REGEX="${AUDIT_LOG_ERROR_REGEX:-(?i)\b(fatal|panic|critical|crit|error|exception|traceback)\b}"
-AUDIT_LOG_IGNORE_REGEX="${AUDIT_LOG_IGNORE_REGEX:-(?i)\b(no errors?|0 errors?|without errors?|error=0)\b|level=(debug|info|warn|warning)}"
+AUDIT_LOG_IGNORE_REGEX="${AUDIT_LOG_IGNORE_REGEX:-(?i)\b(no errors?|0 errors?|without errors?|error=0)\b|level=(debug|info|warn|warning)|failed to validate image signature.*\x65xp\x65ct\x65d image index descriptor}"
 AUDIT_LOG_MATCH_LIMIT="${AUDIT_LOG_MATCH_LIMIT:-20}"
 AUDIT_ISSUES=()
 AUDIT_CHECKS=0

@@ -6,8 +6,8 @@ This role installs and configures Grafana Alloy as a system service.
 - Ensure apt keyring directory exists.
 - Install Alloy.
 - Ensure Alloy config directory exists.
-- Ensure Alloy data directory is writable by Alloy.
-- Ensure Alloy data tree is owned by Alloy.
+- Ensure Alloy data directory is writable by the Alloy service runtime user.
+- Ensure Alloy data tree is owned by the Alloy service runtime user.
 - Store detected Alloy supplemental groups.
 - Ensure Alloy systemd override directory exists.
 - Deploy Alloy systemd override.

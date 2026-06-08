@@ -250,10 +250,6 @@ loki.write "default" {
 local.file_match "system_logs" {
   path_targets = [
     {
-      __path__ = "/var/log/*.log",
-      job      = "systemd",
-    },
-    {
       __path__ = "/var/log/syslog",
       job      = "syslog",
     },
