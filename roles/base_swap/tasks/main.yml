@@ -23,7 +23,14 @@
 
 - name: Inspect active swap devices
   become: true
-  ansible.builtin.command: swapon --show --noheadings --raw --output NAME
+  ansible.builtin.command:
+    argv:
+      - swapon
+      - --show
+      - --noheadings
+      - --raw
+      - --output
+      - NAME
   changed_when: false
   register: base_swap_active_devices
 
@@ -32,11 +39,14 @@
     base_swap_file_size_mismatch: >-
       {{ base_swap_file.stat.exists and
         (base_swap_file.stat.size | int != base_swap_desired_size_bytes | int) }}
-    base_swap_is_active: '{{ base_swap_path in base_swap_active_devices.stdout_lines }}'
+    base_swap_is_active: '{{ base_swap_path in (base_swap_active_devices.stdout_lines | map("split") | map("first") | list) }}'
 
 - name: Disable swap file before resizing
   become: true
-  ansible.builtin.command: swapoff {{ base_swap_path }}
+  ansible.builtin.command:
+    argv:
+      - swapoff
+      - '{{ base_swap_path }}'
   changed_when: true
   when:
     - not ansible_check_mode
@@ -61,7 +71,12 @@
 
 - name: Create swap file
   become: true
-  ansible.builtin.command: fallocate --length {{ base_swap_desired_size_mb }}M {{ base_swap_path }}
+  ansible.builtin.command:
+    argv:
+      - fallocate
+      - --length
+      - '{{ base_swap_desired_size_mb }}M'
+      - '{{ base_swap_path }}'
   args:
     creates: '{{ base_swap_path }}'
   register: base_swap_file_create
@@ -69,7 +84,14 @@
 
 - name: Inspect swap file signature
   become: true
-  ansible.builtin.command: blkid --output value --match-tag TYPE {{ base_swap_path }}
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - --output
+      - value
+      - --match-tag
+      - TYPE
+      - '{{ base_swap_path }}'
   changed_when: false
   failed_when: base_swap_swap_signature.rc not in [0, 2]
   register: base_swap_swap_signature
@@ -88,7 +110,10 @@
 
 - name: Initialize swap file
   become: true
-  ansible.builtin.command: mkswap {{ base_swap_path }}
+  ansible.builtin.command:
+    argv:
+      - mkswap
+      - '{{ base_swap_path }}'
   changed_when: base_swap_initialize.rc == 0
   failed_when:
     - base_swap_initialize.rc != 0
@@ -109,7 +134,10 @@
 
 - name: Enable swap file
   become: true
-  ansible.builtin.command: swapon {{ base_swap_path }}
+  ansible.builtin.command:
+    argv:
+      - swapon
+      - '{{ base_swap_path }}'
   changed_when: base_swap_enable.rc == 0
   failed_when:
     - base_swap_enable.rc != 0
