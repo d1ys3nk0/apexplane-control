@@ -17,7 +17,7 @@
     mode: '0600'
     owner: root
     group: root
-    no_log: '{{ docker_swarm_zitadel_nolog }}'
+  no_log: '{{ docker_swarm_zitadel_nolog }}'
 
 - name: Create Zitadel user
   community.postgresql.postgresql_user:
