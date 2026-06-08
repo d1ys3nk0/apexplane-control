@@ -18,6 +18,10 @@ audit_systemd_log_since_journal: 5 minutes ago
 audit_log_error_regex: '(?i)\b(fatal|panic|critical|crit|error|exception|traceback)\b'
 audit_log_ignore_regex: '(?i)\b(no errors?|0 errors?|without errors?|error=0)\b|level=(debug|info|warn|warning)'
 audit_log_match_limit: 20
+audit_cron_enabled: true
+audit_cron_hour: '4'
+audit_cron_minute: '0'
+audit_cron_log_path: /var/log/audit-host-issues.log
 
 audit_sysctl_params:
   - name: net.ipv4.conf.all.rp_filter

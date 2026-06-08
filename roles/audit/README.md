@@ -1,20 +1,11 @@
 # audit
 
-This role installs baseline audit tooling and configuration.
+This role runs baseline host audit checks through the toolbox audit script.
 
 ## Features
-- Include common security checks.
-- Gather effective SSH configuration.
-- Remember whether Docker service unit exists.
-- Assert critical service units are installed.
-- Discover installed service units and assert auto-started long-running services are active.
-- Scan recent installed service journal logs for errors.
-- Probe apt-daily-upgrade timer status.
-- Get current local users from /home.
-- Detect unauthorized local users.
-- Stat critical security files.
-- Stat /tmp directory.
-- Audit Docker daemon configuration.
+- Run `/opt/toolbox/bin/audit_host` with role-provided audit settings.
+- Install a daily quiet audit cron job.
+- Write only current audit issues to the configured cron log path.
 
 ## Configuration
 | Variable | Default |
@@ -31,6 +22,10 @@ This role installs baseline audit tooling and configuration.
 | `audit_log_error_regex` | `<regex>` |
 | `audit_log_ignore_regex` | `<regex>` |
 | `audit_log_match_limit` | `20` |
+| `audit_cron_enabled` | `true` |
+| `audit_cron_hour` | `4` |
+| `audit_cron_minute` | `0` |
+| `audit_cron_log_path` | `/var/log/audit-host-issues.log` |
 | `audit_sysctl_params` | `<complex>` |
 
 ## Usage
@@ -39,5 +34,17 @@ This role installs baseline audit tooling and configuration.
 
 - hosts: all
   roles:
+    - role: apexplane.control.toolbox
     - role: apexplane.control.audit
 ```
+
+## Operations
+Run the `toolbox` role before this role so `/opt/toolbox/bin/audit_host` exists. The audit role fails clearly when the script is missing.
+
+The role runs the script during Ansible execution and installs `/etc/cron.d/audit-host` when `audit_cron_enabled` is true. The cron job uses `CRON_TZ=UTC`, runs at `audit_cron_hour:audit_cron_minute`, and executes:
+
+```sh
+/opt/toolbox/bin/audit_host --quiet > /var/log/audit-host-issues.log
+```
+
+Quiet mode prints only found issues to stdout. Each cron run replaces the log file, so a clean run leaves the file empty.

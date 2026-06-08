@@ -18,7 +18,11 @@
       - audit_sysctl_params is not string
       - audit_sysctl_params is iterable
       - audit_log_match_limit | int > 0
-    fail_msg: Audit list inputs must be iterable lists and audit_log_match_limit must be positive.
+      - audit_cron_hour | string | regex_search('^([01]?[0-9]|2[0-3])$')
+      - audit_cron_minute | string | regex_search('^([0-5]?[0-9])$')
+      - audit_cron_log_path is string
+      - audit_cron_log_path.startswith('/')
+    fail_msg: Audit inputs must be valid lists, cron settings, and positive audit_log_match_limit.
 
 - name: Validate audit systemd units
   ansible.builtin.assert:

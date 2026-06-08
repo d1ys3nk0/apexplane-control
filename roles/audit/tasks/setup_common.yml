@@ -1,426 +1,71 @@
 ---
 
-- name: Verify UFW is active
-  become: true
-  ansible.builtin.command:
-    cmd: ufw status
-  register: audit_ufw
-  changed_when: false
-  failed_when: false
-
-- name: Assert UFW is active
-  ansible.builtin.assert:
-    that:
-      - "'status: active' in audit_ufw.stdout | lower"
-    fail_msg: "UFW is not active. Status: {{ audit_ufw.stdout }}"
-  when: not ansible_check_mode
-
-- name: Gather effective SSH configuration
-  become: true
-  ansible.builtin.command:
-    cmd: sshd -T
-  register: audit_sshd
-  changed_when: false
-  failed_when: false
-
-- name: Assert SSH hardening is effective
-  ansible.builtin.assert:
-    that:
-      - "'passwordauthentication no' in audit_sshd.stdout | lower"
-      - "'permitrootlogin no' in audit_sshd.stdout | lower"
-      - "'kbdinteractiveauthentication no' in audit_sshd.stdout | lower"
-      - "'pubkeyauthentication yes' in audit_sshd.stdout | lower"
-      - "'permitemptypasswords no' in audit_sshd.stdout | lower"
-      - "'maxauthtries 3' in audit_sshd.stdout | lower"
-      - "'logingracetime 30' in audit_sshd.stdout | lower"
-      - "'x11forwarding no' in audit_sshd.stdout | lower"
-      - "('port ' ~ (audit_ssh_port | string)) in (audit_sshd.stdout | lower)"
-    fail_msg: "SSH effective configuration does not match hardening requirements."
-
-- name: Assert SSH AllowUsers is effective when defined
-  ansible.builtin.assert:
-    that:
-      - "'allowusers' in audit_sshd.stdout | lower"
-  when:
-    - not ansible_check_mode
-    - audit_ssh_users | default([]) | length > 0
-
-- name: Check if critical service units exist
+- name: Run host audit script
   become: true
   ansible.builtin.command:
     argv:
-      - systemctl
-      - cat
-      - '{{ item }}'
-  register: audit_critical_service_units
-  changed_when: false
-  failed_when: audit_critical_service_units.rc not in [0, 1]
-  loop: '{{ audit_critical_systemd_units }}'
-
-- name: Assert critical service units are installed
-  ansible.builtin.assert:
-    that:
-      - audit_critical_service_unit.rc == 0
-    fail_msg: "{{ audit_critical_service_unit.item }} service unit is not installed."
-  loop: '{{ audit_critical_service_units.results }}'
-  loop_control:
-    loop_var: audit_critical_service_unit
-    label: '{{ audit_critical_service_unit.item }}'
-
-- name: Remember whether Docker service unit exists
-  ansible.builtin.set_fact:
-    audit_docker_service_unit_exists: >-
-      {{
-        audit_critical_service_units.results
-        | selectattr('item', 'equalto', 'docker')
-        | map(attribute='rc')
-        | first
-        | default(1)
-        == 0
-      }}
-
-- name: Gather installed systemd service units
-  become: true
-  ansible.builtin.command:
-    argv:
-      - systemctl
-      - list-unit-files
-      - --type=service
-      - --no-legend
-      - --no-pager
-  register: audit_systemd_unit_files
+      - /opt/toolbox/bin/audit_host
+  environment:
+    AUDIT_SSH_PORT: '{{ audit_ssh_port | string }}'
+    AUDIT_SSH_USERS: "{{ audit_ssh_users | join('\n') }}"
+    AUDIT_ADMIN_USERS: "{{ audit_admin_users | join('\n') }}"
+    AUDIT_SERVICE_USERS: "{{ audit_service_users | join('\n') }}"
+    AUDIT_DISK_THRESHOLD: '{{ audit_disk_threshold | string }}'
+    AUDIT_CRITICAL_SYSTEMD_UNITS: "{{ audit_critical_systemd_units | join('\n') }}"
+    AUDIT_INACTIVE_SYSTEMD_UNITS: "{{ audit_inactive_systemd_units | join('\n') }}"
+    AUDIT_RUNNING_SYSTEMD_UNIT_FILE_STATES: "{{ audit_running_systemd_unit_file_states | join('\n') }}"
+    AUDIT_SYSTEMD_LOG_SINCE_JOURNAL: '{{ audit_systemd_log_since_journal }}'
+    AUDIT_LOG_ERROR_REGEX: '{{ audit_log_error_regex }}'
+    AUDIT_LOG_IGNORE_REGEX: '{{ audit_log_ignore_regex }}'
+    AUDIT_LOG_MATCH_LIMIT: '{{ audit_log_match_limit | string }}'
+    AUDIT_SYSCTL_PARAMS_JSON: '{{ audit_sysctl_params | to_json }}'
   changed_when: false
 
-- name: Gather auto-started installed service types
+- name: Install host audit environment
   become: true
-  ansible.builtin.command:
-    argv:
-      - systemctl
-      - show
-      - --property=Type
-      - --value
-      - '{{ audit_service_unit_file.split()[0] }}'
-  register: audit_auto_started_service_types
-  changed_when: false
-  when:
-    - audit_service_unit_file.split() | length >= 2
-    - "'@.' not in audit_service_unit_file.split()[0]"
-    - audit_service_unit_file.split()[1] in audit_running_systemd_unit_file_states
-  loop: '{{ audit_systemd_unit_files.stdout_lines }}'
-  loop_control:
-    loop_var: audit_service_unit_file
-    label: '{{ audit_service_unit_file.split()[0] }}'
+  ansible.builtin.copy:
+    dest: /etc/default/audit-host
+    mode: '0644'
+    owner: root
+    group: root
+    content: |
+      AUDIT_SSH_PORT={{ audit_ssh_port | string | quote }}
+      AUDIT_SSH_USERS={{ audit_ssh_users | join('\n') | quote }}
+      AUDIT_ADMIN_USERS={{ audit_admin_users | join('\n') | quote }}
+      AUDIT_SERVICE_USERS={{ audit_service_users | join('\n') | quote }}
+      AUDIT_DISK_THRESHOLD={{ audit_disk_threshold | string | quote }}
+      AUDIT_CRITICAL_SYSTEMD_UNITS={{ audit_critical_systemd_units | join('\n') | quote }}
+      AUDIT_INACTIVE_SYSTEMD_UNITS={{ audit_inactive_systemd_units | join('\n') | quote }}
+      AUDIT_RUNNING_SYSTEMD_UNIT_FILE_STATES={{ audit_running_systemd_unit_file_states | join('\n') | quote }}
+      AUDIT_SYSTEMD_LOG_SINCE_JOURNAL={{ audit_systemd_log_since_journal | quote }}
+      AUDIT_LOG_ERROR_REGEX={{ audit_log_error_regex | quote }}
+      AUDIT_LOG_IGNORE_REGEX={{ audit_log_ignore_regex | quote }}
+      AUDIT_LOG_MATCH_LIMIT={{ audit_log_match_limit | string | quote }}
+      AUDIT_SYSCTL_PARAMS_JSON={{ audit_sysctl_params | to_json | quote }}
+  when: audit_cron_enabled | bool
 
-- name: Verify auto-started long-running installed services are active
+- name: Install daily host audit cron job
   become: true
-  ansible.builtin.command:
-    argv:
-      - systemctl
-      - is-active
-      - '{{ audit_service_type_result.audit_service_unit_file.split()[0] }}'
-  register: audit_service_active
-  changed_when: false
-  failed_when: false
-  when:
-    - not audit_service_type_result.skipped | default(false)
-    - audit_service_type_result.stdout | trim != 'oneshot'
-    - audit_service_type_result.audit_service_unit_file.split()[0] not in audit_inactive_systemd_units
-  loop: '{{ audit_auto_started_service_types.results }}'
-  loop_control:
-    loop_var: audit_service_type_result
-    label: '{{ audit_service_type_result.audit_service_unit_file.split()[0] }}'
+  ansible.builtin.copy:
+    dest: /etc/cron.d/audit-host
+    mode: '0644'
+    owner: root
+    group: root
+    content: |
+      CRON_TZ=UTC
+      {{ audit_cron_minute }} {{ audit_cron_hour }} * * * root . /etc/default/audit-host; /opt/toolbox/bin/audit_host --quiet > {{ audit_cron_log_path }}
+  when: audit_cron_enabled | bool
 
-- name: Assert auto-started long-running installed services are active
-  ansible.builtin.assert:
-    that:
-      - audit_service_active_result.rc == 0
-    fail_msg: >-
-      {{ audit_service_active_result.audit_service_type_result.audit_service_unit_file.split()[0] }}
-      is configured to start but is not active.
-  loop: '{{ audit_service_active.results }}'
-  loop_control:
-    loop_var: audit_service_active_result
-    label: '{{ audit_service_active_result.audit_service_type_result.audit_service_unit_file.split()[0] }}'
-  when:
-    - not ansible_check_mode
-    - not audit_service_active_result.skipped | default(false)
-
-- name: Check installed services failed state
+- name: Remove daily host audit cron job
   become: true
-  ansible.builtin.command:
-    argv:
-      - systemctl
-      - is-failed
-      - '{{ audit_service_unit_file.split()[0] }}'
-  register: audit_service_failed_state
-  changed_when: false
-  failed_when: audit_service_failed_state.rc not in [0, 1]
-  when:
-    - audit_service_unit_file.split() | length >= 2
-    - "'@.' not in audit_service_unit_file.split()[0]"
-  loop: '{{ audit_systemd_unit_files.stdout_lines }}'
-  loop_control:
-    loop_var: audit_service_unit_file
-    label: '{{ audit_service_unit_file.split()[0] }}'
+  ansible.builtin.file:
+    path: /etc/cron.d/audit-host
+    state: absent
+  when: not audit_cron_enabled | bool
 
-- name: Assert installed services are not failed
-  ansible.builtin.assert:
-    that:
-      - audit_service_failed_state_result.rc == 1
-    fail_msg: "{{ audit_service_failed_state_result.audit_service_unit_file.split()[0] }} is failed."
-  loop: "{{ audit_service_failed_state.results }}"
-  loop_control:
-    loop_var: audit_service_failed_state_result
-    label: '{{ audit_service_failed_state_result.audit_service_unit_file.split()[0] }}'
-  when:
-    - not ansible_check_mode
-    - not audit_service_failed_state_result.skipped | default(false)
-
-- name: Gather recent installed service journal logs
+- name: Remove host audit environment
   become: true
-  ansible.builtin.command:
-    argv:
-      - journalctl
-      - -u
-      - '{{ audit_service_unit_file.split()[0] }}'
-      - --since
-      - '{{ audit_systemd_log_since_journal }}'
-      - --no-pager
-      - -o
-      - short-iso
-  register: audit_service_journal_logs
-  failed_when: audit_service_journal_logs.rc not in [0, 1]
-  changed_when: false
-  when:
-    - audit_service_unit_file.split() | length >= 2
-    - "'@.' not in audit_service_unit_file.split()[0]"
-  loop: '{{ audit_systemd_unit_files.stdout_lines }}'
-  loop_control:
-    loop_var: audit_service_unit_file
-    label: '{{ audit_service_unit_file.split()[0] }}'
-
-- name: Assert recent installed service journals contain no error patterns
-  ansible.builtin.assert:
-    that:
-      - _audit_log_matches | length == 0
-    fail_msg: |-
-      Recent journal logs for {{ item.audit_service_unit_file.split()[0] }} contain error patterns:
-      {{ (_audit_log_matches[: audit_log_match_limit | int]) | join('\n') }}
-  vars:
-    _audit_log_matches: >-
-      {{ item.stdout_lines | select('search', audit_log_error_regex) | reject('search', audit_log_ignore_regex) | list }}
-  loop: '{{ audit_service_journal_logs.results | default([]) }}'
-  loop_control:
-    label: '{{ item.audit_service_unit_file.split()[0] }}'
-  when:
-    - not ansible_check_mode
-    - not item.skipped | default(false)
-
-- name: Check if apt-daily-upgrade timer unit exists
-  become: true
-  ansible.builtin.stat:
-    path: /lib/systemd/system/apt-daily-upgrade.timer
-  register: audit_apt_timer_unit
-
-- name: Probe apt-daily-upgrade timer status
-  become: true
-  ansible.builtin.systemd:
-    name: apt-daily-upgrade.timer
-    enabled: true
-  check_mode: true
-  register: audit_apt_timer
-  when: audit_apt_timer_unit.stat.exists
-
-- name: Assert apt-daily-upgrade timer is enabled
-  ansible.builtin.assert:
-    that:
-      - not audit_apt_timer.changed
-    fail_msg: "apt-daily-upgrade timer is not enabled."
-  when:
-    - not ansible_check_mode
-    - audit_apt_timer_unit.stat.exists
-
-- name: Verify sysctl security values
-  become: true
-  ansible.builtin.command:
-    cmd: "cat /proc/sys/{{ item.name | replace('.', '/') }}"
-  register: audit_sysctl
-  changed_when: false
-  loop: "{{ audit_sysctl_params }}"
-
-- name: Assert sysctl security values
-  ansible.builtin.assert:
-    that:
-      - item.stdout == item.item.value
-    fail_msg: "Sysctl {{ item.item.name }} expected {{ item.item.value }}, got {{ item.stdout }}"
-  loop: "{{ audit_sysctl.results }}"
-
-- name: Get current local users from /home
-  become: true
-  ansible.builtin.command:
-    cmd: ls -1 /home
-  register: audit_home_users
-  changed_when: false
-
-- name: Detect unauthorized local users
-  ansible.builtin.set_fact:
-    audit_unauthorized_users: "{{ audit_home_users.stdout_lines | difference(audit_service_users | default([]) + audit_admin_users | default([])) }}"
-
-- name: Assert no unauthorized local users exist
-  ansible.builtin.assert:
-    that:
-      - audit_unauthorized_users | length == 0
-    fail_msg: "Unauthorized local users in /home: {{ audit_unauthorized_users | join(', ') }}"
-
-- name: Check for empty passwords
-  become: true
-  ansible.builtin.command:
-    cmd: "awk -F: '$2 == \"\" {print $1}' /etc/shadow"
-  register: audit_empty_passwords
-  changed_when: false
-
-- name: Assert no empty passwords exist
-  ansible.builtin.assert:
-    that:
-      - audit_empty_passwords.stdout | trim | length == 0
-    fail_msg: "Accounts with empty passwords: {{ audit_empty_passwords.stdout | trim }}"
-
-- name: Check for extra UID 0 users
-  become: true
-  ansible.builtin.command:
-    cmd: "awk -F: '$3 == 0 && $1 != \"root\" {print $1}' /etc/passwd"
-  register: audit_uid0
-  changed_when: false
-
-- name: Assert no extra UID 0 users exist
-  ansible.builtin.assert:
-    that:
-      - audit_uid0.stdout | trim | length == 0
-    fail_msg: "Extra UID 0 users found: {{ audit_uid0.stdout | trim }}"
-
-- name: Stat critical security files
-  become: true
-  ansible.builtin.stat:
-    path: "{{ item.path }}"
-  register: audit_critical_files
-  loop:
-    - path: /etc/shadow
-      mode: '0640'
-      owner: root
-      group: shadow
-
-    - path: /etc/passwd
-      mode: '0644'
-      owner: root
-      group: root
-
-    - path: /etc/ssh/sshd_config
-      mode: '0644'
-      owner: root
-      group: root
-
-    - path: /etc/sudoers
-      mode: '0440'
-      owner: root
-      group: root
-
-- name: Assert critical file permissions
-  ansible.builtin.assert:
-    that:
-      - item.stat.exists
-      - item.stat.mode == item.item.mode
-      - item.stat.pw_name == item.item.owner
-      - item.stat.gr_name == item.item.group
-    fail_msg: "{{ item.item.path }} has incorrect state. Expected {{ item.item.mode }} {{ item.item.owner }}:{{ item.item.group }}, got {{ item.stat.mode | default('missing') }} {{ item.stat.pw_name | default('?') }}:{{ item.stat.gr_name | default('?') }}"
-  loop: "{{ audit_critical_files.results }}"
-
-- name: Validate sudoers configuration
-  become: true
-  ansible.builtin.command:
-    cmd: visudo -c
-  register: audit_visudo
-  changed_when: false
-  failed_when: false
-
-- name: Assert sudoers configuration is valid
-  ansible.builtin.assert:
-    that:
-      - audit_visudo.rc == 0
-    fail_msg: "sudoers configuration is invalid: {{ audit_visudo.stdout }}"
-
-- name: Stat /tmp directory
-  become: true
-  ansible.builtin.stat:
-    path: /tmp
-  register: audit_tmp_stat
-
-- name: Assert /tmp has sticky bit
-  ansible.builtin.assert:
-    that:
-      - (audit_tmp_stat.stat.mode | int) >= 1000
-    fail_msg: "/tmp does not have sticky bit set (mode {{ audit_tmp_stat.stat.mode }})"
-
-- name: Check for rhosts files
-  become: true
-  ansible.builtin.find:
-    paths:
-      - /root
-      - /home
-    patterns:
-      - .rhosts
-      - .shosts
-      - hosts.equiv
-    hidden: true
-  register: audit_rhosts
-
-- name: Assert no rhosts files exist
-  ansible.builtin.assert:
-    that:
-      - audit_rhosts.matched == 0
-    fail_msg: "rhosts files found: {{ audit_rhosts.files | map(attribute='path') | list | join(', ') }}"
-
-- name: Audit Docker daemon configuration
-  when: audit_docker_service_unit_exists
-  block:
-    - name: Verify Docker daemon.json is valid JSON
-      become: true
-      ansible.builtin.command:
-        cmd: python3 -c "import json; json.load(open('/etc/docker/daemon.json'))"
-      register: audit_docker_json
-      changed_when: false
-      failed_when: false
-
-    - name: Assert Docker daemon.json is valid JSON
-      ansible.builtin.assert:
-        that:
-          - audit_docker_json.rc == 0
-        fail_msg: "Docker daemon.json is not valid JSON."
-      when: not ansible_check_mode
-
-    - name: Check Docker daemon.json for insecure TCP exposure
-      become: true
-      ansible.builtin.command:
-        cmd: python3 -c "import json,sys; d=json.load(open('/etc/docker/daemon.json')); sys.exit(0 if any('tcp://' in h for h in d.get('hosts',[])) else 1)"
-      register: audit_docker_tcp
-      changed_when: false
-      failed_when: false
-
-    - name: Assert Docker daemon has no insecure TCP exposure
-      ansible.builtin.assert:
-        that:
-          - audit_docker_tcp.rc != 0
-        fail_msg: "Docker daemon.json appears to expose TCP insecurely."
-      when: not ansible_check_mode
-
-- name: Check root filesystem usage
-  become: true
-  ansible.builtin.command:
-    cmd: df -P /
-  register: audit_disk
-  changed_when: false
-
-- name: Assert root filesystem usage is below threshold
-  ansible.builtin.assert:
-    that:
-      - (audit_disk.stdout_lines[1].split()[-2] | regex_replace('%', '') | int) < (audit_disk_threshold | default(90) | int)
-    fail_msg: "Root filesystem usage is above {{ audit_disk_threshold | default(90) }}%."
+  ansible.builtin.file:
+    path: /etc/default/audit-host
+    state: absent
+  when: not audit_cron_enabled | bool

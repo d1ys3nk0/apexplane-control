@@ -58,6 +58,7 @@ Set `QUIET=1` or `QUIET=true` to suppress toolbox helper `_info`, `_warn`, and `
 - `/opt/toolbox/psqlrc`
 - `/opt/toolbox/lib/helpers.sh`, with shared elapsed-time logging and command execution helpers for toolbox scripts
 - `/etc/skel/.bash_toolbox`, with `/opt/toolbox/bin` added to `PATH` and optional Docker and HAProxy definitions rendered only when their script families are enabled
+- `/opt/toolbox/bin/audit_host`
 - `/opt/toolbox/bin/dotenv`
 - `/opt/toolbox/bin/sysrep`
 

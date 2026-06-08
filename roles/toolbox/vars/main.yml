@@ -4,6 +4,9 @@ toolbox_bin_dir: '{{ toolbox_install_dir }}/bin'
 toolbox_lib_dir: '{{ toolbox_install_dir }}/lib'
 
 toolbox_always_scripts:
+  - name: audit_host
+    src: audit_host.sh
+
   - name: bp
     src: bp.sh
 
