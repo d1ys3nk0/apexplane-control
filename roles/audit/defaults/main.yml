@@ -10,6 +10,7 @@ audit_critical_systemd_units:
   - auditd
   - unattended-upgrades
   - docker
+audit_inactive_systemd_units: []
 audit_running_systemd_unit_file_states:
   - enabled
   - enabled-runtime

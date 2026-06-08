@@ -11,6 +11,8 @@
       - audit_service_users is iterable
       - audit_critical_systemd_units is not string
       - audit_critical_systemd_units is iterable
+      - audit_inactive_systemd_units is not string
+      - audit_inactive_systemd_units is iterable
       - audit_running_systemd_unit_file_states is not string
       - audit_running_systemd_unit_file_states is iterable
       - audit_sysctl_params is not string
@@ -24,6 +26,13 @@
       - item | string | trim | length > 0
     fail_msg: Every audit_critical_systemd_units item must be a non-empty systemd unit name.
   loop: '{{ audit_critical_systemd_units }}'
+
+- name: Validate audit inactive systemd units
+  ansible.builtin.assert:
+    that:
+      - item | string | trim | length > 0
+    fail_msg: Every audit_inactive_systemd_units item must be a non-empty systemd unit name.
+  loop: '{{ audit_inactive_systemd_units }}'
 
 - name: Validate audit running systemd unit file states
   ansible.builtin.assert:

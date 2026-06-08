@@ -25,6 +25,7 @@ This role installs baseline audit tooling and configuration.
 | `audit_service_users` | `[]` |
 | `audit_disk_threshold` | `90` |
 | `audit_critical_systemd_units` | `[fail2ban, auditd, unattended-upgrades, docker]` |
+| `audit_inactive_systemd_units` | `[]` |
 | `audit_running_systemd_unit_file_states` | `[enabled, enabled-runtime]` |
 | `audit_systemd_log_since_journal` | `5 minutes ago` |
 | `audit_log_error_regex` | `<regex>` |

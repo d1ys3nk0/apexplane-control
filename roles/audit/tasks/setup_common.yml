@@ -124,6 +124,7 @@
   when:
     - not audit_service_type_result.skipped | default(false)
     - audit_service_type_result.stdout | trim != 'oneshot'
+    - audit_service_type_result.audit_service_unit_file.split()[0] not in audit_inactive_systemd_units
   loop: '{{ audit_auto_started_service_types.results }}'
   loop_control:
     loop_var: audit_service_type_result
