@@ -11,9 +11,10 @@
       - alloy_cluster_platform | string | length > 0
       - (alloy_logs_url | default('', true) | string | length > 0) or (alloy_metrics_url | default('', true) | string | length > 0) or (alloy_traces_url | default('', true) | string | length > 0)
       - alloy_traces_tls_insecure | type_debug == 'bool'
+      - alloy_docker_enabled is boolean
       - alloy_metrics_extra_targets is iterable
       - alloy_metrics_extra_targets is not string
-    fail_msg: Define Alloy cluster labels and at least one logs, metrics, or traces endpoint before running role alloy.
+    fail_msg: Define valid Alloy cluster labels, Docker integration state, and at least one logs, metrics, or traces endpoint before running role alloy.
 
 - name: Assert Alloy basic auth credentials are complete
   ansible.builtin.assert:

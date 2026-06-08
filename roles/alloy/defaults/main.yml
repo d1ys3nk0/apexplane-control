@@ -25,6 +25,7 @@ alloy_traces_tls_insecure: true
 alloy_cluster_name: ~
 alloy_cluster_realm: ~
 alloy_cluster_platform: ~
+alloy_docker_enabled: "{{ alloy_detected_docker_enabled | default(false) }}"
 alloy_metrics_extra_targets: []
 alloy_apt_repo_url: https://apt.grafana.com
 alloy_web_port: 12345

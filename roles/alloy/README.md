@@ -44,6 +44,7 @@ Set these required inputs before applying the role: `alloy_cluster_name`, `alloy
 | `alloy_cluster_name` | `~` |
 | `alloy_cluster_realm` | `~` |
 | `alloy_cluster_platform` | `~` |
+| `alloy_docker_enabled` | `<derived>` |
 | `alloy_metrics_extra_targets` | `[]` |
 | `alloy_apt_repo_url` | `https://apt.grafana.com` |
 | `alloy_web_port` | `12345` |

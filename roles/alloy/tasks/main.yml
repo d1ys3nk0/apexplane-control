@@ -50,6 +50,9 @@
     group: root
     mode: '0755'
 
+- name: Gather service facts for Alloy optional integrations
+  ansible.builtin.service_facts:
+
 - name: Check optional Alloy supplemental groups
   ansible.builtin.command:
     argv:
@@ -67,8 +70,21 @@
 
 - name: Store detected Alloy supplemental groups
   ansible.builtin.set_fact:
-    alloy_supplemental_groups: "{{ alloy_group_checks.results | selectattr('rc', 'equalto', 0) | map(attribute='item') | list }}"
-    alloy_docker_enabled: "{{ 'docker' in (alloy_group_checks.results | selectattr('rc', 'equalto', 0) | map(attribute='item') | list) }}"
+    alloy_detected_supplemental_groups: "{{ alloy_group_checks.results | selectattr('rc', 'equalto', 0) | map(attribute='item') | list }}"
+    alloy_detected_docker_enabled: >-
+      {{
+        'docker' in (alloy_group_checks.results | selectattr('rc', 'equalto', 0) | map(attribute='item') | list)
+        and ansible_facts.services['docker.service'] is defined
+        and ansible_facts.services['docker.service'].state == 'running'
+      }}
+
+- name: Store effective Alloy supplemental groups
+  ansible.builtin.set_fact:
+    alloy_supplemental_groups: >-
+      {{
+        (alloy_detected_supplemental_groups | reject('equalto', 'docker') | list)
+        + (['docker'] if alloy_docker_enabled | bool and 'docker' in alloy_detected_supplemental_groups else [])
+      }}
 
 - name: Add Alloy user to supplemental groups
   become: true
