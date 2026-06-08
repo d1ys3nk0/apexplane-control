@@ -94,8 +94,7 @@
     alloy_detected_supplemental_groups: "{{ alloy_group_checks.results | selectattr('rc', 'equalto', 0) | map(attribute='item') | list }}"
     alloy_detected_docker_enabled: >-
       {{
-        'docker' in (alloy_group_checks.results | selectattr('rc', 'equalto', 0) | map(attribute='item') | list)
-        and ansible_facts.services['docker.service'] is defined
+        ansible_facts.services['docker.service'] is defined
         and ansible_facts.services['docker.service'].state == 'running'
       }}
 
