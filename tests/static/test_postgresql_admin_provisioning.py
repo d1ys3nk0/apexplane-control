@@ -180,6 +180,69 @@ def test_runtime_postgresql_provisioning_is_gated_by_admin_credentials() -> None
     assert "runtime_pg_provision_enabled | bool" in provision_text
 
 
+def test_runtime_and_zitadel_postgresql_env_contracts_match() -> None:
+    runtime_defaults = (REPO_ROOT / "roles/runtime/defaults/main.yml").read_text(encoding="utf-8")
+    runtime_validate = (REPO_ROOT / "roles/runtime/tasks/validate.yml").read_text(encoding="utf-8")
+    runtime_env = (REPO_ROOT / "roles/runtime/templates/postgres.env.j2").read_text(encoding="utf-8")
+    runtime_env_tasks = (REPO_ROOT / "roles/runtime/tasks/postgres_env.yml").read_text(encoding="utf-8")
+    runtime_provision = (REPO_ROOT / "roles/runtime/tasks/postgres_provision.yml").read_text(encoding="utf-8")
+    zitadel_defaults = (REPO_ROOT / "roles/docker_swarm_zitadel/defaults/main.yml").read_text(encoding="utf-8")
+    zitadel_validate = (REPO_ROOT / "roles/docker_swarm_zitadel/tasks/validate.yml").read_text(encoding="utf-8")
+    zitadel_env = (REPO_ROOT / "roles/docker_swarm_zitadel/templates/pg.env.j2").read_text(encoding="utf-8")
+    zitadel_provision = (REPO_ROOT / "roles/docker_swarm_zitadel/tasks/postgresql.yml").read_text(encoding="utf-8")
+
+    assert "runtime_pg_backup_s3_prefix" not in runtime_defaults
+    assert "runtime_pg_recover_s3_prefix" not in runtime_defaults
+    assert "runtime_pg_recover_concurrency: '{{ runtime_pg_backup_concurrency }}'" in runtime_defaults
+    assert "runtime_pg_recover_secret: '{{ runtime_pg_backup_secret }}'" in runtime_defaults
+    assert "runtime_pg_recover_s3_endpoint: '{{ runtime_pg_backup_s3_endpoint }}'" in runtime_defaults
+    assert "runtime_pg_recover_s3_region: '{{ runtime_pg_backup_s3_region }}'" in runtime_defaults
+    assert "runtime_pg_recover_s3_bucket: '{{ runtime_pg_backup_s3_bucket }}'" in runtime_defaults
+    assert "runtime_pg_recover_s3_access_key: '{{ runtime_pg_backup_s3_access_key }}'" in runtime_defaults
+    assert "runtime_pg_recover_s3_secret_key: '{{ runtime_pg_backup_s3_secret_key }}'" in runtime_defaults
+    assert "recover_s3_prefix" not in runtime_validate
+    assert "pg_recover_s3_prefix" not in runtime_env_tasks
+    assert "docker_swarm_zitadel_pg_backup_s3_prefix" not in zitadel_defaults
+    assert "docker_swarm_zitadel_pg_recover_s3_prefix" not in zitadel_defaults
+    assert (
+        "docker_swarm_zitadel_pg_recover_concurrency: '{{ docker_swarm_zitadel_pg_backup_concurrency }}'"
+        in zitadel_defaults
+    )
+    assert "docker_swarm_zitadel_pg_recover_secret: '{{ docker_swarm_zitadel_pg_backup_secret }}'" in zitadel_defaults
+    assert (
+        "docker_swarm_zitadel_pg_recover_s3_endpoint: '{{ docker_swarm_zitadel_pg_backup_s3_endpoint }}'"
+        in zitadel_defaults
+    )
+    assert (
+        "docker_swarm_zitadel_pg_recover_s3_region: '{{ docker_swarm_zitadel_pg_backup_s3_region }}'"
+        in zitadel_defaults
+    )
+    assert (
+        "docker_swarm_zitadel_pg_recover_s3_bucket: '{{ docker_swarm_zitadel_pg_backup_s3_bucket }}'"
+        in zitadel_defaults
+    )
+    assert (
+        "docker_swarm_zitadel_pg_recover_s3_access_key: '{{ docker_swarm_zitadel_pg_backup_s3_access_key }}'"
+        in zitadel_defaults
+    )
+    assert (
+        "docker_swarm_zitadel_pg_recover_s3_secret_key: '{{ docker_swarm_zitadel_pg_backup_s3_secret_key }}'"
+        in zitadel_defaults
+    )
+    assert "docker_swarm_zitadel_pg_recover_s3_prefix" not in zitadel_validate
+
+    assert "PG_BACKUP_S3_PREFIX=\"postgres/{{ pg_base }}/$(date -u '+%y/%V')\"" in runtime_env
+    assert "PG_RECOVER_S3_PREFIX=\"postgres/{{ pg_base }}/$(date -u '+%y/%V')\"" in runtime_env
+    assert "PG_BACKUP_S3_PREFIX=\"postgres/{{ docker_swarm_zitadel_pg_base }}/$(date -u '+%y/%V')\"" in zitadel_env
+    assert "PG_RECOVER_S3_PREFIX=\"postgres/{{ docker_swarm_zitadel_pg_base }}/$(date -u '+%y/%V')\"" in zitadel_env
+    assert 'PG_SSL="{{ pg_ssl }}"' in runtime_env
+    assert 'PG_SSL="{{ docker_swarm_zitadel_pg_ssl }}"' in zitadel_env
+    assert 'ssl_mode: "{{ runtime_pg_ssl }}"' in runtime_provision
+    assert "item.sslmode" not in runtime_provision
+    assert "item.sslmode" not in runtime_validate
+    assert "ssl_mode: '{{ docker_swarm_zitadel_pg_ssl }}'" in zitadel_provision
+
+
 def test_postgresql_resource_tasks_are_gated_by_admin_credentials() -> None:
     errors: list[str] = []
 

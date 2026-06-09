@@ -26,7 +26,7 @@ Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_
 | `runtime_pg_port` | `5432` |
 | `runtime_pg_ssl` | `disable` |
 | `runtime_pg_backup_concurrency` | `1` |
-| `runtime_pg_recover_concurrency` | `''` |
+| `runtime_pg_recover_concurrency` | `{{ runtime_pg_backup_concurrency }}` |
 | `runtime_pg_recover_exclude_extensions` | `''` |
 | `runtime_pg_recover_no_prepare` | `false` |
 | `runtime_pg_recover_no_recreate` | `false` |
@@ -34,18 +34,16 @@ Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_
 | `runtime_pg_backup_s3_endpoint` | `''` |
 | `runtime_pg_backup_s3_region` | `''` |
 | `runtime_pg_backup_s3_bucket` | `''` |
-| `runtime_pg_backup_s3_prefix` | `'postgres'` |
 | `runtime_pg_backup_s3_access_key` | `''` |
 | `runtime_pg_backup_s3_secret_key` | `''` |
-| `runtime_pg_recover_secret` | `''` |
-| `runtime_pg_recover_s3_endpoint` | `''` |
-| `runtime_pg_recover_s3_region` | `''` |
-| `runtime_pg_recover_s3_bucket` | `''` |
-| `runtime_pg_recover_s3_prefix` | `''` |
-| `runtime_pg_recover_s3_access_key` | `''` |
-| `runtime_pg_recover_s3_secret_key` | `''` |
+| `runtime_pg_recover_secret` | `{{ runtime_pg_backup_secret }}` |
+| `runtime_pg_recover_s3_endpoint` | `{{ runtime_pg_backup_s3_endpoint }}` |
+| `runtime_pg_recover_s3_region` | `{{ runtime_pg_backup_s3_region }}` |
+| `runtime_pg_recover_s3_bucket` | `{{ runtime_pg_backup_s3_bucket }}` |
+| `runtime_pg_recover_s3_access_key` | `{{ runtime_pg_backup_s3_access_key }}` |
+| `runtime_pg_recover_s3_secret_key` | `{{ runtime_pg_backup_s3_secret_key }}` |
 
-`runtime_apps` entries define app accounts, environments, and resolved per-service secret mappings. Service `secrets` mappings create Docker Swarm secrets with a timestamp and content hash suffix; the role creates a new Docker secret when the latest matching secret hash differs from the current canonical dotenv payload and does not remove old versions. Secret keys must be valid dotenv variable names, and secret values must be scalar. `runtime_pg_bases` entries define resolved application PostgreSQL env files and optional provisioning inputs; each entry must define `app`, `base`, `user`, and `pass`. Recovery S3 prefixes are literal object key prefixes configured with `runtime_pg_recover_s3_prefix` or per-base `recover_s3_prefix`; placeholders are not expanded. Empty PostgreSQL admin credentials render client env files without provisioning users or databases. Complete PostgreSQL admin credentials enable provisioning for all runtime bases.
+`runtime_apps` entries define app accounts, environments, and resolved per-service secret mappings. Service `secrets` mappings create Docker Swarm secrets with a timestamp and content hash suffix; the role creates a new Docker secret when the latest matching secret hash differs from the current canonical dotenv payload and does not remove old versions. Secret keys must be valid dotenv variable names, and secret values must be scalar. `runtime_pg_bases` entries define resolved application PostgreSQL env files and optional provisioning inputs; each entry must define `app`, `base`, `user`, and `pass`. PostgreSQL backup and recovery dotenv files use the fixed S3 prefix `postgres/<base>/<UTC yy>/<UTC ISO week>`. Recovery concurrency, secret, and S3 connection variables default to the corresponding backup variables and may be overridden independently. Empty PostgreSQL admin credentials render client env files without provisioning users or databases. Complete PostgreSQL admin credentials enable provisioning for all runtime bases.
 
 ## Usage
 
@@ -58,6 +56,7 @@ Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_
       vars:
         runtime_cluster_realm: prd
         runtime_pg_host: postgres.local
+        runtime_pg_ssl: disable
         runtime_apps:
           - name: app
             envs:

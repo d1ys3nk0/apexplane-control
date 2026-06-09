@@ -71,9 +71,8 @@
     that:
       - docker_swarm_zitadel_pg_recover_s3_bucket | string | length > 0
       - docker_swarm_zitadel_pg_recover_s3_endpoint | string | length > 0
-      - docker_swarm_zitadel_pg_recover_s3_prefix | string | length > 0
       - docker_swarm_zitadel_pg_recover_s3_region | string | length > 0
-    fail_msg: Define Docker Swarm Zitadel PostgreSQL recovery S3 bucket, endpoint, prefix, and region when recovery S3 keys are set.
+    fail_msg: Define Docker Swarm Zitadel PostgreSQL recovery S3 bucket, endpoint, and region when recovery S3 keys are set.
   when:
     - docker_swarm_zitadel_enabled | bool
     - docker_swarm_zitadel_pg_recover_s3_enabled | bool

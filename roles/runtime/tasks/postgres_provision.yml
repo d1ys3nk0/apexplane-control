@@ -12,7 +12,7 @@
     login_password: '{{ runtime_pg_admin_pass }}'
     login_host: "{{ item.host | default(runtime_pg_host, true) }}"
     login_port: "{{ item.port | default(runtime_pg_port, true) }}"
-    ssl_mode: "{{ item.sslmode | default(runtime_pg_ssl, true) }}"
+    ssl_mode: "{{ runtime_pg_ssl }}"
   run_once: true
   no_log: '{{ runtime_nolog }}'
   loop: '{{ runtime_pg_base_items }}'
@@ -35,7 +35,7 @@
     login_password: '{{ runtime_pg_admin_pass }}'
     login_host: "{{ item.host | default(runtime_pg_host, true) }}"
     login_port: "{{ item.port | default(runtime_pg_port, true) }}"
-    ssl_mode: "{{ item.sslmode | default(runtime_pg_ssl, true) }}"
+    ssl_mode: "{{ runtime_pg_ssl }}"
   run_once: true
   no_log: '{{ runtime_nolog }}'
   loop: '{{ runtime_pg_base_items }}'
