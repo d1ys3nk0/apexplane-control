@@ -24,7 +24,7 @@ Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_
 | `runtime_pg_image` | `postgres:latest` |
 | `runtime_pg_host` | `~` |
 | `runtime_pg_port` | `5432` |
-| `runtime_pg_sslmode` | `disable` |
+| `runtime_pg_ssl` | `disable` |
 | `runtime_pg_backup_concurrency` | `1` |
 | `runtime_pg_recover_concurrency` | `''` |
 | `runtime_pg_recover_exclude_extensions` | `''` |

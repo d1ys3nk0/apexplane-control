@@ -30,7 +30,7 @@ Set these required inputs before applying the role: `docker_swarm_pghero_pg_user
 | `docker_swarm_pghero_pg_host` | `~` |
 | `docker_swarm_pghero_pg_port` | `5432` |
 | `docker_swarm_pghero_pg_bases` | `[]` |
-| `docker_swarm_pghero_pg_sslmode` | `disable` |
+| `docker_swarm_pghero_pg_ssl` | `disable` |
 | `docker_swarm_pghero_enabled` | `true` |
 | `docker_swarm_pghero_ci_mode` | `<derived>` |
 | `docker_swarm_pghero_debug_mode` | `<derived>` |

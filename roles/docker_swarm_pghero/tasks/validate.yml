@@ -13,7 +13,7 @@
       - docker_swarm_pghero_pg_host | string | length > 0
       - docker_swarm_pghero_pg_port | int > 0
       - docker_swarm_pghero_pg_admin_database | string | length > 0
-      - docker_swarm_pghero_pg_sslmode | string | length > 0
+      - docker_swarm_pghero_pg_ssl | string | length > 0
       - docker_swarm_pghero_pg_user is not none
       - docker_swarm_pghero_pg_user | string | length > 0
       - docker_swarm_pghero_pg_pass is not none

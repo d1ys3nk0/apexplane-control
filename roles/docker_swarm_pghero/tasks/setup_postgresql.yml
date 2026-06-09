@@ -10,6 +10,6 @@
     login_user: '{{ docker_swarm_pghero_pg_admin_user }}'
     login_password: '{{ docker_swarm_pghero_pg_admin_pass }}'
     login_db: '{{ docker_swarm_pghero_pg_admin_database }}'
-    ssl_mode: '{{ docker_swarm_pghero_pg_sslmode }}'
+    ssl_mode: '{{ docker_swarm_pghero_pg_ssl }}'
   no_log: '{{ docker_swarm_pghero_nolog }}'
   run_once: true

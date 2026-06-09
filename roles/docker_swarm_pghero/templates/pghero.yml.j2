@@ -1,5 +1,5 @@
 databases:
 {% for item in docker_swarm_pghero_pg_bases %}
   {{ item }}:
-    url: {{ ('postgres://' ~ docker_swarm_pghero_pg_user ~ ':' ~ docker_swarm_pghero_pg_pass ~ '@' ~ docker_swarm_pghero_pg_host ~ ':' ~ (docker_swarm_pghero_pg_port | string) ~ '/' ~ item ~ '?sslmode=' ~ docker_swarm_pghero_pg_sslmode) | to_json }}
+    url: {{ ('postgres://' ~ docker_swarm_pghero_pg_user ~ ':' ~ docker_swarm_pghero_pg_pass ~ '@' ~ docker_swarm_pghero_pg_host ~ ':' ~ (docker_swarm_pghero_pg_port | string) ~ '/' ~ item ~ '?sslmode=' ~ docker_swarm_pghero_pg_ssl) | to_json }}
 {% endfor %}

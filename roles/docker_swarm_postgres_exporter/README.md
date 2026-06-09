@@ -29,7 +29,7 @@ Set these required inputs before applying the role: `docker_swarm_postgres_expor
 | `docker_swarm_postgres_exporter_pg_pass` | `~` |
 | `docker_swarm_postgres_exporter_pg_host` | `~` |
 | `docker_swarm_postgres_exporter_pg_port` | `5432` |
-| `docker_swarm_postgres_exporter_pg_sslmode` | `disable` |
+| `docker_swarm_postgres_exporter_pg_ssl` | `disable` |
 | `docker_swarm_postgres_exporter_pg_admin_user` | `''` |
 | `docker_swarm_postgres_exporter_pg_admin_pass` | `''` |
 | `docker_swarm_postgres_exporter_public_port` | `9187` |
