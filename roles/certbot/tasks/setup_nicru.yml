@@ -1,0 +1,29 @@
+---
+
+- name: Create Certbot secret directory
+  become: true
+  ansible.builtin.file:
+    path: '{{ certbot_dns_nicru_credentials_dir }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Install NIC.ru Certbot credentials
+  become: true
+  ansible.builtin.template:
+    src: certbot/nicru.ini.j2
+    dest: '{{ certbot_dns_nicru_credentials_path }}'
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: '{{ certbot_nolog }}'
+
+- name: Install DNS NIC.ru Certbot wrapper
+  become: true
+  ansible.builtin.template:
+    src: certbot/certonly.sh.j2
+    dest: '{{ certbot_wrapper_path }}'
+    owner: root
+    group: root
+    mode: '0755'

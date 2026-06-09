@@ -6,10 +6,12 @@ backend crowdsec-spoa
   server localhost:{{ haproxy_alb_crowdsec_spoa_port }} 127.0.0.1:{{ haproxy_alb_crowdsec_spoa_port }}
 
 {% endif %}
-backend certbot
+{% if haproxy_alb_acme_enabled | bool %}
+backend acme
   mode http
-  server localhost:{{ haproxy_alb_certbot_http_port }} 127.0.0.1:{{ haproxy_alb_certbot_http_port }} init-addr libc,none
+  server localhost:{{ haproxy_alb_acme_port }} 127.0.0.1:{{ haproxy_alb_acme_port }} init-addr libc,none
 
+{% endif %}
 {% if haproxy_alb_default_target_host | default('', true) | string | length > 0 %}
 backend default
   mode http

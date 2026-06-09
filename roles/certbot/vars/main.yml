@@ -1,0 +1,31 @@
+---
+
+certbot_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+certbot_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+certbot_nolog: '{{ (certbot_ci_mode | bool) and not (certbot_debug_mode | bool) }}'
+certbot_bin_dir: '{{ certbot_install_dir }}/bin'
+certbot_hook_dir: '{{ certbot_install_dir }}/hooks'
+certbot_wrapper_path: '{{ certbot_install_dir }}/certonly'
+certbot_venv_command: python3 -m venv
+certbot_dns_nicru_package_name: certbot-dns-nicru=={{ certbot_dns_nicru_package_version }}
+certbot_http_cert_items: >-
+  {%- set _cert_items = [] -%}
+  {%- for _cert in certbot_http_certs | default({}) | dict2items | sort(attribute='key') -%}
+    {%- set _cert_domains = ([_cert.value] if _cert.value is string else _cert.value) | map('string') | sort -%}
+    {%- set _cert_domain_arg = _cert_domains | join(',') -%}
+    {%- set _ = _cert_items.append({
+      'name': _cert.key,
+      'domains': _cert_domains,
+      'domain_arg': _cert_domain_arg,
+      'lineage_path': '/etc/letsencrypt/live/' ~ _cert.key,
+    }) -%}
+  {%- endfor -%}
+  {{ _cert_items }}
+certbot_http_enabled: '{{ certbot_http_cert_items | length > 0 }}'
+certbot_renew_unit_name: certbot-renew
+certbot_renew_timer_name: '{{ certbot_renew_unit_name }}.timer'
+certbot_renew_service_name: '{{ certbot_renew_unit_name }}.service'
+certbot_deploy_hook_args: "{{ ['--deploy-hook', certbot_hook_dir ~ '/haproxy-deploy'] if certbot_haproxy_deploy_hook_enabled | bool else [] }}"
+certbot_renew_command: >-
+  {{ certbot_bin_dir }}/certbot renew --quiet{% if certbot_haproxy_deploy_hook_enabled | bool %} --deploy-hook
+  {{ certbot_hook_dir }}/haproxy-deploy{% endif %}

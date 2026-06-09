@@ -1,0 +1,6 @@
+[Unit]
+Description=Renew Certbot certificates
+
+[Service]
+Type=oneshot
+ExecStart={{ certbot_renew_command }}

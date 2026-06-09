@@ -189,7 +189,9 @@ frontend web
   http-after-response set-header Set-Cookie %[var(txn.crowdsec.captcha_cookie)] if { var(txn.crowdsec.captcha_cookie) -m found } !{ var(txn.crowdsec.captcha_status) -m found }
 {% endif %}
 
-  use_backend certbot if is_acme
+{% if haproxy_alb_acme_enabled | bool %}
+  use_backend acme if is_acme
+{% endif %}
 {% for prefix_length in haproxy_route_prefix_lengths.values | sort(reverse=true) %}
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
 {% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}

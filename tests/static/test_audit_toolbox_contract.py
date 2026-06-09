@@ -42,3 +42,15 @@ def test_audit_ignores_docker_signature_descriptor_noise() -> None:
 
     assert ignore_pattern in audit_defaults["audit_log_ignore_regex"]
     assert ignore_pattern in audit_script
+
+
+def test_audit_requires_single_exact_fstab_swap_entry() -> None:
+    audit_script = (REPO_ROOT / "roles" / "toolbox" / "files" / "scripts" / "audit_host.sh").read_text(encoding="utf-8")
+
+    assert '$3 == "swap"' in audit_script
+    assert '$1 == "/swapfile"' in audit_script
+    assert '$2 == "none"' in audit_script
+    assert '$4 == "sw"' in audit_script
+    assert '$5 == "0"' in audit_script
+    assert '$6 == "0"' in audit_script
+    assert '[ "${swap_count}" -ne 1 ] || [ "${exact_count}" -ne 1 ]' in audit_script

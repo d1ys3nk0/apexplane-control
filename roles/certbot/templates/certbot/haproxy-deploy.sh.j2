@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+error() {
+    printf 'haproxy-deploy: %s\n' "$*" >&2
+    exit 1
+}
+
+domains_from_cert() {
+    openssl x509 -in "${renewed_lineage}/fullchain.pem" -noout -ext subjectAltName |
+        tr ',' '\n' |
+        sed -n 's/.*[Dd][Nn][Ss]://p' |
+        sed 's/^[[:space:]]*//'
+}
+
+renewed_lineage="${RENEWED_LINEAGE:-}"
+renewed_domains="${RENEWED_DOMAINS:-}"
+[ -n "$renewed_lineage" ] || error "RENEWED_LINEAGE is not set"
+[ -d "$renewed_lineage" ] || error "lineage directory does not exist: ${renewed_lineage}"
+[ -f "${renewed_lineage}/privkey.pem" ] || error "missing private key: ${renewed_lineage}/privkey.pem"
+[ -f "${renewed_lineage}/fullchain.pem" ] || error "missing fullchain: ${renewed_lineage}/fullchain.pem"
+
+cert_name="$(basename "$renewed_lineage")"
+cert_dir="{{ certbot_haproxy_cert_dir }}"
+
+if [ -n "$renewed_domains" ]; then
+    mapfile -t domains < <(tr ' ' '\n' <<<"$renewed_domains" | sed '/^$/d' | sort -u)
+else
+    mapfile -t domains < <(domains_from_cert | sed '/^$/d' | sort -u)
+fi
+[ -n "${domains[*]:-}" ] || error "could not derive renewed certificate domains"
+
+domain_arg="$(printf '%s\n' "${domains[@]}" | paste -sd, -)"
+cert_hash="$(printf '%s' "$domain_arg" | md5sum | awk '{ print $1 }')"
+pem_path="${cert_dir}/${cert_name}-${cert_hash}.pem"
+
+install -d -o "{{ certbot_haproxy_cert_owner }}" -g "{{ certbot_haproxy_cert_group }}" -m 0755 "$cert_dir"
+tmp_file="$(mktemp "${pem_path}.tmp.XXXXXX")"
+trap 'rm -f "$tmp_file"' EXIT
+
+sed '/^$/d' "${renewed_lineage}/privkey.pem" "${renewed_lineage}/fullchain.pem" >"$tmp_file"
+chown "{{ certbot_haproxy_cert_owner }}:{{ certbot_haproxy_cert_group }}" "$tmp_file"
+chmod 600 "$tmp_file"
+
+if [ -f "$pem_path" ] && cmp -s "$tmp_file" "$pem_path"; then
+    rm -f "$tmp_file"
+    trap - EXIT
+    exit 0
+fi
+
+mv "$tmp_file" "$pem_path"
+trap - EXIT
+
+for stale_pem in "${cert_dir}/${cert_name}-"*.pem; do
+    [ -e "$stale_pem" ] || continue
+    [ "$stale_pem" = "$pem_path" ] || rm -f "$stale_pem"
+done
+
+haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/conf.d
+systemctl reload haproxy
+systemctl is-active haproxy >/dev/null

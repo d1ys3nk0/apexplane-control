@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: certonly dns-nicru <cert-name> -d <domain> [-d <domain> ...]
+
+Issue or renew a Certbot certificate through the NIC.ru DNS authenticator.
+EOF
+}
+
+error() {
+    printf 'certonly: %s\n' "$*" >&2
+    exit 1
+}
+
+add_domain() {
+    local domain="$1"
+
+    [ -n "$domain" ] || error "domain values must be non-empty"
+    domains+=("$domain")
+}
+
+add_domains_arg() {
+    local raw="$1"
+    local part
+    local -a parts=()
+
+    IFS=',' read -r -a parts <<<"$raw"
+    for part in "${parts[@]}"; do
+        add_domain "$part"
+    done
+}
+
+if [ "$#" -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    usage
+    exit 0
+fi
+
+provider="$1"
+shift
+[ "$provider" = "dns-nicru" ] || error "unsupported provider: ${provider}"
+
+[ "$#" -ge 1 ] || error "certificate name is required"
+cert_name="$1"
+shift
+[ -n "$cert_name" ] || error "certificate name must be non-empty"
+
+domains=()
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+    -d | --domain)
+        [ "$#" -ge 2 ] || error "$1 requires a value"
+        add_domain "$2"
+        shift 2
+        ;;
+    --domains)
+        [ "$#" -ge 2 ] || error "--domains requires a value"
+        add_domains_arg "$2"
+        shift 2
+        ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    *)
+        error "unknown argument: $1"
+        ;;
+    esac
+done
+
+[ -n "${domains[*]:-}" ] || error "at least one domain is required"
+
+cmd=(
+    "{{ certbot_bin_dir }}/certbot"
+    certonly
+    --non-interactive
+    --keep-until-expiring
+    --renew-with-new-domains
+    --agree-tos
+    --authenticator
+    dns-nicru
+    --dns-nicru-credentials
+    "{{ certbot_dns_nicru_credentials_path }}"
+    --dns-nicru-propagation-seconds
+    "{{ certbot_dns_nicru_propagation_seconds }}"
+    --server
+    "{{ certbot_server }}"
+    --rsa-key-size
+    "{{ certbot_rsa_key_size }}"
+    --email
+    "{{ certbot_email }}"
+    --cert-name
+    "$cert_name"
+)
+
+if [ -x "{{ certbot_hook_dir }}/haproxy-deploy" ]; then
+    cmd+=(--deploy-hook "{{ certbot_hook_dir }}/haproxy-deploy")
+fi
+
+for domain in "${domains[@]}"; do
+    cmd+=(-d "$domain")
+done
+
+exec "${cmd[@]}"

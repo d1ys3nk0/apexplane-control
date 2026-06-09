@@ -237,6 +237,6 @@
   ansible.builtin.include_tasks: verify.yml
   when: haproxy_alb_config_changed | bool
 
-- name: Get Let's Encrypt certificates using Certbot
-  ansible.builtin.include_tasks: setup_certbot.yml
-  when: haproxy_alb_letsencrypt_enabled | bool
+- name: Validate HAProxy SSL certificates
+  ansible.builtin.include_tasks: setup_certs.yml
+  when: haproxy_alb_manage_certs | bool

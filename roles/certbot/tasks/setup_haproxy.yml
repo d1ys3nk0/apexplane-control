@@ -1,0 +1,10 @@
+---
+
+- name: Install HAProxy Certbot deploy hook
+  become: true
+  ansible.builtin.template:
+    src: certbot/haproxy-deploy.sh.j2
+    dest: '{{ certbot_hook_dir }}/haproxy-deploy'
+    owner: root
+    group: root
+    mode: '0755'

@@ -342,6 +342,32 @@ _audit_check_disk() {
     fi
 }
 
+_audit_check_fstab() {
+    local counts exact_count swap_count
+
+    _audit_check
+    if [ ! -r /etc/fstab ]; then
+        _audit_issue "/etc/fstab is not readable."
+        return
+    fi
+
+    counts=$(awk '
+        /^[[:space:]]*($|#)/ { next }
+        $3 == "swap" {
+            swap_count += 1
+            if (NF == 6 && $1 == "/swapfile" && $2 == "none" && $4 == "sw" && $5 == "0" && $6 == "0") {
+                exact_count += 1
+            }
+        }
+        END { printf "%d %d\n", swap_count, exact_count }
+    ' /etc/fstab)
+    swap_count="${counts%% *}"
+    exact_count="${counts##* }"
+    if [ "${swap_count}" -ne 1 ] || [ "${exact_count}" -ne 1 ]; then
+        _audit_issue "/etc/fstab must contain exactly one active swap entry: /swapfile none swap sw 0 0"
+    fi
+}
+
 _audit_print_result() {
     local issue
 
@@ -373,5 +399,6 @@ if [ "${#AUDIT_ISSUES[@]}" -eq 0 ]; then
     _audit_check_files
     _audit_check_docker
     _audit_check_disk
+    _audit_check_fstab
 fi
 _audit_print_result

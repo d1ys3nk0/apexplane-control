@@ -75,9 +75,6 @@ sudo /opt/toolbox/bin/docker_resource_report
 
 HAProxy scripts are installed when `toolbox_haproxy_enabled` is true:
 
-- `/opt/toolbox/bin/certbot_dns_auth`
-- `/opt/toolbox/bin/certbot_dns_cleanup`
-- `/opt/toolbox/bin/certbot_dns_issue`
 - `/opt/toolbox/bin/haproxy_report`
 
 PostgreSQL scripts are installed when `toolbox_postgres_enabled` is true:
@@ -103,18 +100,6 @@ Include rotated logs by passing files or quoted globs:
 ```sh
 sudo /opt/toolbox/bin/haproxy_report '/var/log/haproxy/traffic.log*'
 ```
-
-### Manual Wildcard Certificates
-
-Use `certbot_dns_issue` to generate wildcard certificates before running roles that expect pre-existing HAProxy PEM files:
-
-```sh
-sudo /opt/toolbox/bin/certbot_dns_issue --cert-name wildcard-example --email admin@example.com --domain '*.example.com' --domain example.com
-```
-
-The script starts Certbot with DNS-01 manual auth hooks, prints the required `_acme-challenge` TXT records, waits for confirmation and DNS propagation, then installs `/etc/ssl/haproxy/<cert-name>-<md5(sorted-comma-joined-domains)>.pem`.
-
-After the PEM is installed, run the HAProxy role so it validates SAN coverage, validates expiry, and reloads HAProxy with the new certificate.
 
 ### Backup and Restore
 

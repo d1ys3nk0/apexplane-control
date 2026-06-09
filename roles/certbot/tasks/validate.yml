@@ -1,0 +1,76 @@
+---
+
+- name: Assert Certbot mode variables are valid
+  ansible.builtin.assert:
+    that:
+      - certbot_enabled | type_debug == 'bool'
+      - certbot_http_enabled | type_debug == 'bool'
+      - certbot_dns_nicru_enabled | type_debug == 'bool'
+      - certbot_haproxy_deploy_hook_enabled | type_debug == 'bool'
+      - certbot_renew_timer_enabled | type_debug == 'bool'
+    fail_msg: Define Certbot mode variables with valid boolean values.
+
+- name: Assert Certbot scalar variables are valid
+  ansible.builtin.assert:
+    that:
+      - certbot_install_dir | string | length > 0
+      - certbot_package_name | string | length > 0
+      - certbot_http_port | string | length > 0
+      - certbot_http_dns_wait_retries | int > 0
+      - certbot_http_dns_wait_delay | int > 0
+      - certbot_dns_nicru_package_version | string | length > 0
+      - certbot_dns_nicru_credentials_dir | string | length > 0
+      - certbot_dns_nicru_credentials_path | string | length > 0
+      - certbot_dns_nicru_propagation_seconds | int > 0
+      - certbot_email is none or certbot_email | string | length > 0
+      - certbot_server | string | length > 0
+      - certbot_rsa_key_size | int > 0
+      - certbot_haproxy_cert_dir | string | length > 0
+      - certbot_haproxy_cert_owner | string | length > 0
+      - certbot_haproxy_cert_group | string | length > 0
+      - certbot_renew_on_calendar | string | length > 0
+      - certbot_renew_randomized_delay_sec | string | length > 0
+    fail_msg: Define Certbot scalar variables with non-empty values.
+
+- name: Assert Certbot HTTP certificates are valid
+  ansible.builtin.assert:
+    that:
+      - certbot_http_certs is defined
+      - certbot_http_certs is mapping
+      - certbot_email is not none
+      - certbot_email | string | length > 0
+    fail_msg: certbot_http_certs must be a mapping of HTTP-01 cert name to domain list, and certbot_email must be set.
+  when: certbot_http_enabled | bool
+
+- name: Assert Certbot HTTP certificate domains are non-wildcards
+  ansible.builtin.assert:
+    that:
+      - item.domains | select('match', '^[*][.]') | list | length == 0
+    fail_msg: Certbot HTTP-01 certificates must not include wildcard domains.
+  loop: '{{ certbot_http_cert_items }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: certbot_http_enabled | bool
+
+- name: Assert NIC.ru required variables are set when enabled
+  ansible.builtin.assert:
+    that:
+      - certbot_email is not none
+      - certbot_email | string | length > 0
+      - certbot_dns_nicru_client_id is not none
+      - certbot_dns_nicru_client_id | string | length > 0
+      - certbot_dns_nicru_client_secret is not none
+      - certbot_dns_nicru_client_secret | string | length > 0
+      - certbot_dns_nicru_username is not none
+      - certbot_dns_nicru_username | string | length > 0
+      - certbot_dns_nicru_password is not none
+      - certbot_dns_nicru_password | string | length > 0
+      - certbot_dns_nicru_scope is not none
+      - certbot_dns_nicru_scope | string | length > 0
+      - certbot_dns_nicru_service is not none
+      - certbot_dns_nicru_service | string | length > 0
+      - certbot_dns_nicru_zone is not none
+      - certbot_dns_nicru_zone | string | length > 0
+    fail_msg: Define all certbot_dns_nicru_* credentials and zone inputs when certbot_dns_nicru_enabled is true.
+  no_log: '{{ certbot_nolog }}'
+  when: certbot_dns_nicru_enabled | bool

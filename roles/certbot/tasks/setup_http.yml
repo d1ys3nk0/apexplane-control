@@ -1,0 +1,100 @@
+---
+
+- name: Check HTTP-01 certificate lineages
+  become: true
+  ansible.builtin.stat:
+    path: '{{ item.lineage_path }}/fullchain.pem'
+  loop: '{{ certbot_http_cert_items }}'
+  loop_control:
+    label: '{{ item.lineage_path }}/fullchain.pem'
+  register: certbot_http_lineage_stats
+
+- name: Check HTTP-01 certificate domain coverage
+  become: true
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      expected_file=$(mktemp)
+      actual_file=$(mktemp)
+      trap 'rm -f "${expected_file}" "${actual_file}"' EXIT
+
+      {% for _domain in item.domains %}
+      printf '%s\n' {{ _domain | quote }} >>"${expected_file}"
+      {% endfor %}
+      sort -u -o "${expected_file}" "${expected_file}"
+
+      openssl x509 -in "{{ item.lineage_path }}/fullchain.pem" -noout -ext subjectAltName |
+        tr ',' '\n' |
+        sed -n 's/.*[Dd][Nn][Ss]://p' |
+        sed 's/^[[:space:]]*//' |
+        sort -u >"${actual_file}"
+
+      if cmp -s "${expected_file}" "${actual_file}"; then
+          echo MATCH
+      else
+          echo MISMATCH
+      fi
+    executable: /bin/bash
+  register: certbot_http_domain_checks
+  changed_when: false
+  failed_when: false
+  loop: '{{ certbot_http_cert_items }}'
+  loop_control:
+    extended: true
+    label: '{{ item.name }}'
+  when: certbot_http_lineage_stats.results[ansible_loop.index0].stat.exists | default(false) | bool
+
+- name: Wait for HTTP-01 certificate domains to resolve using public DNS
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      {% for _domain in item.domains %}
+      nslookup {{ _domain | quote }} 1.1.1.1 >/dev/null
+      {% endfor %}
+    executable: /bin/bash
+  register: certbot_http_dns_validation_lookup
+  changed_when: false
+  until: certbot_http_dns_validation_lookup.rc == 0
+  retries: '{{ certbot_http_dns_wait_retries }}'
+  delay: '{{ certbot_http_dns_wait_delay }}'
+  loop: '{{ certbot_http_cert_items }}'
+  loop_control:
+    extended: true
+    label: '{{ item.name }}'
+  when: >-
+    not (certbot_http_lineage_stats.results[ansible_loop.index0].stat.exists | default(false) | bool)
+    or (certbot_http_domain_checks.results[ansible_loop.index0].stdout | default('MISMATCH') | trim) != 'MATCH'
+
+- name: Obtain Let's Encrypt certificates using HTTP-01 challenge
+  become: true
+  ansible.builtin.command:
+    argv: >-
+      {{
+        [
+          certbot_bin_dir ~ '/certbot',
+          'certonly',
+          '--non-interactive',
+          '--keep-until-expiring',
+          '--renew-with-new-domains',
+          '--agree-tos',
+          '--standalone',
+          '--http-01-port=' ~ certbot_http_port,
+          '--email',
+          certbot_email,
+          '--cert-name',
+          certbot_http_cert_item.name,
+          '--domains',
+          certbot_http_cert_item.domain_arg,
+          '--no-directory-hooks'
+        ] + certbot_deploy_hook_args
+      }}
+  register: certbot_http_issue
+  changed_when: certbot_http_issue.rc == 0
+  loop: '{{ certbot_http_cert_items }}'
+  loop_control:
+    extended: true
+    loop_var: certbot_http_cert_item
+    label: '{{ certbot_http_cert_item.name }}'
+  when: >-
+    not (certbot_http_lineage_stats.results[ansible_loop.index0].stat.exists | default(false) | bool)
+    or (certbot_http_domain_checks.results[ansible_loop.index0].stdout | default('MISMATCH') | trim) != 'MATCH'

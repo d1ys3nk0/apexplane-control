@@ -24,7 +24,6 @@ This document lists default listen or expose ports owned by `apexplane.control`.
 | HAProxy ALB | HTTPS listener | 443 | template-local listener |
 | HAProxy ALB | Stats | 8404 | `haproxy_alb_stats_port` |
 | HAProxy ALB | Prometheus exporter | 8405 | `haproxy_alb_prometheus_exporter_port` |
-| HAProxy ALB | Certbot standalone HTTP-01 | 40404 | `haproxy_alb_certbot_http_port` |
 | Docker Swarm Traefik | HTTP listener | 80 | template-local listener |
 | Docker Swarm Traefik | HTTPS listener | 443 | template-local listener |
 | Docker Swarm Traefik | HTTP published port | 1080 | `docker_swarm_traefik_http_expose_port` |

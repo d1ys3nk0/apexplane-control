@@ -1,0 +1,32 @@
+---
+
+- name: Validate Certbot variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Configure Certbot installation
+  ansible.builtin.include_tasks: setup_install.yml
+  when: certbot_enabled | bool
+
+- name: Configure NIC.ru DNS plugin
+  ansible.builtin.include_tasks: setup_nicru.yml
+  when:
+    - certbot_enabled | bool
+    - certbot_dns_nicru_enabled | bool
+
+- name: Configure HAProxy deploy hook
+  ansible.builtin.include_tasks: setup_haproxy.yml
+  when:
+    - certbot_enabled | bool
+    - certbot_haproxy_deploy_hook_enabled | bool
+
+- name: Configure HTTP-01 certificates
+  ansible.builtin.include_tasks: setup_http.yml
+  when:
+    - certbot_enabled | bool
+    - certbot_http_enabled | bool
+
+- name: Configure Certbot renewal timer
+  ansible.builtin.include_tasks: setup_renewal.yml
+  when:
+    - certbot_enabled | bool
+    - certbot_renew_timer_enabled | bool

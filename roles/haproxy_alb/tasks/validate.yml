@@ -8,6 +8,8 @@
       - haproxy_alb_crowdsec_spoa_port | string | length > 0
       - haproxy_alb_stats_port | string | length > 0
       - haproxy_alb_prometheus_exporter_port | string | length > 0
+      - haproxy_alb_acme_enabled | type_debug == 'bool'
+      - haproxy_alb_acme_port | string | length > 0
       - haproxy_alb_default_target_port | string | length > 0
     fail_msg: Define required haproxy_alb_* scalar variables before running role haproxy_alb.
   no_log: '{{ haproxy_alb_nolog }}'
@@ -16,7 +18,6 @@
   ansible.builtin.assert:
     that:
       - haproxy_alb_interactive_mode | type_debug == 'bool'
-      - haproxy_alb_letsencrypt_enabled | type_debug == 'bool'
     fail_msg: Define HAProxy ALB mode variables with valid types before running role haproxy_alb.
 
 - name: Assert haproxy_alb_target_groups is a mapping
@@ -63,8 +64,8 @@
       - haproxy_alb_certs is defined
       - haproxy_alb_certs is mapping
       - haproxy_alb_certs | length > 0
-    fail_msg: haproxy_alb_certs must be a non-empty mapping of cert name to domain list when haproxy_alb_letsencrypt_enabled is true
-  when: haproxy_alb_letsencrypt_enabled | bool
+    fail_msg: haproxy_alb_certs must be a non-empty mapping of cert name to domain list when managed HAProxy certificates are configured
+  when: haproxy_alb_manage_certs | bool
 
 - name: Assert haproxy_alb_auth is a list when set
   ansible.builtin.assert:
@@ -189,18 +190,6 @@
   loop: '{{ haproxy_alb_certs.keys() | sort }}'
   loop_control:
     label: '{{ item }}'
-
-- name: Assert HAProxy ALB Certbot variables are set for automatic certificates
-  ansible.builtin.assert:
-    that:
-      - haproxy_alb_certbot_email is not none
-      - haproxy_alb_certbot_email | string | length > 0
-      - haproxy_alb_certbot_http_port | string | length > 0
-      - haproxy_alb_certbot_http_dns_wait_retries | int > 0
-      - haproxy_alb_certbot_http_dns_wait_delay | int > 0
-    fail_msg: Define Certbot variables when haproxy_alb_certs includes non-wildcard certificates managed by haproxy_alb.
-  when: haproxy_alb_has_automatic_cert | default(false) | bool
-  no_log: '{{ haproxy_alb_nolog }}'
 
 - name: Assert each route has required fields
   ansible.builtin.assert:
@@ -368,21 +357,6 @@
     that:
       - haproxy_alb_throttle_domain_prefix_keys | length == haproxy_alb_throttle_domain_prefix_keys | unique | length
     fail_msg: haproxy_alb_throttles contains duplicate (domain, prefix) combinations
-
-- name: Wait for HAProxy ALB domains to resolve using public DNS
-  ansible.builtin.command:
-    argv:
-      - nslookup
-      - '{{ item }}'
-      - 1.1.1.1
-  register: haproxy_alb_dns_validation_lookup
-  changed_when: false
-  until: haproxy_alb_dns_validation_lookup.rc == 0
-  retries: '{{ haproxy_alb_certbot_http_dns_wait_retries }}'
-  delay: '{{ haproxy_alb_certbot_http_dns_wait_delay }}'
-  loop: '{{ haproxy_alb_dns_validation_domains }}'
-  loop_control:
-    label: '{{ item }}'
 
 - name: Assert auth rule headers are non-empty mappings when set
   ansible.builtin.assert:

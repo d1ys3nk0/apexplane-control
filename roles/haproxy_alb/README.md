@@ -3,7 +3,6 @@
 This role configures HAProxy as an application load balancer with existing PEM certificates.
 
 ## Features
-- Obtain Let's Encrypt certificate using http challenge.
 - Configure self-signed SSL certificate.
 - Find HAProxy ALB backend fragments.
 - Store desired HAProxy ALB backend fragment paths.
@@ -14,21 +13,22 @@ This role configures HAProxy as an application load balancer with existing PEM c
 - Update HAProxy throttle backend fragments.
 - Upload HAProxy whitelist files.
 - Update HAProxy frontend config.
+- Route ACME HTTP-01 challenge requests to the configured local challenge backend.
+- Validate existing HAProxy PEM certificates when `haproxy_alb_certs` is configured.
 - Additional focused setup tasks for the same role-owned desired state.
 
 ## Configuration
-Set these required inputs before applying the role: `haproxy_alb_self_signed_cert_domain`, `haproxy_alb_certbot_email`.
+Set this required input before applying the role: `haproxy_alb_self_signed_cert_domain`.
 
 | Variable | Default |
 | --- | --- |
 | `haproxy_alb_crowdsec_enabled` | `false` |
 | `haproxy_alb_crowdsec_body_limit` | `51200` |
 | `haproxy_alb_crowdsec_spoa_port` | `9000` |
-| `haproxy_alb_certbot_http_port` | `40404` |
-| `haproxy_alb_certbot_http_dns_wait_retries` | `12` |
-| `haproxy_alb_certbot_http_dns_wait_delay` | `5` |
 | `haproxy_alb_stats_port` | `8404` |
 | `haproxy_alb_prometheus_exporter_port` | `8405` |
+| `haproxy_alb_acme_enabled` | `true` |
+| `haproxy_alb_acme_port` | `40404` |
 | `haproxy_alb_redirect_all_http` | `false` |
 | `haproxy_alb_whitelists` | `{}` |
 | `haproxy_alb_whitelists_enforced` | `[]` |
@@ -37,7 +37,6 @@ Set these required inputs before applying the role: `haproxy_alb_self_signed_cer
 | `haproxy_alb_throttle_deny_status` | `429` |
 | `haproxy_alb_trusted_proxy_cidrs` | `<complex>` |
 | `haproxy_alb_self_signed_cert_domain` | `~` |
-| `haproxy_alb_certbot_email` | `~` |
 | `haproxy_alb_certs` | `{}` |
 | `haproxy_alb_target_groups` | `{}` |
 | `haproxy_alb_routes` | `[]` |
@@ -57,5 +56,4 @@ Set these required inputs before applying the role: `haproxy_alb_self_signed_cer
     - role: apexplane.control.haproxy_alb
       vars:
         haproxy_alb_self_signed_cert_domain: <value>
-        haproxy_alb_certbot_email: <value>
 ```

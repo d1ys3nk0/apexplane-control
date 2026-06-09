@@ -1,0 +1,39 @@
+---
+
+- name: Install Certbot renew service
+  become: true
+  ansible.builtin.template:
+    src: systemd/certbot-renew.service.j2
+    dest: /etc/systemd/system/{{ certbot_renew_service_name }}
+    owner: root
+    group: root
+    mode: '0644'
+  register: certbot_renew_service_update
+
+- name: Install Certbot renew timer
+  become: true
+  ansible.builtin.template:
+    src: systemd/certbot-renew.timer.j2
+    dest: /etc/systemd/system/{{ certbot_renew_timer_name }}
+    owner: root
+    group: root
+    mode: '0644'
+  register: certbot_renew_timer_update
+
+- name: Start Certbot renew timer
+  become: true
+  ansible.builtin.systemd:
+    name: '{{ certbot_renew_timer_name }}'
+    enabled: true
+    state: started
+    daemon_reload: '{{ certbot_renew_service_update.changed or certbot_renew_timer_update.changed }}'
+
+- name: Verify Certbot renew timer is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - '{{ certbot_renew_timer_name }}'
+  register: certbot_renew_timer_health
+  changed_when: false

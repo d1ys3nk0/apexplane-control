@@ -24,15 +24,6 @@ toolbox_docker_scripts:
     src: docker_resource_report.sh
 
 toolbox_haproxy_scripts:
-  - name: certbot_dns_auth
-    src: certbot_dns_auth.sh
-
-  - name: certbot_dns_cleanup
-    src: certbot_dns_cleanup.sh
-
-  - name: certbot_dns_issue
-    src: certbot_dns_issue.sh
-
   - name: haproxy_report
     src: haproxy_report.sh
 

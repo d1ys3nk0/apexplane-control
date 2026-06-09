@@ -1,0 +1,30 @@
+---
+
+- name: Install Certbot Python runtime dependencies
+  become: true
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-venv
+    state: present
+    update_cache: true
+
+- name: Install Certbot virtualenv packages
+  become: true
+  ansible.builtin.pip:
+    name:
+      - '{{ certbot_package_name }}'
+      - '{{ certbot_dns_nicru_package_name }}'
+    state: present
+    virtualenv: '{{ certbot_install_dir }}'
+    virtualenv_command: '{{ certbot_venv_command }}'
+    extra_args: --upgrade
+
+- name: Create Certbot hook directory
+  become: true
+  ansible.builtin.file:
+    path: '{{ certbot_hook_dir }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
