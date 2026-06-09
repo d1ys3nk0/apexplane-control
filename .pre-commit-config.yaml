@@ -49,7 +49,7 @@ repos:
             exit "$status"
           ' --
         args: []
-        files: \.sh$
+        files: (^bin/|\.sh$)
 
       - id: shfmt
         name: shfmt:fix
@@ -62,7 +62,7 @@ repos:
             done
           ' --
         args: []
-        files: \.sh$
+        files: (^bin/|\.sh$)
         stages: [manual]
 
   - repo: https://github.com/google/yamlfmt

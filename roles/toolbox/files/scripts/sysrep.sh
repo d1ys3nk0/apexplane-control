@@ -78,23 +78,15 @@ hr_section() {
     hr_rule_dash
 }
 
-# ── docker invocation (optional sudo, optional timeout) ─────────────────────
+# ── docker invocation (sudo, optional timeout) ──────────────────────────────
 
 hr__docker_run() {
     local to=$1
     shift
-    if [[ $EUID -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
-        if command -v timeout >/dev/null 2>&1; then
-            timeout "$to" sudo docker "$@"
-        else
-            sudo docker "$@"
-        fi
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$to" sudo docker "$@"
     else
-        if command -v timeout >/dev/null 2>&1; then
-            timeout "$to" docker "$@"
-        else
-            docker "$@"
-        fi
+        sudo docker "$@"
     fi
 }
 
@@ -111,11 +103,7 @@ hr_docker_has() {
 }
 
 hr_docker_client_label() {
-    if [[ $EUID -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
-        printf '%s' "sudo docker"
-    else
-        printf '%s' "docker"
-    fi
+    printf '%s' "sudo docker"
 }
 
 hr_need_docker_or_exit() {
@@ -141,6 +129,17 @@ hr_run() {
         "$@"
     elif command -v sudo >/dev/null 2>&1; then
         sudo "$@"
+    else
+        "$@"
+    fi
+}
+
+hr_run_timeout() {
+    local to=$1
+    shift
+
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$to" "$@"
     else
         "$@"
     fi
@@ -853,7 +852,7 @@ SELECT '--- database sizes ---';
 SELECT datname, pg_size_pretty(pg_database_size(datname)) AS size
 FROM pg_database WHERE NOT datistemplate ORDER BY pg_database_size(datname) DESC;
 HREP_PGSQL
-    hr__docker_run "$HR_DOCKER_TIMEOUT" docker exec -i postgres psql -U admin -Atc "$psql_snap" 2>&1 | hr_indent_stream
+    hr_docker exec -i postgres psql -U admin -Atc "$psql_snap" 2>&1 | hr_indent_stream
 
     hr_section "Logs (tail 60)"
     hr_docker logs --tail 60 --timestamps postgres 2>&1 | hr_indent_stream
@@ -875,16 +874,16 @@ report_redis() {
     hr_docker inspect redis --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
 
     hr_section "redis-cli info (server / memory / clients / stats, dbsize)"
-    hr__docker_run "$HR_DOCKER_TIMEOUT" bash -o pipefail -c '
-docker exec -i redis redis-cli info server 2>&1 | head -20
-docker exec -i redis redis-cli info memory 2>&1 | head -15
-docker exec -i redis redis-cli info clients 2>&1 | head -15
-docker exec -i redis redis-cli info stats 2>&1 | grep -E "connected_clients|blocked_clients|rejected_connections|evicted_keys|keyspace_" || true
-docker exec -i redis redis-cli dbsize 2>&1
+    hr_run_timeout "$HR_DOCKER_TIMEOUT" bash -o pipefail -c '
+sudo docker exec -i redis redis-cli info server 2>&1 | head -20
+sudo docker exec -i redis redis-cli info memory 2>&1 | head -15
+sudo docker exec -i redis redis-cli info clients 2>&1 | head -15
+sudo docker exec -i redis redis-cli info stats 2>&1 | grep -E "connected_clients|blocked_clients|rejected_connections|evicted_keys|keyspace_" || true
+sudo docker exec -i redis redis-cli dbsize 2>&1
 ' | hr_indent_stream
 
     hr_section "slowlog (last 10)"
-    hr__docker_run "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "docker exec -i redis redis-cli slowlog get 10 2>&1" | hr_indent_stream
+    hr_run_timeout "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "sudo docker exec -i redis redis-cli slowlog get 10 2>&1" | hr_indent_stream
 
     hr_report_footer
 }
@@ -903,10 +902,10 @@ report_elasticsearch() {
     hr_docker inspect elasticsearch --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
 
     hr_section "Cluster health"
-    hr__docker_run "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "docker exec -i elasticsearch curl -sS localhost:9200/_cluster/health?pretty 2>&1" | hr_indent_stream
+    hr_run_timeout "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "sudo docker exec -i elasticsearch curl -sS localhost:9200/_cluster/health?pretty 2>&1" | hr_indent_stream
 
     hr_section "Node stats (fs, jvm, truncated)"
-    hr__docker_run "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "docker exec -i elasticsearch curl -sS 'localhost:9200/_nodes/stats/fs,jvm?pretty' 2>&1 | head -80" | hr_indent_stream
+    hr_run_timeout "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "sudo docker exec -i elasticsearch curl -sS 'localhost:9200/_nodes/stats/fs,jvm?pretty' 2>&1 | head -80" | hr_indent_stream
 
     hr_section "Logs (tail 40)"
     hr_docker logs --tail 40 --timestamps elasticsearch 2>&1 | hr_indent_stream
@@ -928,10 +927,10 @@ report_rabbitmq() {
     hr_docker inspect rabbitmq --format "State={{.State.Status}} Restarts={{.RestartCount}} StartedAt={{.State.StartedAt}}" | hr_indent_stream
 
     hr_section "rabbitmqctl status"
-    hr__docker_run "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "docker exec -i rabbitmq rabbitmqctl status 2>&1 | head -60" | hr_indent_stream
+    hr_run_timeout "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "sudo docker exec -i rabbitmq rabbitmqctl status 2>&1 | head -60" | hr_indent_stream
 
     hr_section "Queues"
-    hr__docker_run "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "docker exec -i rabbitmq rabbitmqctl list_queues name messages consumers 2>&1 | head -40" | hr_indent_stream
+    hr_run_timeout "$HR_DOCKER_TIMEOUT" bash -o pipefail -c "sudo docker exec -i rabbitmq rabbitmqctl list_queues name messages consumers 2>&1 | head -40" | hr_indent_stream
 
     hr_section "Logs (tail 40)"
     hr_docker logs --tail 40 --timestamps rabbitmq 2>&1 | hr_indent_stream

@@ -189,17 +189,17 @@ main() {
     stats_file=$(mktemp)
     trap 'rm -f "$nodes_file" "$services_file" "$tasks_file" "$stats_file"' EXIT
 
-    if docker info --format '{{.Swarm.ControlAvailable}}' 2>/dev/null | grep -q '^true$'; then
+    if _docker info --format '{{.Swarm.ControlAvailable}}' 2>/dev/null | grep -q '^true$'; then
         while IFS= read -r node_id; do
-            docker node inspect --format '{{.Description.Hostname}}	{{.Description.Resources.NanoCPUs}}	{{.Description.Resources.MemoryBytes}}	{{.Spec.Availability}}	{{.Status.State}}' "$node_id"
-        done < <(docker node ls -q) >"$nodes_file"
+            _docker node inspect --format '{{.Description.Hostname}}	{{.Description.Resources.NanoCPUs}}	{{.Description.Resources.MemoryBytes}}	{{.Spec.Availability}}	{{.Status.State}}' "$node_id"
+        done < <(_docker node ls -q) >"$nodes_file"
 
         while IFS= read -r service_id; do
-            docker service inspect --format '{{.ID}}	{{.Spec.Name}}	{{with .Spec.TaskTemplate.Resources}}{{with .Reservations}}{{.NanoCPUs}}{{else}}0{{end}}{{else}}0{{end}}	{{with .Spec.TaskTemplate.Resources}}{{with .Reservations}}{{.MemoryBytes}}{{else}}0{{end}}{{else}}0{{end}}	{{with .Spec.TaskTemplate.Resources}}{{with .Limits}}{{.NanoCPUs}}{{else}}0{{end}}{{else}}0{{end}}	{{with .Spec.TaskTemplate.Resources}}{{with .Limits}}{{.MemoryBytes}}{{else}}0{{end}}{{else}}0{{end}}' "$service_id"
-        done < <(docker service ls -q) >"$services_file"
+            _docker service inspect --format '{{.ID}}	{{.Spec.Name}}	{{with .Spec.TaskTemplate.Resources}}{{with .Reservations}}{{.NanoCPUs}}{{else}}0{{end}}{{else}}0{{end}}	{{with .Spec.TaskTemplate.Resources}}{{with .Reservations}}{{.MemoryBytes}}{{else}}0{{end}}{{else}}0{{end}}	{{with .Spec.TaskTemplate.Resources}}{{with .Limits}}{{.NanoCPUs}}{{else}}0{{end}}{{else}}0{{end}}	{{with .Spec.TaskTemplate.Resources}}{{with .Limits}}{{.MemoryBytes}}{{else}}0{{end}}{{else}}0{{end}}' "$service_id"
+        done < <(_docker service ls -q) >"$services_file"
 
         while IFS=$'\t' read -r service_id service_name reserve_cpu reserve_mem limit_cpu limit_mem; do
-            docker service ps --no-trunc --filter desired-state=running --format '{{.Node}}	{{.CurrentState}}' "$service_id" |
+            _docker service ps --no-trunc --filter desired-state=running --format '{{.Node}}	{{.CurrentState}}' "$service_id" |
                 awk -F '\t' -v service="$service_name" -v reserve_cpu="$reserve_cpu" -v reserve_mem="$reserve_mem" -v limit_cpu="$limit_cpu" -v limit_mem="$limit_mem" '
                     $1 != "" && $2 !~ /^Rejected/ {
                         print $1 "\t" service "\t" reserve_cpu "\t" reserve_mem "\t" limit_cpu "\t" limit_mem
@@ -210,7 +210,7 @@ main() {
         _warn "docker_resource_report: this node is not a Swarm manager; skipping Swarm allocation sections"
     fi
 
-    docker stats --no-stream --format '{{.CPUPerc}}	{{.MemUsage}}' >"$stats_file" 2>/dev/null || true
+    _docker stats --no-stream --format '{{.CPUPerc}}	{{.MemUsage}}' >"$stats_file" 2>/dev/null || true
 
     print_swarm_node_allocations "$nodes_file" "$tasks_file"
     print_swarm_service_allocations "$services_file" "$tasks_file"

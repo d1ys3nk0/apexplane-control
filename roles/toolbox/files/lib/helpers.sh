@@ -142,10 +142,34 @@ _is_true() {
     esac
 }
 
+_docker() {
+    sudo docker "$@"
+}
+
 _require_pg_connection_vars() {
     _require_vars "PG_IMAGE" "PG_HOST" "PG_PORT" "PG_USER" "PG_PASS"
 }
 
 _docker_postgres() {
-    sudo docker run --rm --network host -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" "$@"
+    local docker_args=()
+
+    while [ "$#" -gt 0 ]; do
+        if [ "$1" = "--" ]; then
+            shift
+            break
+        fi
+        docker_args+=("$1")
+        shift
+    done
+
+    _docker run \
+        --rm \
+        --network host \
+        -i \
+        -e "PGPASSWORD=${PG_PASS}" \
+        -e "PGSSLMODE=${PG_SSL:-disable}" \
+        --entrypoint '' \
+        "${docker_args[@]}" \
+        "${PG_IMAGE}" \
+        "$@"
 }

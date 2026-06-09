@@ -33,7 +33,7 @@ This role installs shared operator shell helpers and optional Docker, HAProxy, a
 ```
 
 ## Operations
-The `toolbox` role installs shell shortcuts plus always-enabled and optional operator scripts under `/opt/toolbox`. Executable scripts are installed without `.sh` extensions under `/opt/toolbox/bin`, which is added to `PATH` by the toolbox Bash definitions. The PostgreSQL scripts run client tools inside the configured `PG_IMAGE` Docker image with host networking.
+The `toolbox` role installs shell shortcuts plus always-enabled and optional operator scripts under `/opt/toolbox`. Executable scripts are installed without `.sh` extensions under `/opt/toolbox/bin`, which is added to `PATH` by the toolbox Bash definitions. The PostgreSQL scripts run client tools inside the configured `PG_IMAGE` Docker image with host networking and an empty Docker entrypoint.
 
 Run scripts through `dotenv` so the required environment is loaded without printing secrets.
 

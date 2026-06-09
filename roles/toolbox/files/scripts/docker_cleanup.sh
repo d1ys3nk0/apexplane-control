@@ -39,30 +39,30 @@ main() {
         _error "docker-cleanup: docker command not found"
     fi
 
-    mapfile -t dead_ids < <(docker ps -a --no-trunc --filter status=dead --format '{{.ID}}')
+    mapfile -t dead_ids < <(_docker ps -a --no-trunc --filter status=dead --format '{{.ID}}')
     if [ "${#dead_ids[@]}" -eq 0 ]; then
         _info "docker-cleanup: no dead containers found"
         return 0
     fi
 
     _info "docker-cleanup: found ${#dead_ids[@]} dead container(s)"
-    _cmd docker ps -a --filter status=dead --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}'
+    _cmd _docker ps -a --filter status=dead --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}'
 
     if [ "$dry_run" -eq 1 ]; then
         _info "docker-cleanup: dry run; no containers removed"
         return 0
     fi
 
-    _cmd docker rm "${dead_ids[@]}" || true
+    _cmd _docker rm "${dead_ids[@]}" || true
 
-    mapfile -t remaining_ids < <(docker ps -a --no-trunc --filter status=dead --format '{{.ID}}')
+    mapfile -t remaining_ids < <(_docker ps -a --no-trunc --filter status=dead --format '{{.ID}}')
     if [ "${#remaining_ids[@]}" -eq 0 ]; then
         _info "docker-cleanup: dead containers removed"
         return 0
     fi
 
     for id in "${remaining_ids[@]}"; do
-        if docker inspect "$id" >/dev/null 2>&1; then
+        if _docker inspect "$id" >/dev/null 2>&1; then
             _info "docker-cleanup: container $id is still inspectable after docker rm failed"
             continue
         fi
@@ -106,14 +106,14 @@ PY
     _cmd sudo systemctl restart docker
     _cmd sudo systemctl is-active docker
 
-    mapfile -t remaining_ids < <(docker ps -a --no-trunc --filter status=dead --format '{{.ID}}')
+    mapfile -t remaining_ids < <(_docker ps -a --no-trunc --filter status=dead --format '{{.ID}}')
     if [ "${#remaining_ids[@]}" -eq 0 ]; then
         _info "docker-cleanup: no dead containers remain"
         return 0
     fi
 
     _info "docker-cleanup: dead containers still remain after Docker restart"
-    _cmd docker ps -a --filter status=dead --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}' >&2
+    _cmd _docker ps -a --filter status=dead --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}' >&2
     return 1
 }
 

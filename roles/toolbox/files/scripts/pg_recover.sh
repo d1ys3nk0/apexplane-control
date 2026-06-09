@@ -362,15 +362,15 @@ init_restore_context() {
 }
 
 docker_pg() {
-    docker run --rm --name "pg-recover-${PG_BASE}" --network host -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" "$@"
+    _docker_postgres --name "pg-recover-${PG_BASE}" -- "$@"
 }
 
 docker_pg_with_backup() {
-    docker run --rm --name "pg-recover-${PG_BASE}" --network host -v "${BACKUP_FILE}:/backup.dump:ro" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" "$@"
+    _docker_postgres --name "pg-recover-${PG_BASE}" -v "${BACKUP_FILE}:/backup.dump:ro" -- "$@"
 }
 
 docker_pg_with_backup_and_restore_list() {
-    docker run --rm --name "pg-recover-${PG_BASE}" --network host -v "${BACKUP_FILE}:/backup.dump:ro" -v "${RESTORE_LIST_FILE}:/restore.list:ro" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" "$@"
+    _docker_postgres --name "pg-recover-${PG_BASE}" -v "${BACKUP_FILE}:/backup.dump:ro" -v "${RESTORE_LIST_FILE}:/restore.list:ro" -- "$@"
 }
 
 create_database() {

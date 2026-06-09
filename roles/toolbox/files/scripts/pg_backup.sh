@@ -114,7 +114,7 @@ create_backup() {
     local backup_dump_path
 
     _info "Checking database tables..."
-    _cmd docker run --name "pg-backup-${PG_BASE}" --rm --network host -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
+    _cmd _docker_postgres --name "pg-backup-${PG_BASE}" -- \
         psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" -c '\dt *.*'
 
     _info "Creating ${BACKUP_DIR}"
@@ -122,20 +122,20 @@ create_backup() {
 
     if [ "${PG_BACKUP_FORMAT}" = "sql" ]; then
         _info "Creating SQL backup ${BACKUP_FILE}..."
-        _cmd docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
+        _cmd _docker_postgres --name "pg-backup-${PG_BASE}" --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -- \
             sh -c "pg_dump -h \"\$1\" -p \"\$2\" -U \"\$3\" -d \"\$4\" --no-owner --no-privileges --no-comments -Fp | gzip -c > \"\$5\"" sh "${PG_HOST}" "${PG_PORT}" "${PG_USER}" "${PG_BASE}" "/backup/${BACKUP_NAME}.sql.gz"
     elif [ "${PG_BACKUP_FORMAT}" = "dir" ]; then
         backup_dump_path="${BACKUP_DIR}/${BACKUP_NAME}.dir"
         _cmd rm -rf "${backup_dump_path}"
         _info "Creating dir-format backup ${backup_dump_path}..."
-        _cmd docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
+        _cmd _docker_postgres --name "pg-backup-${PG_BASE}" --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -- \
             pg_dump -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" --no-owner --no-privileges --no-comments -j "${PG_BACKUP_CONCURRENCY}" -f "/backup/${BACKUP_NAME}.dir" -Fd
         _info "Archiving dir-format backup ${BACKUP_FILE} without compression..."
         _cmd tar -cf "${BACKUP_FILE}" -C "${BACKUP_DIR}" "${BACKUP_NAME}.dir"
         _cmd rm -rf "${backup_dump_path}"
     else
         _info "Creating cst-format backup ${BACKUP_FILE}..."
-        _cmd docker run --rm --name "pg-backup-${PG_BASE}" --network host --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -i -e "PGPASSWORD=${PG_PASS}" -e "PGSSLMODE=${PG_SSL:-disable}" "${PG_IMAGE}" \
+        _cmd _docker_postgres --name "pg-backup-${PG_BASE}" --user "$(id -u):$(id -g)" -v "${BACKUP_DIR}:/backup" -- \
             pg_dump -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" --no-owner --no-privileges --no-comments -f "/backup/${BACKUP_NAME}.dump" -Fc
     fi
 }

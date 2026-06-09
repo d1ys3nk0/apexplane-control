@@ -22,12 +22,8 @@ if [ ! -f "${PSQLRC}" ]; then
     PSQLRC="${SCRIPT_DIR}/psqlrc"
 fi
 
-_cmd sudo docker run \
-    --rm \
-    --network host \
+_cmd _docker_postgres \
     -it \
     -v "${PSQLRC}:/var/lib/postgresql/.psqlrc:ro" \
-    -e "PGPASSWORD=${PG_PASS}" \
-    -e "PGSSLMODE=${PG_SSL:-disable}" \
-    "${PG_IMAGE}" \
+    -- \
     psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${PG_BASE}" "$@"
