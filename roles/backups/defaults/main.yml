@@ -1,0 +1,24 @@
+---
+
+backups_enabled: false
+backups_postgres_databases: []
+backups_postgres_image: postgres:18-alpine
+backups_postgres_port: 5432
+backups_postgres_ssl: disable
+backups_postgres_backup_concurrency: 1
+backups_postgres_recover_concurrency: '{{ backups_postgres_backup_concurrency }}'
+backups_postgres_recover_no_prepare: false
+backups_postgres_recover_no_recreate: false
+backups_postgres_recover_exclude_extensions: ''
+backups_postgres_backup_secret: ''
+backups_postgres_backup_s3_endpoint: ''
+backups_postgres_backup_s3_region: ''
+backups_postgres_backup_s3_bucket: ''
+backups_postgres_backup_s3_access_key: ''
+backups_postgres_backup_s3_secret_key: ''
+backups_postgres_recover_secret: '{{ backups_postgres_backup_secret }}'
+backups_postgres_recover_s3_endpoint: '{{ backups_postgres_backup_s3_endpoint }}'
+backups_postgres_recover_s3_region: '{{ backups_postgres_backup_s3_region }}'
+backups_postgres_recover_s3_bucket: '{{ backups_postgres_backup_s3_bucket }}'
+backups_postgres_recover_s3_access_key: '{{ backups_postgres_backup_s3_access_key }}'
+backups_postgres_recover_s3_secret_key: '{{ backups_postgres_backup_s3_secret_key }}'

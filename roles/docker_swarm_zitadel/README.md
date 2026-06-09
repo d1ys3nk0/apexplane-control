@@ -39,24 +39,6 @@ Set these required inputs before applying the role: `docker_swarm_zitadel_domain
 | `docker_swarm_zitadel_pg_host` | `~` |
 | `docker_swarm_zitadel_pg_port` | `5432` |
 | `docker_swarm_zitadel_pg_ssl` | `disable` |
-| `docker_swarm_zitadel_pg_image` | `postgres:18-alpine` |
-| `docker_swarm_zitadel_pg_backup_concurrency` | `1` |
-| `docker_swarm_zitadel_pg_recover_concurrency` | `{{ docker_swarm_zitadel_pg_backup_concurrency }}` |
-| `docker_swarm_zitadel_pg_recover_exclude_extensions` | `''` |
-| `docker_swarm_zitadel_pg_recover_no_prepare` | `false` |
-| `docker_swarm_zitadel_pg_recover_no_recreate` | `false` |
-| `docker_swarm_zitadel_pg_backup_secret` | `''` |
-| `docker_swarm_zitadel_pg_backup_s3_endpoint` | `''` |
-| `docker_swarm_zitadel_pg_backup_s3_region` | `''` |
-| `docker_swarm_zitadel_pg_backup_s3_bucket` | `''` |
-| `docker_swarm_zitadel_pg_backup_s3_access_key` | `''` |
-| `docker_swarm_zitadel_pg_backup_s3_secret_key` | `''` |
-| `docker_swarm_zitadel_pg_recover_secret` | `{{ docker_swarm_zitadel_pg_backup_secret }}` |
-| `docker_swarm_zitadel_pg_recover_s3_endpoint` | `{{ docker_swarm_zitadel_pg_backup_s3_endpoint }}` |
-| `docker_swarm_zitadel_pg_recover_s3_region` | `{{ docker_swarm_zitadel_pg_backup_s3_region }}` |
-| `docker_swarm_zitadel_pg_recover_s3_bucket` | `{{ docker_swarm_zitadel_pg_backup_s3_bucket }}` |
-| `docker_swarm_zitadel_pg_recover_s3_access_key` | `{{ docker_swarm_zitadel_pg_backup_s3_access_key }}` |
-| `docker_swarm_zitadel_pg_recover_s3_secret_key` | `{{ docker_swarm_zitadel_pg_backup_s3_secret_key }}` |
 
 ## Usage
 ```yaml
@@ -76,9 +58,7 @@ Set these required inputs before applying the role: `docker_swarm_zitadel_domain
 ```
 
 ## Operations
-The `docker_swarm_zitadel` role manages the Docker Swarm service and root-owned PostgreSQL helper dotenv file at `/opt/zitadel/postgres/<database>.env`.
-
-PostgreSQL backup and recovery dotenv files use the fixed S3 prefix `postgres/<database>/<UTC yy>/<UTC ISO week>`. Recovery concurrency, secret, and S3 connection variables default to the corresponding backup variables and may be overridden independently.
+The `docker_swarm_zitadel` role manages the Docker Swarm service and can provision the PostgreSQL user and database when complete PostgreSQL admin credentials are provided. Use the `backups` role to render PostgreSQL backup and recovery dotenv files.
 
 By default the service command is dynamic: when `docker_swarm_zitadel_command` is empty and all first-instance org credential variables are set, the role runs `zitadel start-from-init`; otherwise it runs `zitadel start`. Set `docker_swarm_zitadel_command` to `start`, `start-from-setup`, or `start-from-init` only when an explicit override is needed.
 

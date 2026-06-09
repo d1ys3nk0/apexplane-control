@@ -21,6 +21,7 @@ def _main_includes_postgresql(main_path: Path) -> bool:
         "include_tasks: setup_postgresql.yml" in main_text
         or "include_tasks: postgresql.yml" in main_text
         or "include_tasks: postgres.yml" in main_text
+        or "include_tasks: postgres_provision.yml" in main_text
         or ("include_tasks: postgres_env.yml" in main_text and "include_tasks: postgres_provision.yml" in main_text)
     )
 
@@ -52,18 +53,17 @@ def run(*, repo_root: Path, **_kwargs: object) -> list[str]:
         setup_postgresql_path = tasks_dir / "setup_postgresql.yml"
         postgresql_path = tasks_dir / "postgresql.yml"
         postgres_path = tasks_dir / "postgres.yml"
-        postgres_env_path = tasks_dir / "postgres_env.yml"
         postgres_provision_path = tasks_dir / "postgres_provision.yml"
 
-        has_split_postgres = postgres_env_path.is_file() and postgres_provision_path.is_file()
+        has_postgres_provision = postgres_provision_path.is_file()
         if (
             not setup_postgresql_path.is_file()
             and not postgresql_path.is_file()
             and not postgres_path.is_file()
-            and not has_split_postgres
+            and not has_postgres_provision
         ):
             errors.append(
-                f"{_rel_path(setup_postgresql_path, repo_root)}, {_rel_path(postgresql_path, repo_root)}, {_rel_path(postgres_path, repo_root)}, or split postgres_*.yml: expected PostgreSQL task file"
+                f"{_rel_path(setup_postgresql_path, repo_root)}, {_rel_path(postgresql_path, repo_root)}, {_rel_path(postgres_path, repo_root)}, or postgres_provision.yml: expected PostgreSQL task file"
             )
 
         if not main_path.is_file():

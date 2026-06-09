@@ -1,0 +1,10 @@
+---
+
+- name: Validate backups configuration
+  ansible.builtin.include_tasks: validate.yml
+  tags:
+    - always
+
+- name: Configure PostgreSQL backup env files
+  ansible.builtin.include_tasks: postgres.yml
+  when: backups_enabled | bool

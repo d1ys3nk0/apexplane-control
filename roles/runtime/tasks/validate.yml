@@ -13,13 +13,6 @@
       - runtime_pg_host is not none
       - runtime_pg_host | string | length > 0
       - runtime_pg_port is number or runtime_pg_port | string | length > 0
-      - runtime_pg_backup_concurrency | string is match('^[1-9][0-9]*$')
-      - >-
-        runtime_pg_recover_concurrency | string | length == 0
-        or runtime_pg_recover_concurrency | string is match('^[1-9][0-9]*$')
-      - runtime_pg_recover_exclude_extensions is string
-      - runtime_pg_recover_no_prepare is boolean
-      - runtime_pg_recover_no_recreate is boolean
     fail_msg: Define runtime app, realm, and PostgreSQL variables.
   when: runtime_enabled | bool or runtime_network_enabled | bool
 
@@ -91,31 +84,8 @@
       - item.host is not defined or item.host | string | length > 0
       - item.port is not defined or item.port is number or item.port | string | length > 0
       - item.role_attr_flags is not defined or item.role_attr_flags is string
-      - item.backup is not defined or item.backup is boolean
     fail_msg: Each runtime PostgreSQL base must define app, base, user, and pass.
   loop: '{{ runtime_pg_base_items }}'
   loop_control:
     label: "{{ item.base | default('<missing-base>', true) }}"
   when: runtime_enabled | bool
-
-- name: Validate runtime PostgreSQL backup S3 variables
-  ansible.builtin.assert:
-    that:
-      - runtime_pg_backup_s3_bucket | string | length > 0
-      - runtime_pg_backup_s3_endpoint | string | length > 0
-      - runtime_pg_backup_s3_region | string | length > 0
-    fail_msg: Define runtime PostgreSQL backup S3 bucket, endpoint, and region when backup S3 keys are set.
-  when:
-    - runtime_enabled | bool
-    - runtime_pg_backup_s3_enabled | bool
-
-- name: Validate runtime PostgreSQL recovery S3 variables
-  ansible.builtin.assert:
-    that:
-      - runtime_pg_recover_s3_bucket | string | length > 0
-      - runtime_pg_recover_s3_endpoint | string | length > 0
-      - runtime_pg_recover_s3_region | string | length > 0
-    fail_msg: Define runtime PostgreSQL recovery S3 bucket, endpoint, and region when recovery S3 keys are set.
-  when:
-    - runtime_enabled | bool
-    - runtime_pg_recover_s3_enabled | bool

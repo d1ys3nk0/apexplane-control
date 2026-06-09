@@ -1,0 +1,34 @@
+---
+
+- name: Create PostgreSQL backup env directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.home | default('/home/' ~ item.user, true) }}/postgres"
+    state: directory
+    mode: '0750'
+    owner: "{{ item.owner | default(item.user, true) }}"
+    group: "{{ item.group | default(item.owner | default(item.user, true), true) }}"
+  loop: '{{ backups_postgres_database_items }}'
+  loop_control:
+    label: "{{ item.base | default('<missing-base>', true) }}"
+
+- name: Create PostgreSQL backup client env files
+  become: true
+  vars:
+    pg_base: '{{ item.base }}'
+    pg_user: '{{ item.user }}'
+    pg_pass: '{{ item.pass }}'
+    pg_host: '{{ item.host }}'
+    pg_port: "{{ item.port | default(backups_postgres_port, true) }}"
+    pg_ssl: "{{ item.ssl | default(backups_postgres_ssl, true) }}"
+    pg_image: "{{ item.image | default(backups_postgres_image, true) }}"
+  ansible.builtin.template:
+    src: postgres.env.j2
+    dest: "{{ item.home | default('/home/' ~ item.user, true) }}/postgres/{{ pg_base }}.env"
+    mode: '0600'
+    owner: "{{ item.owner | default(item.user, true) }}"
+    group: "{{ item.group | default(item.owner | default(item.user, true), true) }}"
+  no_log: '{{ backups_nolog }}'
+  loop: '{{ backups_postgres_database_items }}'
+  loop_control:
+    label: "{{ item.base | default('<missing-base>', true) }}"

@@ -1,0 +1,66 @@
+---
+
+- name: Validate backups variables
+  ansible.builtin.assert:
+    that:
+      - backups_enabled is boolean
+      - backups_postgres_databases is sequence
+      - backups_postgres_databases is not string
+      - backups_postgres_image | string | length > 0
+      - backups_postgres_port is number or backups_postgres_port | string | length > 0
+      - backups_postgres_ssl | string | length > 0
+      - backups_postgres_backup_concurrency | string is match('^[1-9][0-9]*$')
+      - >-
+        backups_postgres_recover_concurrency | string | length == 0
+        or backups_postgres_recover_concurrency | string is match('^[1-9][0-9]*$')
+      - backups_postgres_recover_exclude_extensions is string
+      - backups_postgres_recover_no_prepare is boolean
+      - backups_postgres_recover_no_recreate is boolean
+    fail_msg: Define valid backups settings before running role backups.
+
+- name: Validate backups PostgreSQL database definitions
+  ansible.builtin.assert:
+    that:
+      - item.base is defined
+      - item.base | string | length > 0
+      - item.user is defined
+      - item.user | string | length > 0
+      - item.pass is defined
+      - item.pass | string | length > 0
+      - item.host is defined
+      - item.host | string | length > 0
+      - item.home is not defined or item.home | string is match('^/')
+      - item.owner is not defined or item.owner | string | length > 0
+      - item.group is not defined or item.group | string | length > 0
+      - item.port is not defined or item.port is number or item.port | string | length > 0
+      - item.ssl is not defined or item.ssl | string | length > 0
+      - item.image is not defined or item.image | string | length > 0
+      - item.backup is not defined or item.backup is boolean
+    fail_msg: Each backups PostgreSQL database must define base, user, pass, and host.
+  loop: '{{ backups_postgres_databases }}'
+  loop_control:
+    label: "{{ item.base | default('<missing-base>', true) }}"
+  no_log: '{{ backups_nolog }}'
+  when: backups_enabled | bool
+
+- name: Validate backups PostgreSQL backup S3 variables
+  ansible.builtin.assert:
+    that:
+      - backups_postgres_backup_s3_bucket | string | length > 0
+      - backups_postgres_backup_s3_endpoint | string | length > 0
+      - backups_postgres_backup_s3_region | string | length > 0
+    fail_msg: Define backups PostgreSQL backup S3 bucket, endpoint, and region when backup S3 keys are set.
+  when:
+    - backups_enabled | bool
+    - backups_postgres_backup_s3_enabled | bool
+
+- name: Validate backups PostgreSQL recovery S3 variables
+  ansible.builtin.assert:
+    that:
+      - backups_postgres_recover_s3_bucket | string | length > 0
+      - backups_postgres_recover_s3_endpoint | string | length > 0
+      - backups_postgres_recover_s3_region | string | length > 0
+    fail_msg: Define backups PostgreSQL recovery S3 bucket, endpoint, and region when recovery S3 keys are set.
+  when:
+    - backups_enabled | bool
+    - backups_postgres_recover_s3_enabled | bool

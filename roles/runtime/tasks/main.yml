@@ -8,8 +8,5 @@
 - name: Configure runtime Docker resources
   ansible.builtin.include_tasks: docker.yml
 
-- name: Configure runtime PostgreSQL env files
-  ansible.builtin.include_tasks: postgres_env.yml
-
 - name: Provision runtime PostgreSQL resources
   ansible.builtin.include_tasks: postgres_provision.yml
