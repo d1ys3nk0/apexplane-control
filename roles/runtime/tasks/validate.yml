@@ -92,10 +92,14 @@
       - item.port is not defined or item.port is number or item.port | string | length > 0
       - item.sslmode is not defined or item.sslmode is string
       - item.role_attr_flags is not defined or item.role_attr_flags is string
-      - item.recover_s3_prefix_template is not defined or item.recover_s3_prefix_template is string
-      - item.recover_s3_prefix_template is not defined or item.recover_s3_prefix_template | length > 0
+      - item.recover_s3_prefix is not defined or item.recover_s3_prefix is string
+      - item.recover_s3_prefix is not defined or item.recover_s3_prefix | length > 0
+      - >-
+        not runtime_pg_recover_s3_enabled | bool
+        or item.recover_s3_prefix is defined
+        or runtime_pg_recover_s3_prefix | string | length > 0
       - item.backup is not defined or item.backup is boolean
-    fail_msg: Each runtime PostgreSQL base must define app, base, user, and pass.
+    fail_msg: Each runtime PostgreSQL base must define app, base, user, pass, and any required S3 recovery prefix.
   loop: '{{ runtime_pg_base_items }}'
   loop_control:
     label: "{{ item.base | default('<missing-base>', true) }}"
@@ -117,10 +121,9 @@
     that:
       - runtime_pg_recover_s3_bucket | string | length > 0
       - runtime_pg_recover_s3_endpoint | string | length > 0
-      - runtime_pg_recover_s3_prefix_template is string
-      - runtime_pg_recover_s3_prefix_template | length > 0
+      - runtime_pg_recover_s3_prefix is string
       - runtime_pg_recover_s3_region | string | length > 0
-    fail_msg: Define runtime PostgreSQL recovery S3 bucket, endpoint, prefix template, and region when recovery S3 keys are set.
+    fail_msg: Define runtime PostgreSQL recovery S3 bucket, endpoint, prefix, and region when recovery S3 keys are set.
   when:
     - runtime_enabled | bool
     - runtime_pg_recover_s3_enabled | bool

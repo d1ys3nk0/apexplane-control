@@ -22,8 +22,7 @@
     pg_host: "{{ item.host | default(runtime_pg_host, true) }}"
     pg_port: "{{ item.port | default(runtime_pg_port, true) }}"
     pg_sslmode: "{{ item.sslmode | default(runtime_pg_sslmode, true) }}"
-    pg_base_suffix: "{{ item.base_suffix | default(item.base, true) }}"
-    pg_recover_s3_prefix_template: "{{ item.recover_s3_prefix_template | default(runtime_pg_recover_s3_prefix_template, true) }}"
+    pg_recover_s3_prefix: "{{ item.recover_s3_prefix | default(runtime_pg_recover_s3_prefix, true) }}"
   ansible.builtin.template:
     src: postgres.env.j2
     dest: /home/{{ item.app }}/postgres/{{ pg_base }}.env

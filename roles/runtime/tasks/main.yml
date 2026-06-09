@@ -8,9 +8,6 @@
 - name: Configure runtime Docker resources
   ansible.builtin.include_tasks: docker.yml
 
-- name: Configure runtime secrets
-  ansible.builtin.include_tasks: secrets.yml
-
 - name: Configure runtime PostgreSQL env files
   ansible.builtin.include_tasks: postgres_env.yml
 
