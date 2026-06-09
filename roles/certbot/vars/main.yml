@@ -8,6 +8,11 @@ certbot_hook_dir: '{{ certbot_install_dir }}/hooks'
 certbot_wrapper_path: '{{ certbot_install_dir }}/certonly'
 certbot_venv_command: python3 -m venv
 certbot_dns_nicru_package_name: certbot-dns-nicru=={{ certbot_dns_nicru_package_version }}
+certbot_virtualenv_packages: >-
+  {{
+    [certbot_package_name]
+    + ([certbot_dns_nicru_package_name] if certbot_dns_nicru_enabled | bool else [])
+  }}
 certbot_http_cert_items: >-
   {%- set _cert_items = [] -%}
   {%- for _cert in certbot_http_certs | default({}) | dict2items | sort(attribute='key') -%}

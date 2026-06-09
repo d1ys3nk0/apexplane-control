@@ -12,9 +12,7 @@
 - name: Install Certbot virtualenv packages
   become: true
   ansible.builtin.pip:
-    name:
-      - '{{ certbot_package_name }}'
-      - '{{ certbot_dns_nicru_package_name }}'
+    name: '{{ certbot_virtualenv_packages }}'
     state: present
     virtualenv: '{{ certbot_install_dir }}'
     virtualenv_command: '{{ certbot_venv_command }}'

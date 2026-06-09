@@ -37,6 +37,16 @@ def test_certbot_role_owns_dns_nicru_workflow() -> None:
     assert "systemctl is-active haproxy" in templates
 
 
+def test_certbot_dns_nicru_package_is_optional() -> None:
+    vars_text = (CERTBOT_DIR / "vars" / "main.yml").read_text(encoding="utf-8")
+    install_tasks = yaml.safe_load((CERTBOT_DIR / "tasks" / "setup_install.yml").read_text(encoding="utf-8"))
+    pip_task = next(task for task in install_tasks if task["name"] == "Install Certbot virtualenv packages")
+
+    assert "certbot_virtualenv_packages" in vars_text
+    assert "certbot_dns_nicru_enabled | bool" in vars_text
+    assert pip_task["ansible.builtin.pip"]["name"] == "{{ certbot_virtualenv_packages }}"
+
+
 def test_certbot_standalone_contract_does_not_enable_haproxy_hook_by_default() -> None:
     defaults = yaml.safe_load((CERTBOT_DIR / "defaults" / "main.yml").read_text(encoding="utf-8"))
     main_tasks = yaml.safe_load((CERTBOT_DIR / "tasks" / "main.yml").read_text(encoding="utf-8"))

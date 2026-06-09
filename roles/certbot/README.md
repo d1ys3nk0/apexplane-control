@@ -6,7 +6,7 @@ This role installs Certbot in a Python virtualenv and configures DNS-based certi
 - Install Certbot under `/opt/certbot` by default.
 - Issue configured non-wildcard certificates through HTTP-01 when needed.
 - Validate HTTP-01 certificate domains through public DNS immediately before issuance.
-- Install the NIC.ru DNS authenticator plugin.
+- Optionally install the NIC.ru DNS authenticator plugin.
 - Write NIC.ru credentials with root-only permissions.
 - Install a `certonly dns-nicru` wrapper for explicit operator-driven issuance.
 - Optionally install a HAProxy deploy hook that publishes renewed lineages as combined PEM files.

@@ -209,7 +209,7 @@ _audit_check_sysctl() {
 
     _audit_check
     if ! params=$(
-             python3 - <<'PY' 2>&1
+        python3 - <<'PY' 2>&1
 import json
 import os
 
@@ -318,7 +318,7 @@ _audit_check_docker() {
     fi
 
     if ! output=$(
-             python3 - <<'PY' 2>&1
+        python3 - <<'PY' 2>&1
 import json
 with open("/etc/docker/daemon.json", encoding="utf-8") as daemon_file:
     data = json.load(daemon_file)
