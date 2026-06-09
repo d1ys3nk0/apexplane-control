@@ -110,8 +110,9 @@
     that:
       - runtime_pg_backup_s3_bucket | string | length > 0
       - runtime_pg_backup_s3_endpoint | string | length > 0
+      - runtime_pg_backup_s3_prefix | string | length > 0
       - runtime_pg_backup_s3_region | string | length > 0
-    fail_msg: Define runtime PostgreSQL backup S3 bucket, endpoint, and region when backup S3 keys are set.
+    fail_msg: Define runtime PostgreSQL backup S3 bucket, endpoint, prefix, and region when backup S3 keys are set.
   when:
     - runtime_enabled | bool
     - runtime_pg_backup_s3_enabled | bool

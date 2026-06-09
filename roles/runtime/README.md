@@ -34,6 +34,7 @@ Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_
 | `runtime_pg_backup_s3_endpoint` | `''` |
 | `runtime_pg_backup_s3_region` | `''` |
 | `runtime_pg_backup_s3_bucket` | `''` |
+| `runtime_pg_backup_s3_prefix` | `'postgres'` |
 | `runtime_pg_backup_s3_access_key` | `''` |
 | `runtime_pg_backup_s3_secret_key` | `''` |
 | `runtime_pg_recover_secret` | `''` |
