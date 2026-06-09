@@ -14,6 +14,7 @@ This repository contains reusable Ansible roles shared by infrastructure playboo
 ## Change Rules
 
 - Keep roles focused on the desired state they enforce.
+- Design roles with low coupling and SOLID-style boundaries: each role must own one cohesive responsibility, expose explicit role-prefixed inputs, depend on other roles only through documented external contracts, and keep optional integrations opt-in instead of assuming another role is present.
 - When editing any file, proactively fix clear, low-risk inconsistencies and obviously suboptimal behavior in that same file, including outdated names or references, stale comments, type or validation drift, obsolete wording, local convention mismatches, and tests that make refactoring harder by pinning internals or configurable values. Do this without asking when the fix stays within the touched file or directly affected tests and does not change public behavior, role contracts, data, architecture, or operational meaning; summarize the extra fixes in the final response.
 - Do not put repository-history cleanup in shared roles. Historical removals and migrations belong in consuming project migration playbooks named `playbooks/<cluster>/_YYMMDDHHMMSS_slug.yml`.
 - Actively remove outdated or deprecated code, variables, aliases, docs, tests, and behavior encountered during work when removal is safe.

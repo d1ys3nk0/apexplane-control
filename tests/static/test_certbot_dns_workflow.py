@@ -23,6 +23,7 @@ def test_certbot_role_owns_dns_nicru_workflow() -> None:
     )
 
     assert defaults["certbot_dns_nicru_enabled"] is False
+    assert defaults["certbot_haproxy_deploy_hook_enabled"] is False
     assert defaults["certbot_dns_nicru_package_version"] == "1.0.3"
     assert "certbot-dns-nicru=={{ certbot_dns_nicru_package_version }}" in (
         CERTBOT_DIR / "vars" / "main.yml"
@@ -34,6 +35,21 @@ def test_certbot_role_owns_dns_nicru_workflow() -> None:
     assert "haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/conf.d" in templates
     assert "systemctl reload haproxy" in templates
     assert "systemctl is-active haproxy" in templates
+
+
+def test_certbot_standalone_contract_does_not_enable_haproxy_hook_by_default() -> None:
+    defaults = yaml.safe_load((CERTBOT_DIR / "defaults" / "main.yml").read_text(encoding="utf-8"))
+    main_tasks = yaml.safe_load((CERTBOT_DIR / "tasks" / "main.yml").read_text(encoding="utf-8"))
+    vars_text = (CERTBOT_DIR / "vars" / "main.yml").read_text(encoding="utf-8")
+    readme = (CERTBOT_DIR / "README.md").read_text(encoding="utf-8")
+
+    assert defaults["certbot_haproxy_deploy_hook_enabled"] is False
+    assert any(
+        task["name"] == "Configure HAProxy deploy hook" and "certbot_haproxy_deploy_hook_enabled | bool" in task["when"]
+        for task in main_tasks
+    )
+    assert "if certbot_haproxy_deploy_hook_enabled | bool else []" in vars_text
+    assert "`certbot_haproxy_deploy_hook_enabled` | `false`" in readme
 
 
 def test_certbot_wrapper_and_hook_templates_are_valid_bash() -> None:

@@ -22,7 +22,7 @@ certbot_dns_nicru_zone: ~
 certbot_email: ~
 certbot_server: https://acme-v02.api.letsencrypt.org/directory
 certbot_rsa_key_size: 4096
-certbot_haproxy_deploy_hook_enabled: true
+certbot_haproxy_deploy_hook_enabled: false
 certbot_haproxy_cert_dir: /etc/ssl/haproxy
 certbot_haproxy_cert_owner: haproxy
 certbot_haproxy_cert_group: haproxy
