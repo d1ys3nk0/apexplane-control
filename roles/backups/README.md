@@ -15,7 +15,7 @@ Set `backups_enabled` to `true` and define `backups_postgres_databases` before a
 | --- | --- |
 | `backups_enabled` | `false` |
 | `backups_postgres_databases` | `[]` |
-| `backups_postgres_image` | `postgres:18-alpine` |
+| `backups_postgres_image` | `alpine/psql:latest` |
 | `backups_postgres_port` | `5432` |
 | `backups_postgres_ssl` | `disable` |
 | `backups_postgres_backup_concurrency` | `1` |
