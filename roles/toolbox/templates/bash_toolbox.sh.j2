@@ -243,7 +243,6 @@ alias dspaf='sudo docker system prune -a -f'                                    
 alias dvpaf='sudo docker volume prune -a -f'                                                             # Remove unused Docker volumes
 alias drr='sudo {{ toolbox_bin_dir }}/docker_resource_report'                                             # Report Docker Swarm resource reservations and live local usage
 alias dsm='sudo {{ toolbox_bin_dir }}/docker_secret_manager'                                              # Manage versioned Docker secrets from dotenv files
-alias dsr='sudo {{ toolbox_bin_dir }}/docker_secret_manager read'                                         # Print Docker secret contents through a temporary service
 {% raw %}
 alias dcl='sudo docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.RunningFor}}"'     # List running containers in table form
 alias dcla='sudo docker ps -a --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.RunningFor}}"' # List all containers in table form

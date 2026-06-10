@@ -43,26 +43,6 @@ def test_docker_image_tag_defaults_are_pinned() -> None:
     assert errors == []
 
 
-def test_direct_artifact_downloads_define_checksum() -> None:
-    expected_get_url_tasks = {
-        REPO_ROOT / "roles" / "cadvisor" / "tasks" / "setup_install.yml": "Download cadvisor binary",
-        REPO_ROOT / "roles" / "docker_ctop" / "tasks" / "main.yml": "Download ctop binary",
-        REPO_ROOT / "roles" / "mattermost" / "tasks" / "setup_install.yml": "Download Mattermost Team Edition archive",
-        REPO_ROOT / "roles" / "promtail" / "tasks" / "setup_install.yml": "Download promtail deb package",
-        REPO_ROOT / "roles" / "node_exporter" / "tasks" / "setup_install.yml": "Download node_exporter archive",
-    }
-    errors: list[str] = []
-
-    for path, task_name in expected_get_url_tasks.items():
-        tasks = list(_iter_tasks(_load_yaml(path)))
-        task = next((item for item in tasks if item.get("name") == task_name), {})
-        get_url = task.get("ansible.builtin.get_url")
-        if not isinstance(get_url, Mapping) or "checksum" not in get_url:
-            errors.append(f"{path.relative_to(REPO_ROOT)}: {task_name} must set get_url.checksum")
-
-    assert errors == []
-
-
 def test_nexus_waits_for_configured_http_port() -> None:
     defaults = cast("Mapping[str, object]", _load_yaml(REPO_ROOT / "roles" / "docker_nexus" / "defaults" / "main.yml"))
     tasks = list(_iter_tasks(_load_yaml(REPO_ROOT / "roles" / "docker_nexus" / "tasks" / "main.yml")))

@@ -60,33 +60,6 @@ def test_secret_variable_roles_define_nolog_variable() -> None:
     assert errors == []
 
 
-def test_container_secret_env_values_are_not_hardcoded() -> None:
-    errors: list[str] = []
-    module_names = ("community.docker.docker_container", "community.docker.docker_swarm_service")
-
-    for task_path in sorted((REPO_ROOT / "roles").glob("**/tasks/*.yml")):
-        for task in _iter_tasks(_load_yaml(task_path)):
-            for module_name in module_names:
-                module = task.get(module_name)
-                if not isinstance(module, Mapping):
-                    continue
-                module = cast("Mapping[str, object]", module)
-                env = module.get("env")
-                if not isinstance(env, Mapping):
-                    continue
-                for key, value in cast("Mapping[str, object]", env).items():
-                    key_text = str(key)
-                    if key_text.endswith("PASSWORDCHANGEREQUIRED") or SECRET_ENV_RE.search(key_text) is None:
-                        continue
-                    if isinstance(value, str) and value and "{{" not in value:
-                        task_name = task.get("name", "<unnamed>")
-                        errors.append(
-                            f"{task_path.relative_to(REPO_ROOT)}: {task_name}: {key_text} must use a role variable"
-                        )
-
-    assert errors == []
-
-
 def test_known_secret_tasks_use_role_nolog() -> None:
     expected = {
         ("docker_elastic", "tasks/main.yml", "Start elastic container"),

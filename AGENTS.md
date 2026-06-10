@@ -37,6 +37,7 @@ This repository contains reusable Ansible roles shared by infrastructure playboo
 - Playbook repository variables in `variables/**` must start with `_`, `gv_`, `iv_`, `vv_`, `ansible_`, or an existing role prefix. Keep this contract in `tests/static/test_ansible_variable_scopes.py`.
 - Tests must prevent bugs and make refactoring easy: they should fail only when final desired behavior, a documented public contract, schema validation, or rendered output is broken.
 - Do not add or keep tests that assert current configurable values from role inputs, defaults, inventories, or consuming project variables, including domains, routes, hosts, certificate names, ports, usernames, database names, endpoints, feature toggles, thresholds, and timeouts. Invalid config should be rejected by explicit role validation or runtime checks, not by tests that cement today’s settings.
+- Do not add or keep tests that assert a specific file contains a specific literal string. Static tests may enforce broad, universal code-style and repository-shape conventions by scanning files, but behavior and contract checks should exercise structured data, validation, rendered output, or callable logic with inputs and expected outputs.
 - Do not add or keep tests that pin private implementation details such as task names, task order, helper variable names, source filenames, template filenames, script filenames, or internal helper function layout unless that detail is explicitly documented as a public contract.
 
 ## Checks

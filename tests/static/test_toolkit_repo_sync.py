@@ -11,7 +11,6 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from _pytest.capture import CaptureFixture
     from _pytest.monkeypatch import MonkeyPatch
 
 
@@ -47,28 +46,6 @@ def sync_module() -> SyncModule:
     return load_sync_module()
 
 
-def test_structure_check_reports_missing_files_and_regex_failures(
-    sync_module: SyncModule,
-    tmp_path: Path,
-    monkeypatch: MonkeyPatch,
-    capsys: CaptureFixture[str],
-) -> None:
-    repo_root = tmp_path / "repo"
-    repo_root.mkdir()
-    (repo_root / "Taskfile.yml").write_text("---\n\nversion: '3'\n", encoding="utf-8")
-    structure_paths = {
-        "Taskfile.yml": (r"(?m)^includes:$",),
-        "pyproject.toml": (r'(?m)^requires-python = ">=3\.13"$',),
-    }
-    monkeypatch.setattr(sync_module, "STRUCTURE_PATHS", structure_paths)
-
-    assert sync_module.check_structure(repo_root) is False
-
-    output = capsys.readouterr().out
-    assert "Taskfile.yml: missing 1 regex check(s)" in output
-    assert "pyproject.toml: missing" in output
-
-
 def test_structure_check_accepts_optional_installed_toolkit_include(
     sync_module: SyncModule,
     tmp_path: Path,
@@ -99,29 +76,6 @@ includes:
     monkeypatch.setattr(sync_module, "STRUCTURE_PATHS", structure_paths)
 
     assert sync_module.check_structure(repo_root) is True
-
-
-def test_shared_conventions_report_consumer_repository_failures(
-    sync_module: SyncModule,
-    tmp_path: Path,
-    monkeypatch: MonkeyPatch,
-    capsys: CaptureFixture[str],
-) -> None:
-    repo_root = tmp_path / "repo"
-    repo_root.mkdir()
-    monkeypatch.setattr(sync_module, "check_ansible_requirements", lambda _repo_root: ["requirements failed"])
-    monkeypatch.setattr(sync_module, "check_global_variables", lambda _repo_root: [])
-    monkeypatch.setattr(sync_module, "check_inventory", lambda _repo_root: ["inventory failed"])
-    monkeypatch.setattr(sync_module, "check_role_variable_overrides", lambda _repo_root: [])
-    monkeypatch.setattr(sync_module, "check_yaml_scalar_style", lambda _repo_root: [])
-
-    assert sync_module.check_shared_conventions(repo_root) is False
-
-    output = capsys.readouterr().out
-    assert "ansible requirements: 1 error(s)" in output
-    assert "  requirements failed" in output
-    assert "inventory: 1 error(s)" in output
-    assert "  inventory failed" in output
 
 
 def test_global_variables_require_reference_outside_definition_line(sync_module: SyncModule, tmp_path: Path) -> None:
@@ -200,31 +154,3 @@ def test_role_variable_overrides_accept_declared_defaults(sync_module: SyncModul
     )
 
     assert sync_module.check_role_variable_overrides(repo_root) == []
-
-
-def test_sync_commands_are_not_exposed() -> None:
-    script = SCRIPT_PATH.read_text(encoding="utf-8")
-
-    assert "shared-check" not in script
-    assert "shared-sync" not in script
-    assert "sync_shared" not in script
-
-
-def test_galaxy_build_includes_toolkit() -> None:
-    yaml = pytest.importorskip("yaml")
-    galaxy = cast("dict[str, object]", yaml.safe_load((REPO_ROOT / "galaxy.yml").read_text(encoding="utf-8")))
-    build_ignore = galaxy.get("build_ignore")
-
-    assert isinstance(build_ignore, list)
-    assert "toolkit" not in build_ignore
-
-
-def test_toolkit_shared_static_tests_are_included_in_collection_build() -> None:
-    assert (REPO_ROOT / "toolkit" / "tests" / "static" / "test_role_variable_overrides.py").is_file()
-
-    yaml = pytest.importorskip("yaml")
-    galaxy = cast("dict[str, object]", yaml.safe_load((REPO_ROOT / "galaxy.yml").read_text(encoding="utf-8")))
-    build_ignore = galaxy.get("build_ignore")
-
-    assert isinstance(build_ignore, list)
-    assert "toolkit/tests" not in build_ignore

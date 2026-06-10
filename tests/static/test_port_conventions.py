@@ -71,10 +71,3 @@ def test_edge_port_defaults_match_shared_conventions() -> None:
 
     for port_name, expected_port in EXPECTED_EDGE_PORTS.items():
         assert defaults[port_name] == expected_port
-
-
-def test_alloy_otlp_listener_ports_are_configurable() -> None:
-    template = (REPO_ROOT / "roles" / "alloy" / "templates" / "config.alloy.j2").read_text(encoding="utf-8")
-
-    assert "0.0.0.0:{{ alloy_otlp_grpc_port }}" in template
-    assert "0.0.0.0:{{ alloy_otlp_http_port }}" in template

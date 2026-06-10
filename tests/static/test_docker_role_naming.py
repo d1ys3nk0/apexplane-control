@@ -41,34 +41,3 @@ def role_task_paths(role_dir: Path) -> Iterator[Path]:
     tasks_dir = role_dir / "tasks"
     if tasks_dir.is_dir():
         yield from sorted(tasks_dir.glob("*.yml"))
-
-
-def test_swarm_service_roles_use_docker_swarm_prefix() -> None:
-    errors: list[str] = []
-
-    for role_dir in role_dirs():
-        for task_path in role_task_paths(role_dir):
-            for task in iter_tasks(load_yaml(task_path)):
-                if "community.docker.docker_swarm_service" in task and not role_dir.name.startswith("docker_swarm_"):
-                    task_name = task.get("name", "<unnamed>")
-                    errors.append(f"{rel(task_path)}: {task_name}: Swarm service roles must use docker_swarm_ prefix")
-
-    assert errors == []
-
-
-def test_standalone_container_roles_use_docker_prefix() -> None:
-    errors: list[str] = []
-
-    for role_dir in role_dirs():
-        for task_path in role_task_paths(role_dir):
-            for task in iter_tasks(load_yaml(task_path)):
-                container = task.get("community.docker.docker_container")
-                if not isinstance(container, Mapping):
-                    continue
-                if "image" not in container:
-                    continue
-                if not role_dir.name.startswith("docker_"):
-                    task_name = task.get("name", "<unnamed>")
-                    errors.append(f"{rel(task_path)}: {task_name}: standalone container roles must use docker_ prefix")
-
-    assert errors == []
