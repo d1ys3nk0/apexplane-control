@@ -113,7 +113,7 @@ def test_runtime_unit_secret_dotenv_file_lifecycle_is_explicit() -> None:
 
 
 def test_runtime_validates_unit_docker_secret_definitions() -> None:
-    docker_text = (RUNTIME_DIR / "tasks" / "docker.yml").read_text(encoding="utf-8")
+    docker_text = (RUNTIME_DIR / "tasks" / "docker_secrets.yml").read_text(encoding="utf-8")
     validate_text = (RUNTIME_DIR / "tasks" / "validate.yml").read_text(encoding="utf-8")
     vars_text = (RUNTIME_DIR / "vars" / "main.yml").read_text(encoding="utf-8")
 

@@ -9,4 +9,4 @@
   ansible.builtin.include_tasks: docker.yml
 
 - name: Provision runtime PostgreSQL resources
-  ansible.builtin.include_tasks: postgres_provision.yml
+  ansible.builtin.include_tasks: postgres.yml

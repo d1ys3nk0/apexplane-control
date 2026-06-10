@@ -166,7 +166,7 @@ def test_docker_postgres_walg_follower_archives_to_backup_path() -> None:
 def test_runtime_postgresql_provisioning_is_gated_by_admin_credentials() -> None:
     vars_text = (REPO_ROOT / "roles/runtime/vars/main.yml").read_text(encoding="utf-8")
     validate_text = (REPO_ROOT / "roles/runtime/tasks/validate.yml").read_text(encoding="utf-8")
-    provision_text = (REPO_ROOT / "roles/runtime/tasks/postgres_provision.yml").read_text(encoding="utf-8")
+    provision_text = (REPO_ROOT / "roles/runtime/tasks/postgres.yml").read_text(encoding="utf-8")
 
     assert "runtime_pg_provision_enabled" in vars_text
     assert "item.user | string | length > 0" in validate_text
@@ -188,7 +188,7 @@ def test_backups_postgresql_env_contract() -> None:
     backups_env = (REPO_ROOT / "roles/backups/templates/postgres.env.j2").read_text(encoding="utf-8")
     runtime_defaults = (REPO_ROOT / "roles/runtime/defaults/main.yml").read_text(encoding="utf-8")
     runtime_validate = (REPO_ROOT / "roles/runtime/tasks/validate.yml").read_text(encoding="utf-8")
-    runtime_provision = (REPO_ROOT / "roles/runtime/tasks/postgres_provision.yml").read_text(encoding="utf-8")
+    runtime_provision = (REPO_ROOT / "roles/runtime/tasks/postgres.yml").read_text(encoding="utf-8")
     zitadel_defaults = (REPO_ROOT / "roles/docker_swarm_zitadel/defaults/main.yml").read_text(encoding="utf-8")
     zitadel_validate = (REPO_ROOT / "roles/docker_swarm_zitadel/tasks/validate.yml").read_text(encoding="utf-8")
     zitadel_provision = (REPO_ROOT / "roles/docker_swarm_zitadel/tasks/postgresql.yml").read_text(encoding="utf-8")

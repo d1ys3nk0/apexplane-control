@@ -13,7 +13,7 @@
   when: runtime_network_enabled | bool
 
 - name: Manage runtime unit Docker secrets
-  ansible.builtin.include_tasks: secrets.yml
+  ansible.builtin.include_tasks: docker_secrets.yml
   loop: '{{ runtime_unit_secret_items }}'
   loop_control:
     label: '{{ item.app }}-{{ runtime_cluster_realm }}-{{ item.env }}-{{ item.unit }}'
