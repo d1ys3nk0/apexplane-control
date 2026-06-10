@@ -74,8 +74,9 @@ def test_toolbox_docker_scripts_include_secret_manager() -> None:
     )
 
     assert {"name": "docker_secret_manager", "src": "docker_secret_manager.sh"} in role_vars["toolbox_docker_scripts"]
-    assert "alias dsm='sudo docker_secret_manager'" in bash_toolbox
-    assert "alias dsr='sudo docker_secret_manager read'" in bash_toolbox
+    assert "alias drr='sudo {{ toolbox_bin_dir }}/docker_resource_report'" in bash_toolbox
+    assert "alias dsm='sudo {{ toolbox_bin_dir }}/docker_secret_manager'" in bash_toolbox
+    assert "alias dsr='sudo {{ toolbox_bin_dir }}/docker_secret_manager read'" in bash_toolbox
     assert "docker-secret-read()" not in bash_toolbox
     assert (REPO_ROOT / "roles" / "toolbox" / "files" / "scripts" / "docker_secret_manager.sh").is_file()
     assert "upsert)" in script
