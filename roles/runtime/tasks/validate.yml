@@ -10,6 +10,8 @@
       - runtime_cluster_realm is not none
       - runtime_cluster_realm | string | length > 0
       - runtime_network_enabled is boolean
+      - runtime_secrets_dotenv is boolean
+      - runtime_docker_secret_manager_path | string | length > 0
       - runtime_pg_host is not none
       - runtime_pg_host | string | length > 0
       - runtime_pg_port is number or runtime_pg_port | string | length > 0
@@ -69,6 +71,26 @@
   loop_control:
     label: "{{ item.app | default('<missing-app>', true) }}:{{ item.env | default('<missing-env>', true) }}:{{ item.unit | default('<missing-unit>', true) }}"
   when: runtime_enabled | bool
+
+- name: Check runtime Docker secret manager
+  become: true
+  ansible.builtin.stat:
+    path: '{{ runtime_docker_secret_manager_path }}'
+  register: runtime_docker_secret_manager_stat
+  changed_when: false
+  when:
+    - runtime_enabled | bool
+    - runtime_unit_secret_items | length > 0
+
+- name: Validate runtime Docker secret manager is installed
+  ansible.builtin.assert:
+    that:
+      - runtime_docker_secret_manager_stat.stat.exists
+      - runtime_docker_secret_manager_stat.stat.executable
+    fail_msg: 'Run the toolbox role with toolbox_docker_enabled: true before runtime so runtime_docker_secret_manager_path exists.'
+  when:
+    - runtime_enabled | bool
+    - runtime_unit_secret_items | length > 0
 
 - name: Validate runtime PostgreSQL base definitions
   ansible.builtin.assert:

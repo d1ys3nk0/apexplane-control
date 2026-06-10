@@ -4,6 +4,8 @@ import os
 import re
 from pathlib import Path
 
+import yaml
+
 
 REPO_ROOT = Path(os.environ.get("ANSIBLE_LINT_REPO_ROOT", Path(__file__).resolve().parents[2])).resolve()
 TOOLBOX_POSTGRES_PATHS = [
@@ -62,3 +64,22 @@ def test_toolbox_docker_commands_use_sudo() -> None:
             errors.append(f"{rel_path}:{line_number}: Docker CLI commands must use sudo")
 
     assert not errors, "\n".join(errors)
+
+
+def test_toolbox_docker_scripts_include_secret_manager() -> None:
+    role_vars = yaml.safe_load((REPO_ROOT / "roles" / "toolbox" / "vars" / "main.yml").read_text(encoding="utf-8"))
+    bash_toolbox = (REPO_ROOT / "roles" / "toolbox" / "templates" / "bash_toolbox.sh.j2").read_text(encoding="utf-8")
+    script = (REPO_ROOT / "roles" / "toolbox" / "files" / "scripts" / "docker_secret_manager.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert {"name": "docker_secret_manager", "src": "docker_secret_manager.sh"} in role_vars["toolbox_docker_scripts"]
+    assert "alias dsm='sudo docker_secret_manager'" in bash_toolbox
+    assert "alias dsr='sudo docker_secret_manager read'" in bash_toolbox
+    assert "docker-secret-read()" not in bash_toolbox
+    assert (REPO_ROOT / "roles" / "toolbox" / "files" / "scripts" / "docker_secret_manager.sh").is_file()
+    assert "upsert)" in script
+    assert "read)" in script
+    assert "prune)" in script
+    assert "--restart-condition none" in script
+    assert '_docker secret rm "${secret_name}"' in script

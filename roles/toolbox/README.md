@@ -65,7 +65,26 @@ Set `QUIET=1` or `QUIET=true` to suppress toolbox helper `_info`, `_warn`, and `
 Docker scripts are installed when `toolbox_docker_enabled` is true:
 
 - `/opt/toolbox/bin/docker_cleanup`
+- `/opt/toolbox/bin/docker_secret_manager`
 - `/opt/toolbox/bin/docker_resource_report`
+
+Create or check a versioned Docker secret from a dotenv file:
+
+```sh
+sudo /opt/toolbox/bin/docker_secret_manager upsert --prefix app-prd-live01-api --file /home/app/secrets/prd_live01_api.env
+```
+
+Read a Docker secret through a temporary Swarm service:
+
+```sh
+sudo /opt/toolbox/bin/docker_secret_manager read app-prd-live01-api-260609120000-012345abcdef
+```
+
+Remove non-latest versioned secrets for one prefix:
+
+```sh
+sudo /opt/toolbox/bin/docker_secret_manager prune --prefix app-prd-live01-api
+```
 
 Report Swarm reservation pressure, configured service limits, and live local container usage:
 

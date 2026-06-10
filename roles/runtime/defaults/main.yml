@@ -2,6 +2,8 @@
 
 runtime_enabled: false
 runtime_network_enabled: false
+runtime_secrets_dotenv: false
+runtime_docker_secret_manager_path: /opt/toolbox/bin/docker_secret_manager
 runtime_apps: []
 runtime_pg_bases: []
 runtime_cluster_realm: ~

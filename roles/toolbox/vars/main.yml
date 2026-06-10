@@ -20,6 +20,9 @@ toolbox_docker_scripts:
   - name: docker_cleanup
     src: docker_cleanup.sh
 
+  - name: docker_secret_manager
+    src: docker_secret_manager.sh
+
   - name: docker_resource_report
     src: docker_resource_report.sh
 
