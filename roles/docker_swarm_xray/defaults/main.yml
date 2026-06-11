@@ -1,0 +1,21 @@
+---
+
+docker_swarm_xray_image_name: teddysun/xray
+docker_swarm_xray_image_tag: 26.6.1
+docker_swarm_xray_image_full: '{{ docker_swarm_xray_image_name }}:{{ docker_swarm_xray_image_tag }}'
+
+docker_swarm_xray_enabled: true
+docker_swarm_xray_service_name: xray
+docker_swarm_xray_config_filename: /etc/xray/config.json
+docker_swarm_xray_loglevel: warning
+docker_swarm_xray_inbounds: []
+docker_swarm_xray_outbounds: []
+docker_swarm_xray_routing: {}
+docker_swarm_xray_mem_res: 128M
+docker_swarm_xray_mem_lim: 1G
+docker_swarm_xray_cpu_res: 0.1
+docker_swarm_xray_cpu_lim: 1.0
+docker_swarm_xray_replicas: 1
+docker_swarm_xray_update_parallelism: 1
+docker_swarm_xray_update_delay: 10s
+docker_swarm_xray_update_monitor: 30s

@@ -1,0 +1,151 @@
+---
+
+- name: Assert Xray top-level inputs are valid
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_xray_enabled is boolean
+      - docker_swarm_xray_loglevel | string | length > 0
+      - docker_swarm_xray_service_name | string | length > 0
+      - docker_swarm_xray_config_filename | string | length > 0
+      - docker_swarm_xray_config_name_prefix | string | length > 0
+      - docker_swarm_xray_replicas | int >= 1
+      - docker_swarm_xray_update_parallelism | int >= 1
+      - docker_swarm_xray_update_delay | string | length > 0
+      - docker_swarm_xray_update_monitor | string | length > 0
+      - docker_swarm_xray_inbounds is iterable
+      - docker_swarm_xray_inbounds is not string
+      - docker_swarm_xray_inbounds | length > 0
+      - docker_swarm_xray_outbounds is iterable
+      - docker_swarm_xray_outbounds is not string
+      - docker_swarm_xray_outbounds | length > 0
+      - docker_swarm_xray_routing is mapping
+    fail_msg: Define non-empty docker_swarm_xray_inbounds and docker_swarm_xray_outbounds lists before running role docker_swarm_xray.
+
+- name: Assert Xray inbounds are valid
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.type | default('') in docker_swarm_xray_supported_inbound_types
+      - item.port is defined
+      - item.port | int >= 1
+      - item.port | int <= 65535
+      - item.xray_port is not defined or item.xray_port | int >= 1
+      - item.xray_port is not defined or item.xray_port | int <= 65535
+      - item.host is not defined
+      - item.listen is not defined or item.listen | string | length > 0
+      - item.tag is not defined or item.tag | string | length > 0
+    fail_msg: Each Xray inbound must define a supported type and a valid published port; host bind addresses are not supported for Swarm ingress publishing.
+  loop: '{{ docker_swarm_xray_inbounds }}'
+  loop_control:
+    label: "{{ item.tag | default(item.type | default('unknown')) }}"
+
+- name: Assert Xray HTTP inbound users are valid
+  ansible.builtin.assert:
+    that:
+      - item.1 is mapping
+      - item.1.user is defined
+      - item.1.user | string | length > 0
+      - item.1.pass is defined
+      - item.1.pass | string | length > 0
+    fail_msg: HTTP inbound users must define non-empty user and pass values.
+  loop: "{{ docker_swarm_xray_inbounds | selectattr('type', 'defined') | selectattr('type', 'equalto', 'http') | selectattr('users', 'defined') | list | subelements('users') }}"
+  loop_control:
+    label: "{{ item.0.tag | default('http') }}:{{ item.1.user | default('unknown') }}"
+  no_log: '{{ docker_swarm_xray_nolog }}'
+
+- name: Assert Xray VLESS inbounds are valid
+  ansible.builtin.assert:
+    that:
+      - item.users is defined
+      - item.users is iterable
+      - item.users is not string
+      - item.users | length > 0
+      - item.reality is defined
+      - item.reality is mapping
+      - item.reality.target is defined
+      - item.reality.target | string | length > 0
+      - item.reality.server_names is defined
+      - item.reality.server_names is iterable
+      - item.reality.server_names is not string
+      - item.reality.server_names | length > 0
+      - item.reality.private_key is defined
+      - item.reality.private_key | string | length > 0
+      - item.reality.short_ids is defined
+      - item.reality.short_ids is iterable
+      - item.reality.short_ids is not string
+      - item.reality.short_ids | length > 0
+      - item.decryption is not defined or item.decryption | string | length > 0
+    fail_msg: VLESS inbounds must define users and REALITY target, server_names, private_key, and short_ids.
+  loop: "{{ docker_swarm_xray_inbounds | selectattr('type', 'defined') | selectattr('type', 'equalto', 'vless') | list }}"
+  loop_control:
+    label: "{{ item.tag | default('vless') }}"
+  no_log: '{{ docker_swarm_xray_nolog }}'
+
+- name: Assert Xray VLESS inbound users are valid
+  ansible.builtin.assert:
+    that:
+      - item.1 is mapping
+      - item.1.id is defined
+      - item.1.id | string | length > 0
+      - item.1.flow is not defined or item.1.flow | string | length > 0
+    fail_msg: VLESS inbound users must define a non-empty id.
+  loop: "{{ docker_swarm_xray_inbounds | selectattr('type', 'defined') | selectattr('type', 'equalto', 'vless') | list | subelements('users') }}"
+  loop_control:
+    label: "{{ item.0.tag | default('vless') }}"
+  no_log: '{{ docker_swarm_xray_nolog }}'
+
+- name: Assert Xray outbounds are valid
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.type | default('') in docker_swarm_xray_supported_outbound_types
+      - item.tag is not defined or item.tag | string | length > 0
+    fail_msg: Each Xray outbound must define a supported type.
+  loop: '{{ docker_swarm_xray_outbounds }}'
+  loop_control:
+    label: "{{ item.tag | default(item.type | default('unknown')) }}"
+
+- name: Assert Xray freedom outbounds are valid
+  ansible.builtin.assert:
+    that:
+      - item.settings is not defined or item.settings is mapping
+    fail_msg: Freedom outbound settings must be a mapping when defined.
+  loop: "{{ docker_swarm_xray_outbounds | selectattr('type', 'defined') | selectattr('type', 'equalto', 'freedom') | list }}"
+  loop_control:
+    label: "{{ item.tag | default('freedom') }}"
+
+- name: Assert Xray VLESS outbounds are valid
+  ansible.builtin.assert:
+    that:
+      - item.address is defined
+      - item.address | string | length > 0
+      - item.port is defined
+      - item.port | int >= 1
+      - item.port | int <= 65535
+      - item.id is defined
+      - item.id | string | length > 0
+      - item.encryption is not defined or item.encryption | string | length > 0
+      - item.flow is not defined or item.flow | string | length > 0
+      - item.reality is defined
+      - item.reality is mapping
+      - item.reality.server_name is defined
+      - item.reality.server_name | string | length > 0
+      - item.reality.password is defined
+      - item.reality.password | string | length > 0
+      - item.reality.short_id is defined
+      - item.reality.short_id is not none
+      - item.reality.fingerprint is not defined or item.reality.fingerprint | string | length > 0
+      - item.reality.spider_x is not defined or item.reality.spider_x | string | length > 0
+    fail_msg: VLESS outbounds must define address, port, id, and REALITY server_name, password, and short_id.
+  loop: "{{ docker_swarm_xray_outbounds | selectattr('type', 'defined') | selectattr('type', 'equalto', 'vless') | list }}"
+  loop_control:
+    label: "{{ item.tag | default('vless') }}"
+  no_log: '{{ docker_swarm_xray_nolog }}'
+
+- name: Assert Xray generated tags and ports are unique
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_xray_tag_values | unique | length == docker_swarm_xray_tag_values | length
+      - docker_swarm_xray_inbound_internal_ports | unique | length == docker_swarm_xray_inbound_internal_ports | length
+      - docker_swarm_xray_port_binding_keys | unique | length == docker_swarm_xray_port_binding_keys | length
+    fail_msg: Xray tags, internal inbound ports, and published host port bindings must be unique.

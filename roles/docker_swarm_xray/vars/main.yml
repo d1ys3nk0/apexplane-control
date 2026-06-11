@@ -1,0 +1,205 @@
+---
+
+docker_swarm_xray_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+docker_swarm_xray_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+docker_swarm_xray_nolog: '{{ (docker_swarm_xray_ci_mode | bool) and not (docker_swarm_xray_debug_mode | bool) }}'
+docker_swarm_xray_config_name_prefix: xray-config
+docker_swarm_xray_supported_inbound_types:
+  - http
+  - vless
+docker_swarm_xray_supported_outbound_types:
+  - freedom
+  - vless
+docker_swarm_xray_port_protocol_separator: /
+docker_swarm_xray_inbound_tag_values: >-
+  {%- set _xray_tags = [] -%}
+  {%- for _xray_inbound in docker_swarm_xray_inbounds -%}
+    {%- set _xray_type = _xray_inbound.type | default('') -%}
+    {%- set _ = _xray_tags.append(_xray_inbound.tag | default(_xray_type ~ '-in-' ~ loop.index)) -%}
+  {%- endfor -%}
+  {{ _xray_tags }}
+docker_swarm_xray_outbound_tag_values: >-
+  {%- set _xray_tags = [] -%}
+  {%- for _xray_outbound in docker_swarm_xray_outbounds -%}
+    {%- set _xray_type = _xray_outbound.type | default('') -%}
+    {%- set _ = _xray_tags.append(_xray_outbound.tag | default(_xray_type ~ '-out-' ~ loop.index)) -%}
+  {%- endfor -%}
+  {{ _xray_tags }}
+docker_swarm_xray_tag_values: '{{ docker_swarm_xray_inbound_tag_values + docker_swarm_xray_outbound_tag_values }}'
+docker_swarm_xray_inbound_internal_ports: >-
+  {%- set _xray_ports = [] -%}
+  {%- for _xray_inbound in docker_swarm_xray_inbounds -%}
+    {%- set _xray_type = _xray_inbound.type | default('') -%}
+    {%- set _xray_default_target_port = 1080 if _xray_type == 'http' else _xray_inbound.port | default(0) -%}
+    {%- set _ = _xray_ports.append(_xray_inbound.xray_port | default(_xray_default_target_port) | int) -%}
+  {%- endfor -%}
+  {{ _xray_ports }}
+docker_swarm_xray_port_publish_items: >-
+  {%- set _xray_items = [] -%}
+  {%- for _xray_inbound in docker_swarm_xray_inbounds -%}
+    {%- set _xray_type = _xray_inbound.type | default('') -%}
+    {%- set _xray_default_target_port = 1080 if _xray_type == 'http' else _xray_inbound.port | default(0) -%}
+    {%- set _xray_item = {
+      'published_port': _xray_inbound.port | default(0) | int,
+      'target_port': _xray_inbound.xray_port | default(_xray_default_target_port) | int,
+      'protocol': 'tcp',
+      'mode': 'ingress',
+    } -%}
+    {%- set _ = _xray_items.append(_xray_item) -%}
+  {%- endfor -%}
+  {{ _xray_items }}
+docker_swarm_xray_port_binding_keys: >-
+  {%- set _xray_keys = [] -%}
+  {%- for _xray_item in docker_swarm_xray_port_publish_items -%}
+    {%- set _ = _xray_keys.append(_xray_item.published_port ~ docker_swarm_xray_port_protocol_separator ~ _xray_item.protocol) -%}
+  {%- endfor -%}
+  {{ _xray_keys }}
+docker_swarm_xray_wait_items: '{{ docker_swarm_xray_port_publish_items }}'
+docker_swarm_xray_healthcheck_port: '{{ (docker_swarm_xray_port_publish_items | first).target_port }}'
+docker_swarm_xray_inbound_items: >-
+  {%- set _xray_items = [] -%}
+  {%- for _xray_inbound in docker_swarm_xray_inbounds -%}
+    {%- set _xray_type = _xray_inbound.type -%}
+    {%- set _xray_tag = _xray_inbound.tag | default(_xray_type ~ '-in-' ~ loop.index) -%}
+    {%- set _xray_default_target_port = 1080 if _xray_type == 'http' else _xray_inbound.port -%}
+    {%- set _xray_target_port = _xray_inbound.xray_port | default(_xray_default_target_port) | int -%}
+    {%- if _xray_type == 'http' -%}
+      {%- set _xray_settings = {} -%}
+      {%- if _xray_inbound.users is defined -%}
+        {%- set _xray_settings = _xray_settings | combine({'users': _xray_inbound.users}) -%}
+      {%- endif -%}
+      {%- if _xray_inbound.allow_transparent is defined -%}
+        {%- set _xray_settings = _xray_settings | combine({'allowTransparent': _xray_inbound.allow_transparent | bool}) -%}
+      {%- endif -%}
+      {%- if _xray_inbound.user_level is defined -%}
+        {%- set _xray_settings = _xray_settings | combine({'userLevel': _xray_inbound.user_level | int}) -%}
+      {%- endif -%}
+      {%- set _xray_item = {
+        'tag': _xray_tag,
+        'listen': _xray_inbound.listen | default('0.0.0.0'),
+        'port': _xray_target_port,
+        'protocol': 'http',
+        'settings': _xray_settings,
+      } -%}
+      {%- set _ = _xray_items.append(_xray_item) -%}
+    {%- elif _xray_type == 'vless' -%}
+      {%- set _xray_users = [] -%}
+      {%- for _xray_user in _xray_inbound.users -%}
+        {%- set _xray_user_item = {'id': _xray_user.id, 'flow': _xray_user.flow | default('xtls-rprx-vision')} -%}
+        {%- if _xray_user.email is defined -%}
+          {%- set _xray_user_item = _xray_user_item | combine({'email': _xray_user.email}) -%}
+        {%- endif -%}
+        {%- if _xray_user.level is defined -%}
+          {%- set _xray_user_item = _xray_user_item | combine({'level': _xray_user.level | int}) -%}
+        {%- endif -%}
+        {%- if _xray_user.reverse is defined -%}
+          {%- set _xray_user_item = _xray_user_item | combine({'reverse': _xray_user.reverse}) -%}
+        {%- endif -%}
+        {%- set _ = _xray_users.append(_xray_user_item) -%}
+      {%- endfor -%}
+      {%- set _xray_reality_settings = {
+        'show': _xray_inbound.reality.show | default(false) | bool,
+        'target': _xray_inbound.reality.target,
+        'xver': _xray_inbound.reality.xver | default(0) | int,
+        'serverNames': _xray_inbound.reality.server_names,
+        'privateKey': _xray_inbound.reality.private_key,
+        'shortIds': _xray_inbound.reality.short_ids,
+      } -%}
+      {%- if _xray_inbound.reality.min_client_ver is defined -%}
+        {%- set _xray_reality_settings = _xray_reality_settings | combine({'minClientVer': _xray_inbound.reality.min_client_ver}) -%}
+      {%- endif -%}
+      {%- if _xray_inbound.reality.max_client_ver is defined -%}
+        {%- set _xray_reality_settings = _xray_reality_settings | combine({'maxClientVer': _xray_inbound.reality.max_client_ver}) -%}
+      {%- endif -%}
+      {%- if _xray_inbound.reality.max_time_diff is defined -%}
+        {%- set _xray_reality_settings = _xray_reality_settings | combine({'maxTimeDiff': _xray_inbound.reality.max_time_diff | int}) -%}
+      {%- endif -%}
+      {%- if _xray_inbound.reality.mldsa65_seed is defined -%}
+        {%- set _xray_reality_settings = _xray_reality_settings | combine({'mldsa65Seed': _xray_inbound.reality.mldsa65_seed}) -%}
+      {%- endif -%}
+      {%- if _xray_inbound.reality.limit_fallback_upload is defined -%}
+        {%- set _xray_reality_settings = _xray_reality_settings | combine({'limitFallbackUpload': _xray_inbound.reality.limit_fallback_upload}) -%}
+      {%- endif -%}
+      {%- if _xray_inbound.reality.limit_fallback_download is defined -%}
+        {%- set _xray_reality_settings = _xray_reality_settings | combine({'limitFallbackDownload': _xray_inbound.reality.limit_fallback_download}) -%}
+      {%- endif -%}
+      {%- set _xray_item = {
+        'tag': _xray_tag,
+        'listen': _xray_inbound.listen | default('0.0.0.0'),
+        'port': _xray_target_port,
+        'protocol': 'vless',
+        'settings': {
+          'users': _xray_users,
+          'decryption': _xray_inbound.decryption | default('none'),
+        },
+        'streamSettings': {
+          'network': 'raw',
+          'security': 'reality',
+          'realitySettings': _xray_reality_settings,
+        },
+      } -%}
+      {%- set _ = _xray_items.append(_xray_item) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{ _xray_items }}
+docker_swarm_xray_outbound_items: >-
+  {%- set _xray_items = [] -%}
+  {%- for _xray_outbound in docker_swarm_xray_outbounds -%}
+    {%- set _xray_type = _xray_outbound.type -%}
+    {%- set _xray_tag = _xray_outbound.tag | default(_xray_type ~ '-out-' ~ loop.index) -%}
+    {%- if _xray_type == 'freedom' -%}
+      {%- set _xray_item = {
+        'tag': _xray_tag,
+        'protocol': 'freedom',
+        'settings': _xray_outbound.settings | default({}),
+      } -%}
+      {%- set _ = _xray_items.append(_xray_item) -%}
+    {%- elif _xray_type == 'vless' -%}
+      {%- set _xray_settings = {
+        'address': _xray_outbound.address,
+        'port': _xray_outbound.port | int,
+        'id': _xray_outbound.id,
+        'encryption': _xray_outbound.encryption | default('none'),
+        'flow': _xray_outbound.flow | default('xtls-rprx-vision'),
+      } -%}
+      {%- if _xray_outbound.email is defined -%}
+        {%- set _xray_settings = _xray_settings | combine({'email': _xray_outbound.email}) -%}
+      {%- endif -%}
+      {%- if _xray_outbound.level is defined -%}
+        {%- set _xray_settings = _xray_settings | combine({'level': _xray_outbound.level | int}) -%}
+      {%- endif -%}
+      {%- if _xray_outbound.reverse is defined -%}
+        {%- set _xray_settings = _xray_settings | combine({'reverse': _xray_outbound.reverse}) -%}
+      {%- endif -%}
+      {%- set _xray_reality_settings = {
+        'serverName': _xray_outbound.reality.server_name,
+        'fingerprint': _xray_outbound.reality.fingerprint | default('chrome'),
+        'password': _xray_outbound.reality.password,
+        'shortId': _xray_outbound.reality.short_id,
+        'spiderX': _xray_outbound.reality.spider_x | default('/'),
+      } -%}
+      {%- if _xray_outbound.reality.mldsa65_verify is defined -%}
+        {%- set _xray_reality_settings = _xray_reality_settings | combine({'mldsa65Verify': _xray_outbound.reality.mldsa65_verify}) -%}
+      {%- endif -%}
+      {%- set _xray_item = {
+        'tag': _xray_tag,
+        'protocol': 'vless',
+        'settings': _xray_settings,
+        'streamSettings': {
+          'network': 'raw',
+          'security': 'reality',
+          'realitySettings': _xray_reality_settings,
+        },
+      } -%}
+      {%- set _ = _xray_items.append(_xray_item) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{ _xray_items }}
+docker_swarm_xray_config:
+  log:
+    loglevel: '{{ docker_swarm_xray_loglevel }}'
+  inbounds: '{{ docker_swarm_xray_inbound_items }}'
+  outbounds: '{{ docker_swarm_xray_outbound_items }}'
+  routing: '{{ docker_swarm_xray_routing }}'
+docker_swarm_xray_config_data: "{{ docker_swarm_xray_config | to_nice_json }}\n"
+docker_swarm_xray_config_name: '{{ docker_swarm_xray_config_name_prefix }}-{{ docker_swarm_xray_config_data | hash("md5") }}'
