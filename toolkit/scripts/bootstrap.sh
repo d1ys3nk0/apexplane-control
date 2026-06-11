@@ -28,6 +28,7 @@ OLD_USER="$1"
 NEW_USER="$2"
 OLD_PORT="$3"
 NEW_PORT="$4"
+SSHD_CONFIG_PATH="/etc/ssh/sshd_config"
 
 as_root() {
     if [ "$(id -u)" -eq 0 ]; then
@@ -37,56 +38,207 @@ as_root() {
     fi
 }
 
+has_command() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+find_sshd_binary() {
+    local detected path
+    local candidates=("/usr/sbin/sshd" "/usr/local/sbin/sshd" "/usr/bin/sshd")
+
+    detected="$(command -v sshd 2>/dev/null || true)"
+    [ -n "$detected" ] && candidates+=("$detected")
+
+    for path in "${candidates[@]}"; do
+        if [ -x "$path" ]; then
+            echo "$path"
+            return
+        fi
+    done
+
+    echo "ERROR: could not find sshd binary for config validation." >&2
+    return 1
+}
+
 systemd_property() {
     local unit="$1" property="$2"
     as_root systemctl show "$unit" --property="$property" --value 2>/dev/null || true
 }
 
-ssh_socket_should_manage() {
-    local active_state load_state unit_file_state
-    load_state="$(systemd_property ssh.socket LoadState)"
-    unit_file_state="$(systemd_property ssh.socket UnitFileState)"
-    active_state="$(systemd_property ssh.socket ActiveState)"
+systemd_unit_is_loaded() {
+    local unit="$1" load_state unit_file_state
+    load_state="$(systemd_property "$unit" LoadState)"
+    unit_file_state="$(systemd_property "$unit" UnitFileState)"
 
     if [[ "$load_state" == "masked" || "$unit_file_state" == masked* ]]; then
-        echo "SSH socket is masked; skipping ssh.socket configuration."
+        echo "${unit} is masked; skipping it."
         return 1
     fi
 
     if [ "$load_state" != "loaded" ]; then
-        echo "SSH socket is unavailable (${load_state:-unknown}); skipping ssh.socket configuration."
         return 1
     fi
 
-    if [[ "$active_state" == "active" || "$unit_file_state" == enabled* ]]; then
-        return 0
-    fi
+    return 0
+}
 
-    echo "SSH socket is ${unit_file_state:-not enabled} and ${active_state:-not active}; skipping ssh.socket configuration."
-    return 1
+select_ssh_service_unit() {
+    local active_candidate="" enabled_candidate="" loaded_candidate=""
+    local active_state load_state unit unit_file_state
+
+    for unit in ssh.service sshd.service; do
+        load_state="$(systemd_property "$unit" LoadState)"
+        unit_file_state="$(systemd_property "$unit" UnitFileState)"
+        active_state="$(systemd_property "$unit" ActiveState)"
+
+        if [[ "$load_state" == "masked" || "$unit_file_state" == masked* ]]; then
+            echo "${unit} is masked; skipping it." >&2
+            continue
+        fi
+
+        [ "$load_state" = "loaded" ] || continue
+
+        echo "Detected ${unit}: active=${active_state:-unknown}, enabled=${unit_file_state:-unknown}." >&2
+        loaded_candidate="${loaded_candidate:-$unit}"
+
+        if [ "$active_state" = "active" ]; then
+            active_candidate="${active_candidate:-$unit}"
+        fi
+
+        if [[ "$unit_file_state" == enabled* ]]; then
+            enabled_candidate="${enabled_candidate:-$unit}"
+        fi
+    done
+
+    echo "${active_candidate:-${enabled_candidate:-$loaded_candidate}}"
+}
+
+select_ssh_socket_unit() {
+    local preferred_state="$1"
+    local log_probe="${2:-0}"
+    local active_state candidate="" load_state unit unit_file_state
+
+    for unit in ssh.socket sshd.socket; do
+        load_state="$(systemd_property "$unit" LoadState)"
+        unit_file_state="$(systemd_property "$unit" UnitFileState)"
+        active_state="$(systemd_property "$unit" ActiveState)"
+
+        if [[ "$load_state" == "masked" || "$unit_file_state" == masked* ]]; then
+            [ "$log_probe" = "1" ] && echo "${unit} is masked; skipping it." >&2
+            continue
+        fi
+
+        [ "$load_state" = "loaded" ] || continue
+
+        [ "$log_probe" = "1" ] && echo "Detected ${unit}: active=${active_state:-unknown}, enabled=${unit_file_state:-unknown}." >&2
+
+        case "$preferred_state" in
+            active)
+                [ "$active_state" = "active" ] && candidate="${candidate:-$unit}"
+                ;;
+            enabled)
+                [[ "$unit_file_state" == enabled* ]] && candidate="${candidate:-$unit}"
+                ;;
+        esac
+    done
+
+    echo "$candidate"
 }
 
 configure_ssh_socket_port() {
-    local port="$1"
+    local port="$1" unit="$2"
 
-    if ! ssh_socket_should_manage; then
+    if ! systemd_unit_is_loaded "$unit"; then
         return
     fi
 
-    echo "Configuring ssh.socket for ${port}..."
-    as_root mkdir -p /etc/systemd/system/ssh.socket.d
-    printf '[Socket]\nListenStream=\nListenStream=%s\n' "$port" | as_root tee /etc/systemd/system/ssh.socket.d/listen.conf >/dev/null
+    echo "Configuring ${unit} for ${port}..."
+    as_root mkdir -p "/etc/systemd/system/${unit}.d"
+    printf '[Socket]\nListenStream=\nListenStream=%s\n' "$port" | as_root tee "/etc/systemd/system/${unit}.d/listen.conf" >/dev/null
     as_root systemctl daemon-reload
-    as_root systemctl restart ssh.socket
+}
+
+restart_systemd_unit() {
+    local unit="$1"
+
+    echo "Restarting ${unit}..."
+    as_root systemctl restart "$unit"
+    as_root systemctl is-active --quiet "$unit"
+}
+
+restart_ssh_with_systemd() {
+    local active_socket_unit enabled_socket_unit port service_unit
+    port="$1"
+    active_socket_unit="$(select_ssh_socket_unit active 1)"
+    enabled_socket_unit="$(select_ssh_socket_unit enabled)"
+    service_unit="$(select_ssh_service_unit)"
+
+    if [ -n "$active_socket_unit" ]; then
+        echo "Applying SSH changes through active socket unit ${active_socket_unit}."
+        configure_ssh_socket_port "$port" "$active_socket_unit"
+        restart_systemd_unit "$active_socket_unit"
+        return 0
+    fi
+
+    if [ -n "$enabled_socket_unit" ]; then
+        echo "Configuring enabled socket unit ${enabled_socket_unit} for the next socket-managed start."
+        configure_ssh_socket_port "$port" "$enabled_socket_unit"
+    fi
+
+    if [ -n "$service_unit" ]; then
+        echo "Applying SSH changes through service unit ${service_unit}."
+        restart_systemd_unit "$service_unit"
+        return 0
+    fi
+
+    if [ -n "$enabled_socket_unit" ]; then
+        echo "Applying SSH changes through enabled socket unit ${enabled_socket_unit}."
+        restart_systemd_unit "$enabled_socket_unit"
+        return 0
+    fi
+
+    echo "ERROR: could not find a manageable SSH systemd service or socket unit." >&2
+    return 1
+}
+
+restart_ssh_with_service_command() {
+    local service_name
+
+    for service_name in ssh sshd; do
+        if [ -x "/etc/init.d/${service_name}" ]; then
+            echo "Applying SSH changes through service command ${service_name}."
+            as_root service "$service_name" restart
+            return
+        fi
+    done
+
+    echo "ERROR: could not find systemctl or a legacy SSH service command." >&2
+    return 1
 }
 
 set_sshd_config_port() {
     local port="$1"
 
-    if as_root grep -Eq '^[#[:space:]]*Port[[:space:]]+' /etc/ssh/sshd_config; then
-        as_root sed -i -E "s/^[#[:space:]]*Port[[:space:]]+.*/Port ${port}/" /etc/ssh/sshd_config
+    if as_root grep -Eq '^[#[:space:]]*Port[[:space:]]+' "$SSHD_CONFIG_PATH"; then
+        as_root sed -i -E "s/^[#[:space:]]*Port[[:space:]]+.*/Port ${port}/" "$SSHD_CONFIG_PATH"
     else
-        printf '\nPort %s\n' "$port" | as_root tee -a /etc/ssh/sshd_config >/dev/null
+        printf '\nPort %s\n' "$port" | as_root tee -a "$SSHD_CONFIG_PATH" >/dev/null
+    fi
+}
+
+validate_sshd_config() {
+    local sshd_binary
+    sshd_binary="$(find_sshd_binary)"
+    as_root "$sshd_binary" -t -f "$SSHD_CONFIG_PATH"
+}
+
+restart_ssh() {
+    local port="$1"
+
+    if has_command systemctl; then
+        restart_ssh_with_systemd "$port"
+    else
+        restart_ssh_with_service_command
     fi
 }
 
@@ -121,10 +273,8 @@ if [ "$OLD_PORT" != "$NEW_PORT" ]; then
 
     echo "Ensuring SSH is configured for ${NEW_PORT}..."
     set_sshd_config_port "$NEW_PORT"
-    as_root /usr/sbin/sshd -t -f /etc/ssh/sshd_config
-    configure_ssh_socket_port "$NEW_PORT"
-    as_root systemctl restart ssh.service
-    as_root systemctl is-active --quiet ssh.service
+    validate_sshd_config
+    restart_ssh "$NEW_PORT"
 else
     echo "SSH port is unchanged (${OLD_PORT}); skipping SSH port update."
 fi
