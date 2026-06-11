@@ -37,6 +37,59 @@ as_root() {
     fi
 }
 
+systemd_property() {
+    local unit="$1" property="$2"
+    as_root systemctl show "$unit" --property="$property" --value 2>/dev/null || true
+}
+
+ssh_socket_should_manage() {
+    local active_state load_state unit_file_state
+    load_state="$(systemd_property ssh.socket LoadState)"
+    unit_file_state="$(systemd_property ssh.socket UnitFileState)"
+    active_state="$(systemd_property ssh.socket ActiveState)"
+
+    if [[ "$load_state" == "masked" || "$unit_file_state" == masked* ]]; then
+        echo "SSH socket is masked; skipping ssh.socket configuration."
+        return 1
+    fi
+
+    if [ "$load_state" != "loaded" ]; then
+        echo "SSH socket is unavailable (${load_state:-unknown}); skipping ssh.socket configuration."
+        return 1
+    fi
+
+    if [[ "$active_state" == "active" || "$unit_file_state" == enabled* ]]; then
+        return 0
+    fi
+
+    echo "SSH socket is ${unit_file_state:-not enabled} and ${active_state:-not active}; skipping ssh.socket configuration."
+    return 1
+}
+
+configure_ssh_socket_port() {
+    local port="$1"
+
+    if ! ssh_socket_should_manage; then
+        return
+    fi
+
+    echo "Configuring ssh.socket for ${port}..."
+    as_root mkdir -p /etc/systemd/system/ssh.socket.d
+    printf '[Socket]\nListenStream=\nListenStream=%s\n' "$port" | as_root tee /etc/systemd/system/ssh.socket.d/listen.conf >/dev/null
+    as_root systemctl daemon-reload
+    as_root systemctl restart ssh.socket
+}
+
+set_sshd_config_port() {
+    local port="$1"
+
+    if as_root grep -Eq '^[#[:space:]]*Port[[:space:]]+' /etc/ssh/sshd_config; then
+        as_root sed -i -E "s/^[#[:space:]]*Port[[:space:]]+.*/Port ${port}/" /etc/ssh/sshd_config
+    else
+        printf '\nPort %s\n' "$port" | as_root tee -a /etc/ssh/sshd_config >/dev/null
+    fi
+}
+
 if { [ "$OLD_USER" != "$NEW_USER" ] || [ "$OLD_PORT" != "$NEW_PORT" ]; } && [ "$(id -u)" -ne 0 ] && ! sudo -n true 2>/dev/null; then
     echo "ERROR: SSH user $(id -un) must have passwordless sudo before bootstrap can continue." >&2
     echo "Fix on remote: echo '$(id -un) ALL=(ALL:ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/$(id -un) && sudo chmod 440 /etc/sudoers.d/$(id -un)" >&2
@@ -67,17 +120,37 @@ if [ "$OLD_PORT" != "$NEW_PORT" ]; then
     as_root ufw allow "${OLD_PORT}/tcp" || true
 
     echo "Ensuring SSH is configured for ${NEW_PORT}..."
-    as_root sed -i "s/^#\?Port .*/Port ${NEW_PORT}/" /etc/ssh/sshd_config
+    set_sshd_config_port "$NEW_PORT"
     as_root /usr/sbin/sshd -t -f /etc/ssh/sshd_config
-    as_root systemctl daemon-reload
-    as_root systemctl restart ssh.socket
+    configure_ssh_socket_port "$NEW_PORT"
     as_root systemctl restart ssh.service
-
-    echo "Removing old SSH port from UFW..."
-    as_root ufw delete allow "${OLD_PORT}/tcp" || true
+    as_root systemctl is-active --quiet ssh.service
 else
     echo "SSH port is unchanged (${OLD_PORT}); skipping SSH port update."
 fi
+REMOTE
+}
+
+remove_old_ssh_port_on_remote() {
+    if [ "${SSH_PORT}" = "${SSH_PORT_AFTER}" ]; then
+        return
+    fi
+
+    ssh "${SSH_OPTS[@]}" -p "${SSH_PORT_AFTER}" "${SSH_USER_AFTER}@${SSH_HOST}" bash -s "${SSH_PORT}" <<'REMOTE'
+set -euo pipefail
+
+OLD_PORT="$1"
+
+as_root() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+    else
+        sudo -n "$@"
+    fi
+}
+
+echo "Removing old SSH port from UFW..."
+as_root ufw delete allow "${OLD_PORT}/tcp" || true
 REMOTE
 }
 
@@ -180,6 +253,7 @@ main() {
         exit 1
     fi
 
+    remove_old_ssh_port_on_remote
     update_inventory
 
     echo "Upserted ${NEW_HOSTNAME} in ${INVENTORY_PATH} (iv_ssh_port=${SSH_PORT_AFTER})"
