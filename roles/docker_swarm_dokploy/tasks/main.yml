@@ -1,0 +1,193 @@
+---
+
+- name: Validate Dokploy variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Deploy Dokploy from Swarm manager
+  become: true
+  when: docker_swarm_dokploy_enabled | bool
+  block:
+    - name: Inspect Docker Swarm state
+      community.docker.docker_swarm_info:
+      register: docker_swarm_dokploy_swarm_info
+      changed_when: false
+
+    - name: Assert Docker Swarm manager is available
+      ansible.builtin.assert:
+        that:
+          - docker_swarm_dokploy_swarm_info.can_talk_to_docker | bool
+          - docker_swarm_dokploy_swarm_info.docker_swarm_active | bool
+          - docker_swarm_dokploy_swarm_info.docker_swarm_manager | bool
+        fail_msg: Run Docker and Docker Swarm setup before running role docker_swarm_dokploy.
+
+    - name: Ensure Dokploy data directory exists
+      ansible.builtin.file:
+        path: '{{ docker_swarm_dokploy_data_dir }}'
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Ensure Dokploy overlay network exists
+      community.docker.docker_network:
+        name: '{{ docker_swarm_dokploy_network }}'
+        driver: overlay
+        attachable: true
+        state: present
+
+    - name: Ensure Dokploy PostgreSQL password secret exists
+      community.docker.docker_secret:
+        name: '{{ docker_swarm_dokploy_postgres_password_secret_name }}'
+        data: '{{ docker_swarm_dokploy_postgres_password }}'
+        state: present
+      no_log: '{{ docker_swarm_dokploy_nolog }}'
+
+    - name: Ensure Dokploy auth secret exists
+      community.docker.docker_secret:
+        name: '{{ docker_swarm_dokploy_auth_secret_name }}'
+        data: '{{ docker_swarm_dokploy_auth_secret }}'
+        state: present
+      no_log: '{{ docker_swarm_dokploy_nolog }}'
+
+    - name: Ensure Dokploy PostgreSQL service is started
+      community.docker.docker_swarm_service:
+        name: '{{ docker_swarm_dokploy_postgres_service_name }}'
+        image: '{{ docker_swarm_dokploy_postgres_image_full }}'
+        env:
+          POSTGRES_USER: '{{ docker_swarm_dokploy_postgres_user }}'
+          POSTGRES_DB: '{{ docker_swarm_dokploy_postgres_database }}'
+          POSTGRES_PASSWORD_FILE: '{{ docker_swarm_dokploy_postgres_secret_target }}'
+        secrets:
+          - '{{ docker_swarm_dokploy_postgres_password_secret }}'
+        mounts:
+          - source: '{{ docker_swarm_dokploy_postgres_data_volume }}'
+            target: /var/lib/postgresql/data
+            type: volume
+        networks:
+          - '{{ docker_swarm_dokploy_network }}'
+        mode: replicated
+        replicas: 1
+        endpoint_mode: '{{ docker_swarm_dokploy_endpoint_mode }}'
+        restart_config:
+          condition: any
+        update_config:
+          order: stop-first
+        reservations:
+          cpus: 0.1
+          memory: '{{ docker_swarm_dokploy_postgres_mem_res }}'
+        limits:
+          cpus: 1.0
+          memory: '{{ docker_swarm_dokploy_postgres_mem_lim }}'
+        placement:
+          constraints:
+            - node.role == manager
+      no_log: '{{ docker_swarm_dokploy_nolog }}'
+      when: not ansible_check_mode
+
+    - name: Ensure Dokploy Redis service is started
+      community.docker.docker_swarm_service:
+        name: '{{ docker_swarm_dokploy_redis_service_name }}'
+        image: '{{ docker_swarm_dokploy_redis_image_full }}'
+        mounts:
+          - source: '{{ docker_swarm_dokploy_redis_data_volume }}'
+            target: /data
+            type: volume
+        networks:
+          - '{{ docker_swarm_dokploy_network }}'
+        mode: replicated
+        replicas: 1
+        endpoint_mode: '{{ docker_swarm_dokploy_endpoint_mode }}'
+        restart_config:
+          condition: any
+        update_config:
+          order: stop-first
+        reservations:
+          cpus: 0.1
+          memory: '{{ docker_swarm_dokploy_redis_mem_res }}'
+        limits:
+          cpus: 0.5
+          memory: '{{ docker_swarm_dokploy_redis_mem_lim }}'
+        placement:
+          constraints:
+            - node.role == manager
+      when: not ansible_check_mode
+
+    - name: Ensure Dokploy service is started
+      community.docker.docker_swarm_service:
+        name: '{{ docker_swarm_dokploy_service_name }}'
+        image: '{{ docker_swarm_dokploy_image_full }}'
+        env:
+          ADVERTISE_ADDR: '{{ docker_swarm_dokploy_advertise_addr }}'
+          POSTGRES_PASSWORD_FILE: '{{ docker_swarm_dokploy_postgres_secret_target }}'
+          BETTER_AUTH_SECRET_FILE: '{{ docker_swarm_dokploy_auth_secret_target }}'
+          RELEASE_TAG: '{{ docker_swarm_dokploy_release_tag }}'
+        secrets:
+          - '{{ docker_swarm_dokploy_postgres_password_secret }}'
+          - '{{ docker_swarm_dokploy_auth_secret_mount }}'
+        mounts:
+          - source: '{{ docker_swarm_dokploy_docker_socket }}'
+            target: /var/run/docker.sock
+            type: bind
+
+          - source: '{{ docker_swarm_dokploy_data_dir }}'
+            target: /etc/dokploy
+            type: bind
+
+          - source: '{{ docker_swarm_dokploy_docker_config_volume }}'
+            target: /root/.docker
+            type: volume
+        networks:
+          - '{{ docker_swarm_dokploy_network }}'
+        publish:
+          - target_port: 3000
+            published_port: '{{ docker_swarm_dokploy_http_expose_port }}'
+            protocol: tcp
+            mode: host
+        mode: replicated
+        replicas: 1
+        endpoint_mode: '{{ docker_swarm_dokploy_endpoint_mode }}'
+        restart_config:
+          condition: any
+        update_config:
+          parallelism: 1
+          order: stop-first
+        reservations:
+          cpus: 0.1
+          memory: '{{ docker_swarm_dokploy_mem_res }}'
+        limits:
+          cpus: 1.0
+          memory: '{{ docker_swarm_dokploy_mem_lim }}'
+        placement:
+          constraints:
+            - node.role == manager
+      no_log: '{{ docker_swarm_dokploy_nolog }}'
+      when: not ansible_check_mode
+
+    - name: Wait for Dokploy Traefik static config
+      ansible.builtin.wait_for:
+        path: '{{ docker_swarm_dokploy_traefik_config_path }}'
+        timeout: 120
+      when: not ansible_check_mode
+
+    - name: Ensure Dokploy Traefik container is started
+      community.docker.docker_container:
+        name: '{{ docker_swarm_dokploy_traefik_container_name }}'
+        image: '{{ docker_swarm_dokploy_traefik_image_full }}'
+        state: started
+        restart_policy: always
+        memory_reservation: '{{ docker_swarm_dokploy_traefik_mem_res }}'
+        memory: '{{ docker_swarm_dokploy_traefik_mem_lim }}'
+        volumes:
+          - '{{ docker_swarm_dokploy_traefik_config_path }}:/etc/traefik/traefik.yml:ro'
+          - '{{ docker_swarm_dokploy_traefik_dynamic_dir }}:/etc/dokploy/traefik/dynamic'
+          - '{{ docker_swarm_dokploy_docker_socket }}:/var/run/docker.sock:ro'
+        published_ports: '{{ docker_swarm_dokploy_traefik_ports }}'
+        networks:
+          - name: '{{ docker_swarm_dokploy_network }}'
+        comparisons:
+          networks: strict
+      when: not ansible_check_mode
+
+- name: Verify Dokploy deployment
+  ansible.builtin.include_tasks: verify.yml
+  when: docker_swarm_dokploy_enabled | bool

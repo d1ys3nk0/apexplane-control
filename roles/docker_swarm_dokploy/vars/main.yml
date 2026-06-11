@@ -1,0 +1,24 @@
+---
+
+docker_swarm_dokploy_postgres_secret_target: /run/secrets/postgres_password
+docker_swarm_dokploy_auth_secret_target: /run/secrets/dokploy_auth_secret
+docker_swarm_dokploy_traefik_config_path: '{{ docker_swarm_dokploy_data_dir }}/traefik/traefik.yml'
+docker_swarm_dokploy_traefik_dynamic_dir: '{{ docker_swarm_dokploy_data_dir }}/traefik/dynamic'
+docker_swarm_dokploy_postgres_password_secret: >-
+  {{
+    {
+      'secret_name': docker_swarm_dokploy_postgres_password_secret_name,
+      'filename': docker_swarm_dokploy_postgres_secret_target,
+    }
+  }}
+docker_swarm_dokploy_auth_secret_mount: >-
+  {{
+    {
+      'secret_name': docker_swarm_dokploy_auth_secret_name,
+      'filename': docker_swarm_dokploy_auth_secret_target,
+    }
+  }}
+docker_swarm_dokploy_traefik_ports:
+  - '{{ docker_swarm_dokploy_traefik_http_expose_port }}:80/tcp'
+  - '{{ docker_swarm_dokploy_traefik_https_expose_port }}:443/tcp'
+  - '{{ docker_swarm_dokploy_traefik_https_expose_port }}:443/udp'

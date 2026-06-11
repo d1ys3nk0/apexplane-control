@@ -1,0 +1,48 @@
+---
+
+docker_swarm_dokploy_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+docker_swarm_dokploy_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+docker_swarm_dokploy_nolog: '{{ (docker_swarm_dokploy_ci_mode | bool) and not (docker_swarm_dokploy_debug_mode | bool) }}'
+docker_swarm_dokploy_enabled: true
+docker_swarm_dokploy_image_name: dokploy/dokploy
+docker_swarm_dokploy_image_tag: v0.29.8
+docker_swarm_dokploy_image_full: '{{ docker_swarm_dokploy_image_name }}:{{ docker_swarm_dokploy_image_tag }}'
+docker_swarm_dokploy_postgres_image_name: postgres
+docker_swarm_dokploy_postgres_image_tag: '16'
+docker_swarm_dokploy_postgres_image_full: '{{ docker_swarm_dokploy_postgres_image_name }}:{{ docker_swarm_dokploy_postgres_image_tag }}'
+docker_swarm_dokploy_redis_image_name: redis
+docker_swarm_dokploy_redis_image_tag: '7'
+docker_swarm_dokploy_redis_image_full: '{{ docker_swarm_dokploy_redis_image_name }}:{{ docker_swarm_dokploy_redis_image_tag }}'
+docker_swarm_dokploy_traefik_image_name: traefik
+docker_swarm_dokploy_traefik_image_tag: v3.6.7
+docker_swarm_dokploy_traefik_image_full: '{{ docker_swarm_dokploy_traefik_image_name }}:{{ docker_swarm_dokploy_traefik_image_tag }}'
+docker_swarm_dokploy_service_name: dokploy
+docker_swarm_dokploy_postgres_service_name: dokploy-postgres
+docker_swarm_dokploy_redis_service_name: dokploy-redis
+docker_swarm_dokploy_traefik_container_name: dokploy-traefik
+docker_swarm_dokploy_network: dokploy-network
+docker_swarm_dokploy_data_dir: /etc/dokploy
+docker_swarm_dokploy_docker_socket: /var/run/docker.sock
+docker_swarm_dokploy_docker_config_volume: dokploy
+docker_swarm_dokploy_postgres_data_volume: dokploy-postgres
+docker_swarm_dokploy_redis_data_volume: dokploy-redis
+docker_swarm_dokploy_postgres_password_secret_name: dokploy-postgres-password
+docker_swarm_dokploy_auth_secret_name: dokploy-auth-secret
+docker_swarm_dokploy_postgres_password: ~
+docker_swarm_dokploy_auth_secret: ~
+docker_swarm_dokploy_postgres_user: dokploy
+docker_swarm_dokploy_postgres_database: dokploy
+docker_swarm_dokploy_http_expose_port: 3000
+docker_swarm_dokploy_traefik_http_expose_port: 80
+docker_swarm_dokploy_traefik_https_expose_port: 443
+docker_swarm_dokploy_advertise_addr: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses | first, true) }}"
+docker_swarm_dokploy_endpoint_mode: vip
+docker_swarm_dokploy_release_tag: latest
+docker_swarm_dokploy_postgres_mem_res: 300M
+docker_swarm_dokploy_postgres_mem_lim: 500M
+docker_swarm_dokploy_redis_mem_res: 100M
+docker_swarm_dokploy_redis_mem_lim: 200M
+docker_swarm_dokploy_mem_res: 600M
+docker_swarm_dokploy_mem_lim: 900M
+docker_swarm_dokploy_traefik_mem_res: 200M
+docker_swarm_dokploy_traefik_mem_lim: 300M

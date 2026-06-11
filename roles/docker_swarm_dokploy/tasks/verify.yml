@@ -1,0 +1,89 @@
+---
+
+- name: Verify Dokploy PostgreSQL swarm service has a running task
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - ps
+      - --filter
+      - desired-state=running
+      - --format
+      - "{% raw %}{{.CurrentState}}{% endraw %}"
+      - '{{ docker_swarm_dokploy_postgres_service_name }}'
+  register: docker_swarm_dokploy_postgres_service_tasks
+  until: docker_swarm_dokploy_postgres_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
+  retries: 30
+  delay: 2
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Verify Dokploy Redis swarm service has a running task
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - ps
+      - --filter
+      - desired-state=running
+      - --format
+      - "{% raw %}{{.CurrentState}}{% endraw %}"
+      - '{{ docker_swarm_dokploy_redis_service_name }}'
+  register: docker_swarm_dokploy_redis_service_tasks
+  until: docker_swarm_dokploy_redis_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
+  retries: 30
+  delay: 2
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Verify Dokploy swarm service has a running task
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - ps
+      - --filter
+      - desired-state=running
+      - --format
+      - "{% raw %}{{.CurrentState}}{% endraw %}"
+      - '{{ docker_swarm_dokploy_service_name }}'
+  register: docker_swarm_dokploy_service_tasks
+  until: docker_swarm_dokploy_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
+  retries: 30
+  delay: 2
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Wait for Dokploy web UI to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ docker_swarm_dokploy_http_expose_port }}'
+    delay: 1
+    timeout: 60
+  when: not ansible_check_mode
+
+- name: Verify Dokploy Traefik container is running
+  become: true
+  community.docker.docker_container_info:
+    name: '{{ docker_swarm_dokploy_traefik_container_name }}'
+  register: docker_swarm_dokploy_traefik_container_info
+  until:
+    - docker_swarm_dokploy_traefik_container_info.exists
+    - docker_swarm_dokploy_traefik_container_info.container.State.Running | bool
+  retries: 10
+  delay: 1
+  when: not ansible_check_mode
+
+- name: Wait for Dokploy Traefik ports to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ item }}'
+    delay: 1
+    timeout: 30
+  loop:
+    - '{{ docker_swarm_dokploy_traefik_http_expose_port }}'
+    - '{{ docker_swarm_dokploy_traefik_https_expose_port }}'
+  when: not ansible_check_mode

@@ -1,0 +1,64 @@
+---
+
+- name: Assert Dokploy enabled flag is valid
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_dokploy_enabled is boolean
+    fail_msg: docker_swarm_dokploy_enabled must be boolean.
+
+- name: Assert Dokploy required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_dokploy_postgres_password is not none
+      - docker_swarm_dokploy_postgres_password | string | length > 0
+      - docker_swarm_dokploy_auth_secret is not none
+      - docker_swarm_dokploy_auth_secret | string | length > 0
+    fail_msg: Define Dokploy PostgreSQL password and auth secret before running role docker_swarm_dokploy.
+  no_log: '{{ docker_swarm_dokploy_nolog }}'
+  when: docker_swarm_dokploy_enabled | bool
+
+- name: Assert Dokploy variable contract is valid
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_dokploy_image_full | string | length > 0
+      - docker_swarm_dokploy_postgres_image_full | string | length > 0
+      - docker_swarm_dokploy_redis_image_full | string | length > 0
+      - docker_swarm_dokploy_traefik_image_full | string | length > 0
+      - docker_swarm_dokploy_service_name | string | length > 0
+      - docker_swarm_dokploy_postgres_service_name | string | length > 0
+      - docker_swarm_dokploy_redis_service_name | string | length > 0
+      - docker_swarm_dokploy_traefik_container_name | string | length > 0
+      - docker_swarm_dokploy_network | string | length > 0
+      - docker_swarm_dokploy_data_dir | string | length > 0
+      - docker_swarm_dokploy_data_dir is match('^/')
+      - docker_swarm_dokploy_docker_socket | string | length > 0
+      - docker_swarm_dokploy_docker_socket is match('^/')
+      - docker_swarm_dokploy_docker_config_volume | string | length > 0
+      - docker_swarm_dokploy_postgres_data_volume | string | length > 0
+      - docker_swarm_dokploy_redis_data_volume | string | length > 0
+      - docker_swarm_dokploy_postgres_password_secret_name | string | length > 0
+      - docker_swarm_dokploy_auth_secret_name | string | length > 0
+      - docker_swarm_dokploy_postgres_user | string | length > 0
+      - docker_swarm_dokploy_postgres_database | string | length > 0
+      - docker_swarm_dokploy_http_expose_port | int > 0
+      - docker_swarm_dokploy_traefik_http_expose_port | int > 0
+      - docker_swarm_dokploy_traefik_https_expose_port | int > 0
+      - docker_swarm_dokploy_advertise_addr | string | length > 0
+      - docker_swarm_dokploy_endpoint_mode in ['vip', 'dnsrr']
+      - docker_swarm_dokploy_release_tag | string | length > 0
+    fail_msg: Required docker_swarm_dokploy variables are missing or invalid.
+  when: docker_swarm_dokploy_enabled | bool
+
+- name: Inspect Dokploy Docker socket
+  ansible.builtin.stat:
+    path: '{{ docker_swarm_dokploy_docker_socket }}'
+  register: docker_swarm_dokploy_docker_socket_stat
+  when: docker_swarm_dokploy_enabled | bool
+
+- name: Assert Dokploy Docker socket is available
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_dokploy_docker_socket_stat.stat.exists
+      - docker_swarm_dokploy_docker_socket_stat.stat.issock
+    fail_msg: Docker socket must exist before running role docker_swarm_dokploy.
+  when: docker_swarm_dokploy_enabled | bool
