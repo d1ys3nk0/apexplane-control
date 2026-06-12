@@ -61,10 +61,6 @@ STRUCTURE_PATHS = {
         r"(?m)^tasks:$",
         r"(?m)^\s+ci:$",
     ),
-    ".taskfile/platform-ycl.yml": (
-        r"(?m)^tasks:$",
-        r"(?m)^\s+prd:",
-    ),
     ".taskfile/root.yml": (
         r"(?m)^tasks:$",
         r"(?m)^\s+conf:$",

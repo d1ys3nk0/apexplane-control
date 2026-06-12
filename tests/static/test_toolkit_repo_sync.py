@@ -78,6 +78,10 @@ includes:
     assert sync_module.check_structure(repo_root) is True
 
 
+def test_structure_check_does_not_require_ycl_platform_taskfile(sync_module: SyncModule) -> None:
+    assert ".taskfile/platform-ycl.yml" not in sync_module.STRUCTURE_PATHS
+
+
 def test_global_variables_require_reference_outside_definition_line(sync_module: SyncModule, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     variables_dir = repo_root / "variables"
