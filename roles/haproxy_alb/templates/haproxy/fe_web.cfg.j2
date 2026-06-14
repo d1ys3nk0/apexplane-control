@@ -1,6 +1,12 @@
 {% macro route_match(route, prefixes=none) -%}
+{%- set route_domains = [route.domain] if route.domain is string else route.domain -%}
 {%- set route_prefixes = prefixes if prefixes is not none else ([] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list))) -%}
-host_{{ route.name }}{%- if route_prefixes | length > 0 %} { path_beg {{ route_prefixes | join(' ') }} }{%- endif -%}
+{%- if route.target_port is defined -%}
+host_{{ route.name }}
+{%- else -%}
+{ hdr(host) -i {{ route_domains | join(' ') }} }
+{%- endif -%}
+{%- if route_prefixes | length > 0 %} { path_beg {{ route_prefixes | join(' ') }} }{%- endif -%}
 {%- endmacro %}
 
 {% macro auth_more_specific_exclusions(auth_rule) -%}
