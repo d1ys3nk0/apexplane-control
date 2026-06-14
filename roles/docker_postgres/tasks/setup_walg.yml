@@ -50,7 +50,9 @@
       args:
         POSTGRES_IMAGE: '{{ docker_postgres_image_full }}'
         WALG_BINARY_URL: '{{ docker_postgres_walg_binary_url }}'
-  when: docker_postgres_walg_image_info.images | length == 0
+  when:
+    - docker_postgres_walg_image_info.images | length == 0
+    - not ansible_check_mode
 
 - name: Inspect local WAL-G repository paths
   become: true
@@ -106,4 +108,5 @@
       timeout: 3s
       interval: 30s
       start_period: 30s
+  when: docker_postgres_walg_image_info.images | length > 0 or not ansible_check_mode
   no_log: '{{ docker_postgres_nolog }}'

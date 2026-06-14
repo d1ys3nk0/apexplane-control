@@ -50,7 +50,6 @@
 - name: Validate Docker PostgreSQL WAL-G backup settings
   ansible.builtin.assert:
     that:
-      - docker_postgres_walg_backup_enabled | bool
       - docker_postgres_walg_backup_path is string
       - docker_postgres_walg_backup_path | string | length > 0
       - docker_postgres_walg_backup_path_is_s3 | bool or docker_postgres_walg_backup_path_is_local | bool
@@ -62,6 +61,7 @@
       - docker_postgres_walg_backup_hostnames is sequence
       - docker_postgres_walg_backup_hostnames is not string
       - docker_postgres_walg_backup_hostnames | length > 0
+      - docker_postgres_walg_backup_hostnames | difference(groups['all'] | default([])) | length == 0
       - docker_postgres_walg_backup_delta_origin in ['LATEST', 'LATEST_FULL', 'LATEST_FULL_WITH_TTL']
       - docker_postgres_walg_backup_delta_max_steps | string is match('^[1-9][0-9]*$')
       - docker_postgres_walg_backup_compression_method | string | length > 0
@@ -71,7 +71,7 @@
       - docker_postgres_walg_backup_tar_size_threshold | string | length == 0 or docker_postgres_walg_backup_tar_size_threshold | string is match('^[1-9][0-9]*$')
     fail_msg: >-
       Define docker_postgres_walg_backup_path as s3:<key>, s3://<bucket>/<key>, or an absolute local path, and provide
-      matching S3 settings or local mount availability plus at least one docker_postgres_walg_backup_hostnames item.
+      matching storage settings plus at least one inventory host in docker_postgres_walg_backup_hostnames.
   when: docker_postgres_walg_backup_requested | bool
 
 - name: Validate Docker PostgreSQL WAL-G recovery settings
