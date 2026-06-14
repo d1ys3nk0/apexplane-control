@@ -40,3 +40,18 @@
     group: root
     mode: '0755'
   when: certbot_haproxy_spread_enabled | bool
+
+- name: Remove HAProxy certificate spread hook when disabled
+  become: true
+  ansible.builtin.file:
+    path: '{{ certbot_hook_dir }}/haproxy-spread'
+    state: absent
+  when: not certbot_haproxy_spread_enabled | bool
+
+- name: Remove HAProxy certificate spread SSH key when disabled
+  become: true
+  ansible.builtin.file:
+    path: '{{ certbot_haproxy_spread_ssh_private_key_path }}'
+    state: absent
+  no_log: '{{ certbot_nolog }}'
+  when: not certbot_haproxy_spread_enabled | bool

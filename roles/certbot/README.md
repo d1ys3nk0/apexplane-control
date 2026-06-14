@@ -102,6 +102,8 @@ certbot_haproxy_spread_targets:
     port: 55555
 ```
 
+Leave `certbot_haproxy_spread_targets` empty to disable certificate spreading. The role removes the spread hook and SSH key while keeping the local HAProxy deploy hook available.
+
 Issue the first certificate explicitly after the role has configured the host:
 
 ```sh
