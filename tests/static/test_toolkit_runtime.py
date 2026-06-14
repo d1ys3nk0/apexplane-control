@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 
@@ -121,3 +122,46 @@ def runtime_env(tmp_path: Path) -> dict[str, str]:
     env["ANSIBLE_SSH_USER"] = "operator"
     env["DRY"] = "0"
     return env
+
+
+def test_run_preserves_process_env_over_dotenv(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "run")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+    (tmp_path / ".env").write_text("ANSIBLE_SSH_USER=dotenv\n", encoding="utf-8")
+
+    env = runtime_env(tmp_path)
+    env["DRY"] = "1"
+    result = subprocess.run(  # noqa: S603
+        [BASH, str(tmp_path / "bin/run"), "prd", "ycl", "app", "cmd", "uptime"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    assert "-u operator" in result.stdout
+    assert "-u dotenv" not in result.stdout
+
+
+def test_migrate_preserves_process_env_over_dotenv(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "migrate")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+    (tmp_path / "playbooks/app/_260101000000_test.yml").write_text("---\n\n- hosts: all\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("ANSIBLE_SSH_USER=dotenv\n", encoding="utf-8")
+
+    env = runtime_env(tmp_path)
+    env["DRY"] = "1"
+    result = subprocess.run(  # noqa: S603
+        [BASH, str(tmp_path / "bin/migrate"), "apply", "prd", "ycl", "app"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    assert "-u operator" in result.stdout
+    assert "-u dotenv" not in result.stdout
