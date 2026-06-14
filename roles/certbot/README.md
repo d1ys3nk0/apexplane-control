@@ -10,6 +10,7 @@ This role installs Certbot in a Python virtualenv and configures DNS-based certi
 - Write NIC.ru credentials with root-only permissions.
 - Install a `certonly dns-nicru` wrapper for explicit operator-driven issuance.
 - Optionally install a HAProxy deploy hook that publishes renewed lineages as combined PEM files.
+- Optionally spread changed HAProxy PEM files to remote HAProxy hosts after local validation and reload.
 - Install and start a systemd timer for certificate renewal.
 
 ## Configuration
@@ -43,6 +44,15 @@ Set `certbot_enabled` and `certbot_dns_nicru_enabled` to `true` before applying 
 | `certbot_haproxy_cert_dir` | `/etc/ssl/haproxy` |
 | `certbot_haproxy_cert_owner` | `haproxy` |
 | `certbot_haproxy_cert_group` | `haproxy` |
+| `certbot_haproxy_spread_targets` | `[]` |
+| `certbot_haproxy_spread_ssh_user` | `''` |
+| `certbot_haproxy_spread_ssh_private_key_file` | `~` |
+| `certbot_haproxy_spread_ssh_dir` | `{{ certbot_install_dir }}/ssh` |
+| `certbot_haproxy_spread_ssh_private_key_path` | `{{ certbot_haproxy_spread_ssh_dir }}/haproxy-spread` |
+| `certbot_haproxy_spread_ssh_known_hosts_path` | `{{ certbot_haproxy_spread_ssh_dir }}/known_hosts` |
+| `certbot_haproxy_spread_ssh_connect_timeout` | `10` |
+| `certbot_haproxy_spread_ssh_strict_host_key_checking` | `accept-new` |
+| `certbot_haproxy_spread_wildcards_only` | `true` |
 | `certbot_renew_timer_enabled` | `true` |
 | `certbot_renew_on_calendar` | `*-*-* 00,12:00:00` |
 | `certbot_renew_randomized_delay_sec` | `1h` |
@@ -78,6 +88,18 @@ Enable the HAProxy deploy hook only on hosts where HAProxy should consume the re
 
 ```yaml
 certbot_haproxy_deploy_hook_enabled: true
+```
+
+Configure HAProxy spread targets on an issuer host when changed wildcard PEM files should be pushed to remote HAProxy hosts:
+
+```yaml
+certbot_haproxy_deploy_hook_enabled: true
+certbot_haproxy_spread_ssh_user: iac
+certbot_haproxy_spread_ssh_private_key_file: /path/on/controller/iac-certbot.prd
+certbot_haproxy_spread_targets:
+  - name: app01
+    host: 192.0.2.10
+    port: 55555
 ```
 
 Issue the first certificate explicitly after the role has configured the host:

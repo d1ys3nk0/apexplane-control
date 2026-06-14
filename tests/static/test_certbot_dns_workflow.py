@@ -22,6 +22,7 @@ def test_certbot_wrapper_and_hook_templates_are_valid_bash() -> None:
     for script_path in [
         CERTBOT_DIR / "templates" / "certbot" / "certonly.sh.j2",
         CERTBOT_DIR / "templates" / "certbot" / "haproxy-deploy.sh.j2",
+        CERTBOT_DIR / "templates" / "certbot" / "haproxy-spread.sh.j2",
     ]:
         subprocess.run([bash, "-n", str(script_path)], check=True)  # noqa: S603
 
@@ -37,6 +38,22 @@ def test_certbot_sensitive_tasks_use_nolog() -> None:
         task for task in validate_tasks if task["name"] == "Assert NIC.ru required variables are set when enabled"
     )
     assert nicru_validate_task["no_log"] == "{{ certbot_nolog }}"
+
+
+def test_haproxy_alb_does_not_manage_certificate_contract() -> None:
+    for role_path in [
+        HAPROXY_ALB_DIR / "defaults" / "main.yml",
+        HAPROXY_ALB_DIR / "vars" / "main.yml",
+        HAPROXY_ALB_DIR / "tasks" / "main.yml",
+        HAPROXY_ALB_DIR / "tasks" / "validate.yml",
+        HAPROXY_ALB_DIR / "README.md",
+    ]:
+        text = role_path.read_text(encoding="utf-8")
+        assert "haproxy_alb_certs" not in text
+        assert "haproxy_alb_manage_certs" not in text
+        assert "setup_certs.yml" not in text
+
+    assert not (HAPROXY_ALB_DIR / "tasks" / "setup_certs.yml").exists()
 
 
 def test_toolbox_command_helpers_keep_cmd_as_the_entrypoint() -> None:

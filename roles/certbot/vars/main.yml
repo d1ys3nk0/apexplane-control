@@ -27,6 +27,7 @@ certbot_http_cert_items: >-
   {%- endfor -%}
   {{ _cert_items }}
 certbot_http_enabled: '{{ certbot_http_cert_items | length > 0 }}'
+certbot_haproxy_spread_enabled: '{{ certbot_haproxy_spread_targets | length > 0 }}'
 certbot_renew_unit_name: certbot-renew
 certbot_renew_timer_name: '{{ certbot_renew_unit_name }}.timer'
 certbot_renew_service_name: '{{ certbot_renew_unit_name }}.service'

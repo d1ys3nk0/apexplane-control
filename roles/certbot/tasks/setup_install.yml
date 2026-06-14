@@ -4,6 +4,7 @@
   become: true
   ansible.builtin.apt:
     name:
+      - openssh-client
       - python3
       - python3-venv
     state: present

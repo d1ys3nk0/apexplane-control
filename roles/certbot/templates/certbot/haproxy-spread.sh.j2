@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+error() {
+    printf 'haproxy-spread: %s\n' "$*" >&2
+    exit 1
+}
+
+has_wildcard_domain() {
+    local domain
+
+    for domain in "${domains[@]}"; do
+        case "$domain" in
+        '*.'*) return 0 ;;
+        esac
+    done
+
+    return 1
+}
+
+spread_one() {
+    local target_name="$1"
+    local target_host="$2"
+    local target_port="$3"
+    local remote_tmp
+    local -a ssh_args=()
+    local -a scp_args=()
+
+    ssh_args=(
+        -i "{{ certbot_haproxy_spread_ssh_private_key_path }}"
+        -p "$target_port"
+        -o BatchMode=yes
+        -o ConnectTimeout={{ certbot_haproxy_spread_ssh_connect_timeout }}
+        -o StrictHostKeyChecking={{ certbot_haproxy_spread_ssh_strict_host_key_checking }}
+        -o UserKnownHostsFile={{ certbot_haproxy_spread_ssh_known_hosts_path }}
+    )
+    scp_args=(
+        -i "{{ certbot_haproxy_spread_ssh_private_key_path }}"
+        -P "$target_port"
+        -o BatchMode=yes
+        -o ConnectTimeout={{ certbot_haproxy_spread_ssh_connect_timeout }}
+        -o StrictHostKeyChecking={{ certbot_haproxy_spread_ssh_strict_host_key_checking }}
+        -o UserKnownHostsFile={{ certbot_haproxy_spread_ssh_known_hosts_path }}
+    )
+
+    printf 'haproxy-spread: pushing %s to %s\n' "$pem_basename" "$target_name"
+    remote_tmp="$(ssh "${ssh_args[@]}" "{{ certbot_haproxy_spread_ssh_user }}@${target_host}" 'mktemp /tmp/certbot-haproxy.XXXXXX')"
+    scp "${scp_args[@]}" "$pem_path" "{{ certbot_haproxy_spread_ssh_user }}@${target_host}:${remote_tmp}"
+    ssh "${ssh_args[@]}" "{{ certbot_haproxy_spread_ssh_user }}@${target_host}" 'sudo bash -s' -- "$remote_tmp" "$cert_dir" "{{ certbot_haproxy_cert_owner }}" "{{ certbot_haproxy_cert_group }}" "$cert_name" "$pem_basename" <<'REMOTE'
+set -euo pipefail
+
+remote_tmp="$1"
+cert_dir="$2"
+cert_owner="$3"
+cert_group="$4"
+cert_name="$5"
+pem_basename="$6"
+pem_path="${cert_dir}/${pem_basename}"
+backup_path=""
+
+cleanup() {
+    if [ -n "$backup_path" ]; then
+        sudo rm -f "$backup_path"
+    fi
+    sudo rm -f "$remote_tmp"
+}
+trap cleanup EXIT
+
+sudo install -d -o "$cert_owner" -g "$cert_group" -m 0755 "$cert_dir"
+if [ -f "$pem_path" ]; then
+    backup_path="$(mktemp /tmp/certbot-haproxy-backup.XXXXXX)"
+    sudo cp -p "$pem_path" "$backup_path"
+fi
+
+sudo install -o "$cert_owner" -g "$cert_group" -m 0600 "$remote_tmp" "$pem_path"
+if ! sudo haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/conf.d; then
+    if [ -n "$backup_path" ]; then
+        sudo install -o "$cert_owner" -g "$cert_group" -m 0600 "$backup_path" "$pem_path"
+    else
+        sudo rm -f "$pem_path"
+    fi
+    exit 1
+fi
+
+for stale_pem in "${cert_dir}/${cert_name}-"*.pem; do
+    [ -e "$stale_pem" ] || continue
+    [ "$stale_pem" = "$pem_path" ] || sudo rm -f "$stale_pem"
+done
+
+sudo systemctl reload haproxy
+sudo systemctl is-active haproxy >/dev/null
+REMOTE
+}
+
+[ "$#" -ge 3 ] || error "usage: haproxy-spread <pem-path> <cert-name> <domain> [<domain> ...]"
+pem_path="$1"
+cert_name="$2"
+shift 2
+domains=("$@")
+cert_dir="{{ certbot_haproxy_cert_dir }}"
+pem_basename="$(basename "$pem_path")"
+spread_wildcards_only="{{ certbot_haproxy_spread_wildcards_only | bool | ternary('1', '0') }}"
+mapfile -t target_lines < <(python3 - <<'PY'
+import json
+
+targets = json.loads(r'''{{ certbot_haproxy_spread_targets | to_json }}''')
+for target in targets:
+    print(f"{target['name']}\t{target['host']}\t{target['port']}")
+PY
+)
+
+[ -f "$pem_path" ] || error "PEM file does not exist: ${pem_path}"
+[ -n "$cert_name" ] || error "certificate name must be non-empty"
+[ -n "${domains[*]:-}" ] || error "at least one certificate domain is required"
+
+if [ "$spread_wildcards_only" = "1" ] && ! has_wildcard_domain; then
+    exit 0
+fi
+
+for target_line in "${target_lines[@]}"; do
+    IFS=$'\t' read -r target_name target_host target_port <<<"$target_line"
+    spread_one "$target_name" "$target_host" "$target_port"
+done

@@ -1,6 +1,6 @@
 # haproxy_alb
 
-This role configures HAProxy as an application load balancer with existing PEM certificates.
+This role configures HAProxy as an application load balancer. HAProxy reads existing PEM certificates from `/etc/ssl/haproxy`; certificate issuance and deployment are owned by Certbot or another external certificate manager.
 
 ## Features
 - Configure self-signed SSL certificate.
@@ -14,7 +14,6 @@ This role configures HAProxy as an application load balancer with existing PEM c
 - Upload HAProxy whitelist files.
 - Update HAProxy frontend config.
 - Route ACME HTTP-01 challenge requests to the configured local challenge backend.
-- Validate existing HAProxy PEM certificates when `haproxy_alb_certs` is configured.
 - Additional focused setup tasks for the same role-owned desired state.
 
 ## Configuration
@@ -37,7 +36,6 @@ Set this required input before applying the role: `haproxy_alb_self_signed_cert_
 | `haproxy_alb_throttle_deny_status` | `429` |
 | `haproxy_alb_trusted_proxy_cidrs` | `<complex>` |
 | `haproxy_alb_self_signed_cert_domain` | `~` |
-| `haproxy_alb_certs` | `{}` |
 | `haproxy_alb_target_groups` | `{}` |
 | `haproxy_alb_routes` | `[]` |
 | `haproxy_alb_auth_whitelist_cidrs` | `[]` |

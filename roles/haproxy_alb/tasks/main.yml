@@ -236,7 +236,3 @@
 - name: Verify HAProxy ALB
   ansible.builtin.include_tasks: verify.yml
   when: haproxy_alb_config_changed | bool
-
-- name: Validate HAProxy SSL certificates
-  ansible.builtin.include_tasks: setup_certs.yml
-  when: haproxy_alb_manage_certs | bool

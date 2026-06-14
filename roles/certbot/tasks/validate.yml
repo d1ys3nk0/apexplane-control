@@ -7,6 +7,8 @@
       - certbot_http_enabled | type_debug == 'bool'
       - certbot_dns_nicru_enabled | type_debug == 'bool'
       - certbot_haproxy_deploy_hook_enabled | type_debug == 'bool'
+      - certbot_haproxy_spread_enabled | type_debug == 'bool'
+      - certbot_haproxy_spread_wildcards_only | type_debug == 'bool'
       - certbot_renew_timer_enabled | type_debug == 'bool'
     fail_msg: Define Certbot mode variables with valid boolean values.
 
@@ -28,9 +30,43 @@
       - certbot_haproxy_cert_dir | string | length > 0
       - certbot_haproxy_cert_owner | string | length > 0
       - certbot_haproxy_cert_group | string | length > 0
+      - certbot_haproxy_spread_ssh_connect_timeout | int > 0
+      - certbot_haproxy_spread_ssh_strict_host_key_checking in ['yes', 'no', 'accept-new']
       - certbot_renew_on_calendar | string | length > 0
       - certbot_renew_randomized_delay_sec | string | length > 0
     fail_msg: Define Certbot scalar variables with non-empty values.
+
+- name: Assert HAProxy certificate spread variables are valid when enabled
+  ansible.builtin.assert:
+    that:
+      - certbot_haproxy_deploy_hook_enabled | bool
+      - certbot_haproxy_spread_targets is iterable
+      - certbot_haproxy_spread_targets is not string
+      - certbot_haproxy_spread_ssh_user | string | length > 0
+      - certbot_haproxy_spread_ssh_private_key_file is not none
+      - certbot_haproxy_spread_ssh_private_key_file | string | length > 0
+      - certbot_haproxy_spread_ssh_dir | string | length > 0
+      - certbot_haproxy_spread_ssh_private_key_path | string | length > 0
+      - certbot_haproxy_spread_ssh_known_hosts_path | string | length > 0
+    fail_msg: Configure HAProxy deploy hook, SSH user, SSH private key, and spread targets when HAProxy certificate spread is enabled.
+  when: certbot_haproxy_spread_enabled | bool
+
+- name: Assert HAProxy certificate spread targets are valid
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.name is defined
+      - item.name | string | length > 0
+      - item.host is defined
+      - item.host | string | length > 0
+      - item.port is defined
+      - item.port | int > 0
+      - item.port | int <= 65535
+    fail_msg: Each certbot_haproxy_spread_targets item must define non-empty name, host, and valid SSH port.
+  loop: '{{ certbot_haproxy_spread_targets }}'
+  loop_control:
+    label: "{{ item.name | default('<missing-name>', true) }}"
+  when: certbot_haproxy_spread_enabled | bool
 
 - name: Assert Certbot HTTP certificates are valid
   ansible.builtin.assert:

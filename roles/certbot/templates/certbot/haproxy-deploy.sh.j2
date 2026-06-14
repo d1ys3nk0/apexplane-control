@@ -60,3 +60,7 @@ done
 haproxy -c -f /etc/haproxy/haproxy.cfg -f /etc/haproxy/conf.d
 systemctl reload haproxy
 systemctl is-active haproxy >/dev/null
+
+if [ -x "{{ certbot_hook_dir }}/haproxy-spread" ]; then
+    "{{ certbot_hook_dir }}/haproxy-spread" "$pem_path" "$cert_name" "${domains[@]}"
+fi

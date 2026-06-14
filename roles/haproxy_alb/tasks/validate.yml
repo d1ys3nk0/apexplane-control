@@ -58,15 +58,6 @@
       - haproxy_alb_routes | length > 0
     fail_msg: haproxy_alb_routes must be a non-empty list of route dicts
 
-- name: Assert haproxy_alb_certs is a non-empty mapping
-  ansible.builtin.assert:
-    that:
-      - haproxy_alb_certs is defined
-      - haproxy_alb_certs is mapping
-      - haproxy_alb_certs | length > 0
-    fail_msg: haproxy_alb_certs must be a non-empty mapping of cert name to domain list when managed HAProxy certificates are configured
-  when: haproxy_alb_manage_certs | bool
-
 - name: Assert haproxy_alb_auth is a list when set
   ansible.builtin.assert:
     that:
@@ -178,18 +169,6 @@
       - haproxy_alb_userlists is mapping
     fail_msg: haproxy_alb_userlists must be a mapping
   no_log: '{{ haproxy_alb_nolog }}'
-
-- name: Assert each certificate has one or more domains
-  ansible.builtin.assert:
-    that:
-      - >-
-        haproxy_alb_certs[item] is string
-        or (haproxy_alb_certs[item] is iterable and haproxy_alb_certs[item] is not string)
-      - haproxy_alb_certs[item] | length > 0
-    fail_msg: Certificate '{{ item }}' must define at least one domain as a string or list
-  loop: '{{ haproxy_alb_certs.keys() | sort }}'
-  loop_control:
-    label: '{{ item }}'
 
 - name: Assert each route has required fields
   ansible.builtin.assert:

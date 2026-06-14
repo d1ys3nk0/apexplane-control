@@ -21,7 +21,6 @@ haproxy_alb_trusted_proxy_cidrs:
   - 172.16.0.0/12
   - 192.168.0.0/16
 haproxy_alb_self_signed_cert_domain: ~
-haproxy_alb_certs: {}
 haproxy_alb_target_groups: {}
 haproxy_alb_routes: []
 haproxy_alb_auth_whitelist_cidrs: []

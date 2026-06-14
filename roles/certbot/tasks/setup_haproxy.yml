@@ -8,3 +8,35 @@
     owner: root
     group: root
     mode: '0755'
+
+- name: Create HAProxy certificate spread SSH key directory
+  become: true
+  ansible.builtin.file:
+    path: '{{ certbot_haproxy_spread_ssh_dir }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  when: certbot_haproxy_spread_enabled | bool
+
+- name: Install HAProxy certificate spread SSH key
+  become: true
+  ansible.builtin.copy:
+    src: '{{ certbot_haproxy_spread_ssh_private_key_file }}'
+    dest: '{{ certbot_haproxy_spread_ssh_private_key_path }}'
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: '{{ certbot_nolog }}'
+  diff: false
+  when: certbot_haproxy_spread_enabled | bool
+
+- name: Install HAProxy certificate spread hook
+  become: true
+  ansible.builtin.template:
+    src: certbot/haproxy-spread.sh.j2
+    dest: '{{ certbot_hook_dir }}/haproxy-spread'
+    owner: root
+    group: root
+    mode: '0755'
+  when: certbot_haproxy_spread_enabled | bool
