@@ -8,6 +8,7 @@ This role runs Xray as a Docker Swarm service.
 - Publish inbound ports through Swarm ingress.
 - Validate the rendered Xray config with the pinned container image before updating the service.
 - Store the rendered config as an immutable hash-named Docker config.
+- Optionally publish a small HTTP redirect fallback service for public port 80.
 - Use start-first rolling updates with rollback on update failure.
 - Verify the Swarm service and wait for published ports.
 
@@ -32,6 +33,18 @@ This role runs Xray as a Docker Swarm service.
 | `docker_swarm_xray_update_parallelism` | `1` |
 | `docker_swarm_xray_update_delay` | `10s` |
 | `docker_swarm_xray_update_monitor` | `30s` |
+| `docker_swarm_xray_fallback_enabled` | `false` |
+| `docker_swarm_xray_fallback_service_name` | `xray-fallback` |
+| `docker_swarm_xray_fallback_image_name` | `nginx` |
+| `docker_swarm_xray_fallback_image_tag` | `1.29-alpine` |
+| `docker_swarm_xray_fallback_image_full` | `<derived>` |
+| `docker_swarm_xray_fallback_redirect_host` | `~` |
+| `docker_swarm_xray_fallback_port` | `80` |
+| `docker_swarm_xray_fallback_config_filename` | `/etc/nginx/conf.d/default.conf` |
+| `docker_swarm_xray_fallback_mem_res` | `32M` |
+| `docker_swarm_xray_fallback_mem_lim` | `128M` |
+| `docker_swarm_xray_fallback_cpu_res` | `0.05` |
+| `docker_swarm_xray_fallback_cpu_lim` | `0.25` |
 
 ## Usage
 HTTP proxy to a VLESS REALITY next hop:
@@ -83,6 +96,10 @@ Public VLESS REALITY server to direct internet:
       docker_swarm_xray_outbounds:
         - type: freedom
           tag: direct-out
+      docker_swarm_xray_fallback_enabled: true
+      docker_swarm_xray_fallback_redirect_host: www.microsoft.com
 ```
 
 For `http` inbounds, `port` is the Swarm-published port and `xray_port` defaults to `1080`. For `vless` inbounds, `port` is also the Swarm-published port and `xray_port` defaults to the same value. Set `tag` explicitly when routing rules need stable names. Swarm ingress publishing does not support role-level host bind addresses, so every inbound is published through the Swarm routing mesh.
+
+When `docker_swarm_xray_fallback_enabled` is true, the role also publishes `docker_swarm_xray_fallback_port` through Swarm ingress and serves a redirect to `https://{{ docker_swarm_xray_fallback_redirect_host }}`. The redirect host must be a hostname without a scheme or path.

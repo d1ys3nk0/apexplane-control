@@ -54,6 +54,13 @@ docker_swarm_xray_port_binding_keys: >-
     {%- set _ = _xray_keys.append(_xray_item.published_port ~ docker_swarm_xray_port_protocol_separator ~ _xray_item.protocol) -%}
   {%- endfor -%}
   {{ _xray_keys }}
+docker_swarm_xray_fallback_port_binding_keys: >-
+  {{
+    [
+      docker_swarm_xray_fallback_port ~ docker_swarm_xray_port_protocol_separator ~ 'tcp',
+    ] if docker_swarm_xray_fallback_enabled | bool else []
+  }}
+docker_swarm_xray_all_port_binding_keys: '{{ docker_swarm_xray_port_binding_keys + docker_swarm_xray_fallback_port_binding_keys }}'
 docker_swarm_xray_wait_items: '{{ docker_swarm_xray_port_publish_items }}'
 docker_swarm_xray_healthcheck_port: '{{ (docker_swarm_xray_port_publish_items | first).target_port }}'
 docker_swarm_xray_inbound_items: >-
@@ -203,3 +210,15 @@ docker_swarm_xray_config:
   routing: '{{ docker_swarm_xray_routing }}'
 docker_swarm_xray_config_data: "{{ docker_swarm_xray_config | to_nice_json }}\n"
 docker_swarm_xray_config_name: '{{ docker_swarm_xray_config_name_prefix }}-{{ docker_swarm_xray_config_data | hash("md5") }}'
+docker_swarm_xray_fallback_config_name_prefix: xray-fallback-config
+docker_swarm_xray_fallback_config_data: |
+  server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    location / {
+      return 308 https://{{ docker_swarm_xray_fallback_redirect_host }}$request_uri;
+    }
+  }
+docker_swarm_xray_fallback_config_name: '{{ docker_swarm_xray_fallback_config_name_prefix }}-{{ docker_swarm_xray_fallback_config_data | hash("md5") }}'

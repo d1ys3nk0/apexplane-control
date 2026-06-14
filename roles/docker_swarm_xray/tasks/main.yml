@@ -138,3 +138,81 @@
         state: absent
       changed_when: false
       when: docker_swarm_xray_temp_config.path is defined
+
+- name: Deploy Xray fallback HTTP service
+  become: true
+  run_once: true
+  when:
+    - docker_swarm_xray_enabled | bool
+    - docker_swarm_xray_fallback_enabled | bool
+  block:
+    - name: Ensure Xray fallback docker config created
+      community.docker.docker_config:
+        name: '{{ docker_swarm_xray_fallback_config_name }}'
+        data: '{{ docker_swarm_xray_fallback_config_data }}'
+        state: present
+      when: not ansible_check_mode
+
+    - name: Ensure Xray fallback swarm service created
+      community.docker.docker_swarm_service:
+        name: '{{ docker_swarm_xray_fallback_service_name }}'
+        image: '{{ docker_swarm_xray_fallback_image_full }}'
+        configs:
+          - config_name: '{{ docker_swarm_xray_fallback_config_name }}'
+            filename: '{{ docker_swarm_xray_fallback_config_filename }}'
+            mode: 0444
+        mode: replicated
+        replicas: 1
+        endpoint_mode: vip
+        publish:
+          - published_port: '{{ docker_swarm_xray_fallback_port }}'
+            target_port: 80
+            protocol: tcp
+            mode: ingress
+        update_config:
+          order: start-first
+          parallelism: 1
+          delay: '{{ docker_swarm_xray_update_delay }}'
+          monitor: '{{ docker_swarm_xray_update_monitor }}'
+          failure_action: rollback
+        rollback_config:
+          order: start-first
+          parallelism: 1
+          delay: '{{ docker_swarm_xray_update_delay }}'
+          monitor: '{{ docker_swarm_xray_update_monitor }}'
+        restart_config:
+          condition: any
+          delay: 5s
+        reservations:
+          cpus: '{{ docker_swarm_xray_fallback_cpu_res }}'
+          memory: '{{ docker_swarm_xray_fallback_mem_res }}'
+        limits:
+          cpus: '{{ docker_swarm_xray_fallback_cpu_lim }}'
+          memory: '{{ docker_swarm_xray_fallback_mem_lim }}'
+      when: not ansible_check_mode
+
+    - name: Verify Xray fallback swarm service has a running task
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ps
+          - --filter
+          - desired-state=running
+          - --format
+          - "{% raw %}{{.CurrentState}}{% endraw %}"
+          - '{{ docker_swarm_xray_fallback_service_name }}'
+      register: docker_swarm_xray_fallback_service_tasks
+      until: docker_swarm_xray_fallback_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
+      retries: 30
+      delay: 2
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Wait for Xray fallback published port to be ready
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: '{{ docker_swarm_xray_fallback_port }}'
+        delay: 1
+        timeout: 30
+      when: not ansible_check_mode

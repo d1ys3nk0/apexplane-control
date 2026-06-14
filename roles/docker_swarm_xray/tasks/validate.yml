@@ -19,7 +19,23 @@
       - docker_swarm_xray_outbounds is not string
       - docker_swarm_xray_outbounds | length > 0
       - docker_swarm_xray_routing is mapping
+      - docker_swarm_xray_fallback_enabled is boolean
+      - docker_swarm_xray_fallback_service_name | string | length > 0
+      - docker_swarm_xray_fallback_image_full | string | length > 0
+      - docker_swarm_xray_fallback_port | int >= 1
+      - docker_swarm_xray_fallback_port | int <= 65535
+      - docker_swarm_xray_fallback_config_filename | string | length > 0
     fail_msg: Define non-empty docker_swarm_xray_inbounds and docker_swarm_xray_outbounds lists before running role docker_swarm_xray.
+
+- name: Assert Xray fallback inputs are valid
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_xray_fallback_redirect_host is not none
+      - docker_swarm_xray_fallback_redirect_host | string | length > 0
+      - "'://' not in docker_swarm_xray_fallback_redirect_host"
+      - "'/' not in docker_swarm_xray_fallback_redirect_host"
+    fail_msg: Define docker_swarm_xray_fallback_redirect_host as a hostname when fallback HTTP service is enabled.
+  when: docker_swarm_xray_fallback_enabled | bool
 
 - name: Assert Xray inbounds are valid
   ansible.builtin.assert:
@@ -147,5 +163,5 @@
     that:
       - docker_swarm_xray_tag_values | unique | length == docker_swarm_xray_tag_values | length
       - docker_swarm_xray_inbound_internal_ports | unique | length == docker_swarm_xray_inbound_internal_ports | length
-      - docker_swarm_xray_port_binding_keys | unique | length == docker_swarm_xray_port_binding_keys | length
+      - docker_swarm_xray_all_port_binding_keys | unique | length == docker_swarm_xray_all_port_binding_keys | length
     fail_msg: Xray tags, internal inbound ports, and published host port bindings must be unique.
