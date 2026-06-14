@@ -175,11 +175,16 @@
     argv:
       - systemctl
       - reset-failed
-      - alloy
+      - alloy.service
+  register: alloy_reset_failed
   changed_when: false
+  failed_when:
+    - alloy_reset_failed.rc != 0
+    - "'Unit alloy.service not loaded' not in alloy_reset_failed.stderr"
   when:
     - not ansible_check_mode
     - alloy_permissions_changed | bool
+    - ansible_facts.services['alloy.service'] is defined
 
 - name: Restart Alloy after environment or permissions change
   become: true
@@ -209,7 +214,7 @@
     - not ansible_check_mode
     - alloy_config_update is defined
     - alloy_config_update.changed
-    - not (alloy_defaults_update.changed or alloy_systemd_override_update.changed or (alloy_user_groups is defined and alloy_user_groups.changed))
+    - not (alloy_defaults_update.changed or alloy_systemd_override_update.changed or alloy_permissions_changed | bool)
 
 - name: Wait for Alloy to be ready
   ansible.builtin.wait_for:
