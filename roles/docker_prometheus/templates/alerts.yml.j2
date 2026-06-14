@@ -450,7 +450,7 @@ groups:
           platform: '{{ $labels.platform }}'
         annotations:
           summary: Container {{ $labels.name }} is down on {{ $labels.instance }}
-          description: Container {{ $labels.name }} has not reported metrics recently (seconds since last seen: {{ $value }}).
+          description: 'Container {{ $labels.name }} has not reported metrics recently (seconds since last seen: {{ $value }}).'
 {% endraw %}
 {% if docker_prometheus_custom_alerts | trim | length > 0 %}
 
