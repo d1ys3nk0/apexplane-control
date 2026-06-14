@@ -23,6 +23,9 @@ scrape_configs:
           platform: {{ docker_prometheus_cluster_platform }}
           realm: {{ docker_prometheus_cluster_realm }}
           cluster: obs
+{% if docker_prometheus_common_labels | length > 0 %}
+{{ docker_prometheus_common_labels | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(10, true) }}
+{% endif %}
         targets:
         - 127.0.0.1:{{ docker_prometheus_http_port }}
 
@@ -34,6 +37,9 @@ scrape_configs:
           platform: {{ docker_prometheus_cluster_platform }}
           realm: {{ docker_prometheus_cluster_realm }}
           cluster: obs
+{% if docker_prometheus_common_labels | length > 0 %}
+{{ docker_prometheus_common_labels | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(10, true) }}
+{% endif %}
         targets:
           - {{ docker_prometheus_alertmanager_host }}:{{ docker_prometheus_alertmanager_http_port }}
 
@@ -44,6 +50,9 @@ scrape_configs:
           platform: {{ docker_prometheus_cluster_platform }}
           realm: {{ docker_prometheus_cluster_realm }}
           cluster: obs
+{% if docker_prometheus_common_labels | length > 0 %}
+{{ docker_prometheus_common_labels | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(10, true) }}
+{% endif %}
         targets:
           - {{ docker_prometheus_loki_host }}:{{ docker_prometheus_loki_http_port }}
 {% if docker_prometheus_targets | length > 0 %}

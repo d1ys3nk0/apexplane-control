@@ -17,6 +17,7 @@
     mode: '0644'
   register: docker_alertmanager_update_config_template
   no_log: '{{ docker_alertmanager_nolog }}'
+  diff: false
   when:
     - docker_alertmanager_config_content | string | length == 0
     - docker_alertmanager_config_template | string | length > 0
@@ -29,6 +30,7 @@
     mode: '0644'
   register: docker_alertmanager_update_configs
   no_log: '{{ docker_alertmanager_nolog }}'
+  diff: false
   when:
     - docker_alertmanager_config_content | string | length == 0
     - docker_alertmanager_config_template | string | length == 0
@@ -42,6 +44,7 @@
     mode: '0644'
   register: docker_alertmanager_update_config_content
   no_log: '{{ docker_alertmanager_nolog }}'
+  diff: false
   when: docker_alertmanager_config_content | string | length > 0
 
 - name: Create docker volumes

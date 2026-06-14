@@ -17,6 +17,7 @@
     mode: '0640'
   register: docker_prometheus_blackbox_update_config
   no_log: '{{ docker_prometheus_nolog }}'
+  diff: false
   when: docker_prometheus_blackbox_config_content | string | length == 0
 
 - name: Deploy blackbox exporter configuration from content
@@ -29,6 +30,7 @@
     mode: '0640'
   register: docker_prometheus_blackbox_update_config_content
   no_log: '{{ docker_prometheus_nolog }}'
+  diff: false
   when: docker_prometheus_blackbox_config_content | string | length > 0
 
 - name: Start blackbox exporter container

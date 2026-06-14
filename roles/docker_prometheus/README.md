@@ -30,6 +30,7 @@ Set these required inputs before applying the role: `docker_prometheus_cluster_p
 | `docker_prometheus_config_content` | `''` |
 | `docker_prometheus_config_template` | `prometheus.yml.j2` |
 | `docker_prometheus_custom_alerts` | `''` |
+| `docker_prometheus_common_labels` | `{}` |
 | `docker_prometheus_fqdn_ext` | `~` |
 | `docker_prometheus_http_port` | `9090` |
 | `docker_prometheus_image_name` | `prom/prometheus` |
