@@ -270,7 +270,7 @@ if [ "${TARGET_ACTION}" = "cmd" ]; then
 
     cmd uv run ansible "${TARGET_HOSTS}" -i "${INVENTORY_PATH}" "${EXTRA_VARS_ARRAY[@]}" -m shell -u "${ANSIBLE_SSH_USER}" ${SSH_ARGS+"${SSH_ARGS[@]}"} -a "${TARGET_ARGS[*]}"
 else
-    CMD=(uv run ansible-playbook "${PLAYBOOK_PATH}" -i "${INVENTORY_PATH}" "${EXTRA_VARS_ARRAY[@]}" -u "${ANSIBLE_SSH_USER}" ${SSH_ARGS+"${SSH_ARGS[@]}"})
+    CMD=(uv run ansible-playbook "${PLAYBOOK_PATH}" -i "${INVENTORY_PATH}" "${EXTRA_VARS_ARRAY[@]}" -u "${ANSIBLE_SSH_USER}" ${SSH_ARGS+"${SSH_ARGS[@]}"} --limit "${TARGET_HOSTS}")
 
     if [[ ! "${CI:-0}" =~ ^(1|true)$ ]] || [[ "${DEBUG:-}" =~ ^(1|true)$ ]]; then
         CMD+=(--diff -v)

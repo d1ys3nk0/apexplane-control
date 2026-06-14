@@ -145,6 +145,25 @@ def test_run_preserves_process_env_over_dotenv(tmp_path: Path) -> None:
     assert "-u dotenv" not in result.stdout
 
 
+def test_run_limits_playbook_to_target_hosts(tmp_path: Path) -> None:
+    write_runtime_fixture(tmp_path, "run")
+    write_fake_uv(tmp_path)
+    write_target_repo_fixture(tmp_path)
+
+    env = runtime_env(tmp_path)
+    env["DRY"] = "1"
+    result = subprocess.run(  # noqa: S603
+        [BASH, str(tmp_path / "bin/run"), "prd", "ycl", "app", "setup"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    assert "--limit prd_ycl_app" in result.stdout
+
+
 def test_migrate_preserves_process_env_over_dotenv(tmp_path: Path) -> None:
     write_runtime_fixture(tmp_path, "migrate")
     write_fake_uv(tmp_path)
