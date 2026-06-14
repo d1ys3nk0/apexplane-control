@@ -1,15 +1,15 @@
 ---
 
-- name: Get current home users before IAM cleanup
+- name: Get current local home users before IAM cleanup
   become: true
-  ansible.builtin.command: ls -1 /home/
-  register: iam_current_home_users
+  ansible.builtin.command: "awk -F: '$6 ~ \"^/home/[^/]+$\" { print $1 }' /etc/passwd"
+  register: iam_current_local_home_users
   changed_when: false
   when: iam_cleanup_mode | bool
 
-- name: Detect unmanaged home users
+- name: Detect unmanaged local home users
   ansible.builtin.set_fact:
-    iam_users_to_remove: '{{ iam_current_home_users.stdout_lines | difference(iam_managed_user_names) }}'
+    iam_users_to_remove: '{{ iam_current_local_home_users.stdout_lines | difference(iam_managed_user_names) }}'
   when: iam_cleanup_mode | bool
 
 - name: Refuse unmanaged user removal in non-interactive mode

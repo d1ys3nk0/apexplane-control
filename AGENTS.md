@@ -33,6 +33,7 @@ This repository contains reusable Ansible roles shared by infrastructure playboo
 - For Docker-managed resource names in shared roles, prefer hyphens over underscores by default, including volumes, networks, containers, and similar named resources.
 - Name roles that create Docker Swarm services with the `docker_swarm_` prefix. Name roles that start standalone Docker containers with the `docker_` prefix.
 - Docker Swarm services should use `node.hostname` placement constraints only when the service depends on host bind mounts such as host directories, files, or sockets.
+- In play role ordering, put the `iam` role immediately after preflight checks and before other functional roles whenever the play includes both `preflight` and `iam`.
 - Role tasks, templates, and handlers must not reference `gv_`, `iv_`, or `vv_` variables directly; map those values through role-prefixed defaults. (See `test_repository_role_variable_contracts_pass` in `tests/static/test_ansible_role_variable_contracts.py`.)
 - Playbook repository variables in `variables/**` must start with `_`, `gv_`, `iv_`, `vv_`, `ansible_`, or an existing role prefix. Keep this contract in `tests/static/test_ansible_variable_scopes.py`.
 - Tests must prevent bugs and make refactoring easy: they should fail only when final desired behavior, a documented public contract, schema validation, or rendered output is broken.

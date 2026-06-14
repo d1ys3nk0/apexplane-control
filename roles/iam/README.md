@@ -16,7 +16,7 @@ This role manages local administrative, service, and root account state.
 - Generate missing admin ssh keys.
 - Apply admin .bashrc.
 - Enable lingering for admin accounts.
-- Get current home users before IAM cleanup.
+- Get current local home users before IAM cleanup.
 - Additional focused setup tasks for the same role-owned desired state.
 
 ## Configuration
