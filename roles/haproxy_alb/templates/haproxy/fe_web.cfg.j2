@@ -1,7 +1,6 @@
 {% macro route_match(route, prefixes=none) -%}
-{%- set route_domains = [route.domain] if route.domain is string else route.domain -%}
 {%- set route_prefixes = prefixes if prefixes is not none else ([] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list))) -%}
-{ hdr(host) -i {{ route_domains | join(' ') }} }{%- if route_prefixes | length > 0 %} { path_beg {{ route_prefixes | join(' ') }} }{%- endif -%}
+host_{{ route.name }}{%- if route_prefixes | length > 0 %} { path_beg {{ route_prefixes | join(' ') }} }{%- endif -%}
 {%- endmacro %}
 
 {% macro auth_more_specific_exclusions(auth_rule) -%}
@@ -104,6 +103,10 @@ frontend web
 {% endif %}
 
   acl is_acme path_beg /.well-known/acme-challenge/
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{% set route_domains = [route.domain] if route.domain is string else route.domain %}
+  acl host_{{ route.name }} hdr(host) -i {{ route_domains | join(' ') }}
+{% endfor %}
 {% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
   acl from_trusted_proxy src -m ip {{ haproxy_alb_trusted_proxy_cidrs | join(' ') }}
 {% endif %}

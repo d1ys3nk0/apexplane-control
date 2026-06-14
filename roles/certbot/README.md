@@ -54,7 +54,7 @@ Set `certbot_enabled` and `certbot_dns_nicru_enabled` to `true` before applying 
 | `certbot_haproxy_spread_ssh_strict_host_key_checking` | `accept-new` |
 | `certbot_haproxy_spread_wildcards_only` | `true` |
 | `certbot_renew_timer_enabled` | `true` |
-| `certbot_renew_on_calendar` | `*-*-* 00,12:00:00` |
+| `certbot_renew_on_calendar` | `*-*-* 03:00:00` |
 | `certbot_renew_randomized_delay_sec` | `1h` |
 
 ## Usage

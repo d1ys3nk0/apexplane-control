@@ -174,17 +174,19 @@
   ansible.builtin.assert:
     that:
       - item.name is defined
-      - item.name | string | length > 0
+      - item.name | string | trim is match('^[A-Za-z0-9][A-Za-z0-9_-]*$')
       - item.domain is defined
       - >-
         item.domain is string
-        or (item.domain is iterable and item.domain is not string and item.domain | length > 0)
+        or (item.domain is iterable and item.domain is not string and item.domain is not mapping and item.domain | length > 0)
       - >-
         (item.domain is string and item.domain | trim | length > 0)
         or (
           item.domain is iterable
           and item.domain is not string
+          and item.domain is not mapping
           and item.domain | map('string') | map('trim') | select | list | length == item.domain | length
+          and item.domain | map('string') | map('trim') | unique | list | length == item.domain | length
         )
       - item.target_port is defined
       - item.target_port | string | length > 0
@@ -195,7 +197,9 @@
       - not ((item.target_group | default('') | string | length > 0) and (item.target_host | default('') | string | length > 0))
       - (item.target_group | default('') | string | length == 0) or (item.target_group in haproxy_alb_target_groups)
     fail_msg: >-
-      Invalid route {{ item }}: need name, domain, target_port, proto in [https, both], optional force_https bool, backend_proto in [http, h2], and exactly one of target_group (must exist in haproxy_alb_target_groups) or target_host.
+      Invalid route {{ item }}: need safe name, domain as a string or non-empty unique string list, target_port,
+      proto in [https, both], optional force_https bool, backend_proto in [http, h2], and exactly one of target_group
+      (must exist in haproxy_alb_target_groups) or target_host.
   loop: '{{ haproxy_alb_routes }}'
   loop_control:
     label: '{{ item.name | default("?") }}'
@@ -240,13 +244,15 @@
       - item.domain is defined
       - >-
         item.domain is string
-        or (item.domain is iterable and item.domain is not string and item.domain | length > 0)
+        or (item.domain is iterable and item.domain is not string and item.domain is not mapping and item.domain | length > 0)
       - >-
         (item.domain is string and item.domain | trim | length > 0)
         or (
           item.domain is iterable
           and item.domain is not string
+          and item.domain is not mapping
           and item.domain | map('string') | map('trim') | select | list | length == item.domain | length
+          and item.domain | map('string') | map('trim') | unique | list | length == item.domain | length
         )
       - item.userlist is defined
       - item.userlist | string | trim | length > 0
@@ -281,7 +287,7 @@
           | length == (item.cidr_whitelist | length)
         )
     fail_msg: >-
-      Invalid auth rule {{ item }}: need domain as a string or non-empty list, known userlist,
+      Invalid auth rule {{ item }}: need domain as a string or non-empty unique string list, known userlist,
       optional prefix starting with /, optional non-empty cidr_whitelist list of IPv4 CIDR strings,
       and optional non-empty prefix_whitelist list with values starting with /
   loop: '{{ haproxy_alb_auth | default([]) }}'
@@ -303,13 +309,15 @@
       - item.domain is defined
       - >-
         item.domain is string
-        or (item.domain is iterable and item.domain is not string and item.domain | length > 0)
+        or (item.domain is iterable and item.domain is not string and item.domain is not mapping and item.domain | length > 0)
       - >-
         (item.domain is string and item.domain | trim | length > 0)
         or (
           item.domain is iterable
           and item.domain is not string
+          and item.domain is not mapping
           and item.domain | map('string') | map('trim') | select | list | length == item.domain | length
+          and item.domain | map('string') | map('trim') | unique | list | length == item.domain | length
         )
       - item.prefix is defined
       - item.prefix | string | trim is match('^/')
@@ -319,7 +327,7 @@
       - item.period | string | trim is match('^[1-9][0-9]*(us|ms|s|m|h|d)$')
       - item.table_size is not defined or item.table_size | string | trim is match('^[1-9][0-9]*[kKmMgG]?$')
     fail_msg: >-
-      Invalid throttle rule {{ item }}: need safe name, domain as a string or non-empty list, prefix starting with /,
+      Invalid throttle rule {{ item }}: need safe name, domain as a string or non-empty unique string list, prefix starting with /,
       requests > 0, period as a HAProxy duration, and optional valid table_size.
   loop: '{{ haproxy_alb_throttles }}'
   loop_control:
