@@ -27,6 +27,8 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_data_volume` | `postgres-data` |
 | `docker_postgres_data_root` | `/var/lib/postgresql` |
 | `docker_postgres_data_dir` | `~` |
+| `docker_postgres_os_user_uid` | `999` |
+| `docker_postgres_os_user_gid` | `999` |
 | `docker_postgres_ci_mode` | `<derived>` |
 | `docker_postgres_debug_mode` | `<derived>` |
 | `docker_postgres_nolog` | `<derived>` |

@@ -15,6 +15,8 @@ docker_postgres_container: postgres
 docker_postgres_data_volume: postgres-data
 docker_postgres_data_root: /var/lib/postgresql
 docker_postgres_data_dir: ~
+docker_postgres_os_user_uid: 999
+docker_postgres_os_user_gid: 999
 docker_postgres_port: 5432
 docker_postgres_connections: 100
 docker_postgres_min_wal_size: 2GB

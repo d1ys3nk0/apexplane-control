@@ -19,6 +19,8 @@
       - docker_postgres_data_dir is not none
       - docker_postgres_data_dir | string | length > 0
       - docker_postgres_data_dir is match('^/')
+      - docker_postgres_os_user_uid | string is match('^[1-9][0-9]*$')
+      - docker_postgres_os_user_gid | string is match('^[1-9][0-9]*$')
       - docker_postgres_port | int >= 1
       - docker_postgres_port | int <= 65535
       - docker_postgres_allowed_cidr is sequence

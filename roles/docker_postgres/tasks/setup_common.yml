@@ -12,7 +12,15 @@
     - /opt/postgres
     - /opt/postgres/config
     - /opt/postgres/bin
-    - /opt/postgres/log
+
+- name: Create PostgreSQL log directory
+  become: true
+  ansible.builtin.file:
+    path: /opt/postgres/log
+    state: directory
+    mode: '0755'
+    owner: '{{ docker_postgres_os_user_uid }}'
+    group: '{{ docker_postgres_os_user_gid }}'
 
 - name: Install PostgreSQL config
   become: true
@@ -46,15 +54,17 @@
     group: root
   no_log: '{{ docker_postgres_nolog }}'
 
-- name: Make sure psql_history is created
+- name: Make sure PostgreSQL log files are writable by PostgreSQL
   become: true
-  ansible.builtin.copy:
-    content: ''
-    dest: /opt/postgres/log/psql_history
+  ansible.builtin.file:
+    path: /opt/postgres/log/{{ item }}
+    state: touch
     mode: '0644'
-    owner: root
-    group: root
-    force: false
+    owner: '{{ docker_postgres_os_user_uid }}'
+    group: '{{ docker_postgres_os_user_gid }}'
+    access_time: preserve
+    modification_time: preserve
+  loop: "{{ ['psql_history'] + (['walg_archive.log'] if docker_postgres_walg_backup_enabled | bool else []) }}"
 
 - name: Create Docker volume
   become: true
