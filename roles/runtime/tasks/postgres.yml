@@ -7,7 +7,7 @@
   community.postgresql.postgresql_user:
     name: '{{ pg_user }}'
     password: '{{ pg_pass }}'
-    role_attr_flags: "{{ item.role_attr_flags | default('CREATEDB', true) }}"
+    role_attr_flags: "{{ item.role_attr_flags | default('', true) }}"
     login_user: '{{ runtime_pg_admin_user }}'
     login_password: '{{ runtime_pg_admin_pass }}'
     login_host: "{{ item.host | default(runtime_pg_host, true) }}"
