@@ -32,19 +32,25 @@
     owner: root
     group: root
 
+- name: Inspect PostgreSQL WAL-G image
+  become: true
+  community.docker.docker_image_info:
+    name: '{{ docker_postgres_image_runtime }}'
+  register: docker_postgres_walg_image_info
+
 - name: Build custom PostgreSQL image with WAL-G support
   become: true
   community.docker.docker_image:
     name: '{{ docker_postgres_image_name }}-walg'
     tag: '{{ docker_postgres_image_tag }}'
     source: build
-    force_source: true
     build:
       path: /opt/postgres/walg
       dockerfile: Dockerfile
       args:
         POSTGRES_IMAGE: '{{ docker_postgres_image_full }}'
         WALG_BINARY_URL: '{{ docker_postgres_walg_binary_url }}'
+  when: docker_postgres_walg_image_info.images | length == 0
 
 - name: Inspect local WAL-G repository paths
   become: true

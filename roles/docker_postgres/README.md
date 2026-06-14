@@ -7,7 +7,7 @@ This role runs PostgreSQL in a standalone Docker container with optional WAL-G a
 - Set up vanilla PostgreSQL when `docker_postgres_walg_binary_url` is empty.
 - Set up PostgreSQL with WAL-G when `docker_postgres_walg_binary_url` is set.
 - Install shared PostgreSQL directories, configs, dotenv, history, and Docker volume.
-- Install WAL-G executables and build the WAL-G image only for the WAL-G setup path.
+- Install WAL-G executables and build the WAL-G image only when the expected local image tag is absent.
 - Restore PostgreSQL replica from active leader.
 - Start PostgreSQL container.
 - Promote PostgreSQL leader during DR.
