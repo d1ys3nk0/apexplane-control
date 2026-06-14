@@ -103,6 +103,7 @@
       - item.user | string | length > 0
       - item.pass is defined
       - item.pass | string | length > 0
+      - item.owner is not defined or item.owner | string | length > 0
       - item.host is not defined or item.host | string | length > 0
       - item.port is not defined or item.port is number or item.port | string | length > 0
       - item.role_attr_flags is not defined or item.role_attr_flags is string

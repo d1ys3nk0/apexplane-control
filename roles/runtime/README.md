@@ -26,7 +26,7 @@ Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_
 | `runtime_pg_port` | `5432` |
 | `runtime_pg_ssl` | `disable` |
 
-`runtime_apps` entries define app accounts, environments, and resolved per-service secret mappings. Service `secrets` mappings create Docker Swarm secrets with a timestamp and content hash suffix through `runtime_docker_secret_manager_path`; the role creates a new Docker secret when the latest matching secret hash differs from the current dotenv payload and does not remove old versions. Run the `toolbox` role with `toolbox_docker_enabled: true` before this role when runtime unit secrets are configured. Set `runtime_secrets_dotenv: true` to use `/home/<app>/secrets/<realm>_<env>_<unit>.env` as the Docker secret source; the role creates that file only when it is missing and never overwrites an existing file. When disabled, the role uses temporary dotenv files and removes them after the secret manager runs. Secret keys must be valid dotenv variable names, and secret values must be scalar. `runtime_pg_bases` entries define resolved application PostgreSQL provisioning inputs; each entry must define `app`, `base`, `user`, and `pass`. Empty PostgreSQL admin credentials skip provisioning users and databases. Complete PostgreSQL admin credentials enable provisioning for all runtime bases. Use the `backups` role to render PostgreSQL backup and recovery dotenv files.
+`runtime_apps` entries define app accounts, environments, and resolved per-service secret mappings. Service `secrets` mappings create Docker Swarm secrets with a timestamp and content hash suffix through `runtime_docker_secret_manager_path`; the role creates a new Docker secret when the latest matching secret hash differs from the current dotenv payload and does not remove old versions. Run the `toolbox` role with `toolbox_docker_enabled: true` before this role when runtime unit secrets are configured. Set `runtime_secrets_dotenv: true` to use `/home/<app>/secrets/<realm>_<env>_<unit>.env` as the Docker secret source; the role creates that file only when it is missing and never overwrites an existing file. When disabled, the role uses temporary dotenv files and removes them after the secret manager runs. Secret keys must be valid dotenv variable names, and secret values must be scalar. `runtime_pg_bases` entries define resolved application PostgreSQL provisioning inputs; each entry must define `app`, `base`, `user`, and `pass`; optional `owner` overrides the database owner and defaults to `user`. Empty PostgreSQL admin credentials skip provisioning users and databases. Complete PostgreSQL admin credentials enable provisioning for all runtime bases. Use the `backups` role to render PostgreSQL backup and recovery dotenv files.
 
 ## Usage
 
@@ -52,5 +52,6 @@ Set these required inputs before applying the role: `runtime_apps`, `runtime_pg_
           - app: app
             base: app_prd_live01_api
             user: app_prd_live01_api
+            owner: app_prd_live01_api
             pass: example
 ```

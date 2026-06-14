@@ -25,10 +25,10 @@
 - name: Create runtime PostgreSQL databases
   vars:
     pg_base: '{{ item.base }}'
-    pg_user: '{{ item.user }}'
+    pg_owner: "{{ item.owner | default(item.user, true) }}"
   community.postgresql.postgresql_db:
     name: '{{ pg_base }}'
-    owner: '{{ pg_user }}'
+    owner: '{{ pg_owner }}'
     encoding: UTF-8
     template: template0
     login_user: '{{ runtime_pg_admin_user }}'
