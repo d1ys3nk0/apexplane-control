@@ -6,6 +6,8 @@
       - iam_admin_group | string | length > 0
       - iam_admin_linger_enabled | type_debug == 'bool'
       - iam_cleanup_mode | type_debug == 'bool'
+      - iam_cleanup_ignored_user_names is sequence
+      - iam_cleanup_ignored_user_names is not string
       - iam_interactive_mode | type_debug == 'bool'
       - iam_master_pass is not none
       - iam_master_pass is string

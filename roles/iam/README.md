@@ -25,6 +25,7 @@ This role manages local administrative, service, and root account state.
 | `iam_admin_group` | `wheel` |
 | `iam_admin_linger_enabled` | `false` |
 | `iam_cleanup_mode` | `true` |
+| `iam_cleanup_ignored_user_names` | `['syslog']` |
 | `iam_interactive_mode` | `<derived>` |
 | `iam_master_pass` | `~` |
 | `iam_master_salt` | `~` |

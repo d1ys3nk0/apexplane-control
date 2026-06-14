@@ -9,7 +9,7 @@
 
 - name: Detect unmanaged local home users
   ansible.builtin.set_fact:
-    iam_users_to_remove: '{{ iam_current_local_home_users.stdout_lines | difference(iam_managed_user_names) }}'
+    iam_users_to_remove: '{{ iam_current_local_home_users.stdout_lines | difference(iam_retained_user_names) }}'
   when: iam_cleanup_mode | bool
 
 - name: Refuse unmanaged user removal in non-interactive mode

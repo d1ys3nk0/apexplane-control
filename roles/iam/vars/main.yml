@@ -12,5 +12,6 @@ iam_provision_user:
   sudo_commands: '{{ iam_provision_user_sudo_commands }}'
 iam_admin_user_names: "{{ iam_admin_users | map(attribute='name') | list }}"
 iam_service_user_names: "{{ iam_service_users | map(attribute='name') | list }}"
-iam_managed_user_names: "{{ (iam_admin_user_names + [iam_provision_user_name] + iam_service_user_names) | unique | list }}"
+iam_retained_user_names: >-
+  {{ (iam_admin_user_names + [iam_provision_user_name] + iam_service_user_names + iam_cleanup_ignored_user_names) | unique | list }}
 iam_master_password_hash: "{{ iam_master_pass | password_hash(hashtype='sha512', salt=iam_master_salt) }}"
