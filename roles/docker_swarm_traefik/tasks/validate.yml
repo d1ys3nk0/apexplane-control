@@ -4,7 +4,8 @@
   ansible.builtin.assert:
     that:
       - docker_swarm_traefik_enabled is boolean
-    fail_msg: docker_swarm_traefik_enabled must be boolean.
+      - docker_swarm_traefik_service_manage_enabled is boolean
+    fail_msg: docker_swarm_traefik_enabled and docker_swarm_traefik_service_manage_enabled must be boolean.
 
 - name: Validate Traefik role variables
   ansible.builtin.assert:

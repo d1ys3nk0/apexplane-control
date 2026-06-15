@@ -19,6 +19,7 @@ Set these required inputs before applying the role: `docker_swarm_traefik_domain
 | `docker_swarm_traefik_image_tag` | `v3.7.1` |
 | `docker_swarm_traefik_image_full` | `<derived>` |
 | `docker_swarm_traefik_enabled` | `true` |
+| `docker_swarm_traefik_service_manage_enabled` | `true` |
 | `docker_swarm_traefik_network` | `traefik` |
 | `docker_swarm_traefik_domain` | `~` |
 | `docker_swarm_traefik_http_expose_port` | `1080` |

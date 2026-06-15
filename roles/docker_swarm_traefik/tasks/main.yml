@@ -43,7 +43,9 @@
     driver: overlay
     attachable: true
     state: present
-  when: docker_swarm_traefik_enabled | bool
+  when:
+    - docker_swarm_traefik_enabled | bool
+    - docker_swarm_traefik_service_manage_enabled | bool
 
 - name: Deploy Traefik static config
   become: true
@@ -110,6 +112,7 @@
       }}
   when:
     - docker_swarm_traefik_enabled | bool
+    - docker_swarm_traefik_service_manage_enabled | bool
     - not ansible_check_mode
 
 - name: Force Traefik service update on config change
@@ -119,6 +122,7 @@
   changed_when: true
   when:
     - docker_swarm_traefik_enabled | bool
+    - docker_swarm_traefik_service_manage_enabled | bool
     - not ansible_check_mode
     - docker_swarm_traefik_static_config_update is defined
     - docker_swarm_traefik_static_config_update.changed
@@ -136,12 +140,15 @@
       - "{% raw %}{{.CurrentState}}{% endraw %}"
       - traefik
   register: docker_swarm_traefik_service_tasks
-  until: docker_swarm_traefik_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
+  until:
+    - docker_swarm_traefik_service_tasks.stdout_lines | length > 0
+    - docker_swarm_traefik_service_tasks.stdout_lines | reject('match', '^Running') | list | length == 0
   retries: 30
   delay: 2
   changed_when: false
   when:
     - docker_swarm_traefik_enabled | bool
+    - docker_swarm_traefik_service_manage_enabled | bool
     - not ansible_check_mode
 
 - name: Wait for Traefik ports to be ready
