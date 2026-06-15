@@ -39,7 +39,7 @@ This role manages local administrative, service, and root account state.
 | `iam_admin_users` | `[]` |
 | `iam_service_users` | `[]` |
 
-Destructive reconciliation prompts by default in interactive live runs and requires typing exactly `yes`. Set `YES=1` or `YES=true` to preapprove those changes. Set `INTERACTIVE=0` or `INTERACTIVE=false` to fail instead of prompting when approval is required and `YES` is not set.
+Destructive reconciliation prompts by default in interactive live runs. Type `yes` case-insensitively to proceed, press Enter to skip, or type any other value to fail. Set `YES=1` or `YES=true` to preapprove those changes. Set `INTERACTIVE=0` or `INTERACTIVE=false` to fail instead of prompting when approval is required and `YES` is not set.
 
 ## Usage
 ```yaml

@@ -150,13 +150,14 @@
 
     - name: Refuse changed crontab reconciliation without typed approval
       ansible.builtin.fail:
-        msg: Changed crontab reconciliation was not approved. Type exactly "yes" to proceed.
+        msg: Changed crontab reconciliation approval was invalid. Type "yes" to proceed or press Enter to skip.
       when:
         - not ansible_check_mode
         - crontab_interactive_mode | bool
         - not (crontab_yes_mode | bool)
         - crontab_changed_users | length > 0
-        - crontab_reconciliation_approval.user_input | default('') != 'yes'
+        - crontab_reconciliation_approval.user_input | default('') != ''
+        - crontab_reconciliation_approval.user_input | default('') | lower != 'yes'
 
     - name: Install managed user crontab
       become: true
@@ -172,7 +173,7 @@
       loop: '{{ crontab_install_users }}'
       loop_control:
         label: '{{ item }}'
-      when: not ansible_check_mode
+      when: not ansible_check_mode and crontab_reconciliation_approved
 
     - name: Remove empty managed user crontab
       become: true
@@ -186,7 +187,7 @@
       loop: '{{ crontab_remove_users }}'
       loop_control:
         label: '{{ item }}'
-      when: not ansible_check_mode
+      when: not ansible_check_mode and crontab_reconciliation_approved
 
     - name: Delete empty managed user crontab file
       become: true
@@ -196,4 +197,4 @@
       loop: '{{ crontab_empty_users }}'
       loop_control:
         label: '{{ item }}'
-      when: not ansible_check_mode
+      when: not ansible_check_mode and crontab_reconciliation_approved

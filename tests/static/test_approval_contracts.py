@@ -42,10 +42,12 @@ def task_when_contains(task: Mapping[str, object], *expected_values: str) -> boo
     return all(any(expected_value in when_value for when_value in when_values) for expected_value in expected_values)
 
 
-def task_when_requires_typed_approval(task: Mapping[str, object]) -> bool:
+def task_when_rejects_invalid_typed_approval(task: Mapping[str, object]) -> bool:
     when_values = task_when_values(task)
     return any(
-        "user_input" in when_value and "default" in when_value and "!= 'yes'" in when_value
+        "user_input" in when_value and "default" in when_value and "!= ''" in when_value for when_value in when_values
+    ) and any(
+        "user_input" in when_value and "default" in when_value and "lower != 'yes'" in when_value
         for when_value in when_values
     )
 
@@ -53,6 +55,14 @@ def task_when_requires_typed_approval(task: Mapping[str, object]) -> bool:
 def role_defaults(role_name: str) -> Mapping[str, object]:
     defaults = load_yaml(REPO_ROOT / "roles" / role_name / "defaults" / "main.yml")
     return cast("Mapping[str, object]", defaults) if isinstance(defaults, Mapping) else {}
+
+
+def role_vars(role_name: str) -> Mapping[str, object]:
+    vars_path = REPO_ROOT / "roles" / role_name / "vars" / "main.yml"
+    if not vars_path.exists():
+        return {}
+    variables = load_yaml(vars_path)
+    return cast("Mapping[str, object]", variables) if isinstance(variables, Mapping) else {}
 
 
 def role_tasks(role_name: str) -> list[Mapping[str, object]]:
@@ -70,7 +80,9 @@ def test_destructive_approval_flows_accept_yes_preapproval() -> None:
         yes_mode = f"{variable_prefix}_yes_mode"
         interactive_mode = f"{variable_prefix}_interactive_mode"
         defaults = role_defaults(role_name)
+        variables = role_vars(role_name)
         tasks = role_tasks(role_name)
+        vars_text = "\n".join(str(value) for value in variables.values())
 
         assert yes_mode in defaults
         assert any(
@@ -86,7 +98,11 @@ def test_destructive_approval_flows_accept_yes_preapproval() -> None:
         ), f"{role_name} must prompt for destructive changes only when YES is not set"
         assert any(
             "ansible.builtin.fail" in task
-            and task_when_requires_typed_approval(task)
+            and task_when_rejects_invalid_typed_approval(task)
             and task_when_contains(task, f"not ({yes_mode} | bool)")
             for task in tasks
-        ), f"{role_name} must reject destructive changes without typed approval"
+        ), f"{role_name} must reject non-empty destructive approval values other than yes"
+        assert yes_mode in vars_text
+        assert "user_input" in vars_text
+        assert "lower" in vars_text
+        assert "== 'yes'" in vars_text

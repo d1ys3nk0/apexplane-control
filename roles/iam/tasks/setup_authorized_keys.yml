@@ -147,13 +147,14 @@
 
     - name: Refuse destructive authorized SSH key reconciliation without typed approval
       ansible.builtin.fail:
-        msg: Destructive authorized SSH key reconciliation was not approved. Type exactly "yes" to proceed.
+        msg: Destructive authorized SSH key reconciliation approval was invalid. Type "yes" to proceed or press Enter to skip.
       when:
         - not ansible_check_mode
         - iam_interactive_mode | bool
         - not (iam_yes_mode | bool)
         - iam_authorized_keys_destructive_users | length > 0
-        - iam_authorized_keys_approval.user_input | default('') != 'yes'
+        - iam_authorized_keys_approval.user_input | default('') != ''
+        - iam_authorized_keys_approval.user_input | default('') | lower != 'yes'
 
     - name: Inspect managed authorized SSH key home directories
       become: true
@@ -164,6 +165,7 @@
       loop_control:
         label: '{{ item }}'
       check_mode: false
+      when: iam_authorized_keys_reconciliation_approved
 
     - name: Store managed authorized SSH key home directory readiness
       ansible.builtin.set_fact:
@@ -172,6 +174,7 @@
       loop_control:
         label: '{{ item.item }}'
       changed_when: false
+      when: iam_authorized_keys_reconciliation_approved
 
     - name: Ensure managed SSH directories exist
       become: true
@@ -184,7 +187,14 @@
       loop: '{{ iam_authorized_keys_install_users }}'
       loop_control:
         label: '{{ item }}'
-      when: not ansible_check_mode or iam_authorized_keys_home_exists_by_user[item] | default(false) | bool
+      when: >-
+        (
+          not ansible_check_mode
+          or iam_authorized_keys_home_exists_by_user[item] | default(false) | bool
+        )
+        and (
+          iam_authorized_keys_reconciliation_approved
+        )
 
     - name: Install managed authorized SSH keys
       become: true
@@ -197,7 +207,14 @@
       loop: '{{ iam_authorized_keys_install_users }}'
       loop_control:
         label: '{{ item }}'
-      when: not ansible_check_mode or iam_authorized_keys_home_exists_by_user[item] | default(false) | bool
+      when: >-
+        (
+          not ansible_check_mode
+          or iam_authorized_keys_home_exists_by_user[item] | default(false) | bool
+        )
+        and (
+          iam_authorized_keys_reconciliation_approved
+        )
 
     - name: Remove empty managed authorized SSH keys
       become: true
@@ -207,3 +224,4 @@
       loop: '{{ iam_authorized_keys_remove_users }}'
       loop_control:
         label: '{{ item }}'
+      when: iam_authorized_keys_reconciliation_approved

@@ -1,0 +1,11 @@
+---
+
+crontab_reconciliation_approved: >-
+  {{
+    crontab_yes_mode
+    or crontab_changed_users | default([]) | length == 0
+    or (
+      crontab_reconciliation_approval is defined
+      and (crontab_reconciliation_approval.user_input | default('') | lower) == 'yes'
+    )
+  }}

@@ -23,7 +23,7 @@ This role renders a managed user crontab.
 | `crontab_jobs` | `{}` |
 | `crontab_spool_dir` | `/var/spool/cron/crontabs` |
 
-Changed crontab reconciliation prompts by default in interactive live runs and requires typing exactly `yes`. Set `YES=1` or `YES=true` to preapprove replacement. Set `INTERACTIVE=0` or `INTERACTIVE=false` to fail instead of prompting when approval is required and `YES` is not set.
+Changed crontab reconciliation prompts by default in interactive live runs. Type `yes` case-insensitively to proceed, press Enter to skip, or type any other value to fail. Set `YES=1` or `YES=true` to preapprove replacement. Set `INTERACTIVE=0` or `INTERACTIVE=false` to fail instead of prompting when approval is required and `YES` is not set.
 
 ## Usage
 ```yaml

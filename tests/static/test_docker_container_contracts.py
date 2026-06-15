@@ -321,10 +321,12 @@ def task_when_contains(task: Mapping[str, object], *expected_values: str) -> boo
     return all(any(expected_value in when_value for when_value in when_values) for expected_value in expected_values)
 
 
-def task_when_requires_typed_approval(task: Mapping[str, object]) -> bool:
+def task_when_rejects_invalid_typed_approval(task: Mapping[str, object]) -> bool:
     when_values = task_when_values(task)
     return any(
-        "user_input" in when_value and "default" in when_value and "!= 'yes'" in when_value
+        "user_input" in when_value and "default" in when_value and "!= ''" in when_value for when_value in when_values
+    ) and any(
+        "user_input" in when_value and "default" in when_value and "lower != 'yes'" in when_value
         for when_value in when_values
     )
 
@@ -380,7 +382,7 @@ def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
         )
         assert any(
             "ansible.builtin.fail" in task
-            and task_when_requires_typed_approval(task)
+            and task_when_rejects_invalid_typed_approval(task)
             and task_when_contains(
                 task,
                 "not ansible_check_mode",
@@ -394,7 +396,13 @@ def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
         assert task_when_contains(
             restart_task,
             "docker_update_config.changed",
-            "docker_yes_mode",
-            "docker_restart_approval is defined",
-            "docker_restart_approval.user_input | default('')) == 'yes'",
+            "docker_restart_approved",
         )
+        variables = load_yaml(role_dir / "vars" / "main.yml")
+        assert isinstance(variables, Mapping)
+        variables = cast("Mapping[str, object]", variables)
+        docker_restart_approved = variables.get("docker_restart_approved")
+        assert isinstance(docker_restart_approved, str)
+        assert "docker_yes_mode" in docker_restart_approved
+        assert "docker_restart_approval is defined" in docker_restart_approved
+        assert "docker_restart_approval.user_input | default('') | lower) == 'yes'" in docker_restart_approved

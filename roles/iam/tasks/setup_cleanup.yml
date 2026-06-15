@@ -39,13 +39,14 @@
 
 - name: Refuse unmanaged user removal without typed approval
   ansible.builtin.fail:
-    msg: Unmanaged user removal was not approved. Type exactly "yes" to proceed.
+    msg: Unmanaged user removal approval was invalid. Type "yes" to proceed or press Enter to skip.
   when:
     - iam_cleanup_mode | bool
     - iam_interactive_mode | bool
     - not (iam_yes_mode | bool)
     - iam_users_to_remove | length > 0
-    - iam_cleanup_approval.user_input | default('') != 'yes'
+    - iam_cleanup_approval.user_input | default('') != ''
+    - iam_cleanup_approval.user_input | default('') | lower != 'yes'
 
 - name: Remove unmanaged users
   become: true
@@ -57,3 +58,4 @@
   when:
     - iam_cleanup_mode | bool
     - iam_users_to_remove | length > 0
+    - iam_cleanup_approved

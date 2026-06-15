@@ -15,3 +15,14 @@ iam_service_user_names: "{{ iam_service_users | map(attribute='name') | list }}"
 iam_retained_user_names: >-
   {{ (iam_admin_user_names + [iam_provision_user_name] + iam_service_user_names + iam_cleanup_ignored_user_names) | unique | list }}
 iam_master_password_hash: "{{ iam_master_pass | password_hash(hashtype='sha512', salt=iam_master_salt) }}"
+iam_cleanup_approved: >-
+  {{ iam_yes_mode or (iam_cleanup_approval is defined and (iam_cleanup_approval.user_input | default('') | lower) == 'yes') }}
+iam_authorized_keys_reconciliation_approved: >-
+  {{
+    iam_yes_mode
+    or iam_authorized_keys_destructive_users | default([]) | length == 0
+    or (
+      iam_authorized_keys_approval is defined
+      and (iam_authorized_keys_approval.user_input | default('') | lower) == 'yes'
+    )
+  }}

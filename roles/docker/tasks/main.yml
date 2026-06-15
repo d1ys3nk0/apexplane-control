@@ -118,7 +118,7 @@
 
 - name: Refuse Docker restart without typed approval
   ansible.builtin.fail:
-    msg: Docker daemon restart was not approved. Type exactly "yes" to proceed.
+    msg: Docker daemon restart approval was invalid. Type "yes" to proceed or press Enter to skip.
   when:
     - not ansible_check_mode
     - docker_interactive_mode | bool
@@ -127,7 +127,8 @@
       docker_update_config.changed
       or (docker_update_systemd_override is defined and docker_update_systemd_override.changed)
       or (docker_remove_systemd_override is defined and docker_remove_systemd_override.changed)
-    - docker_restart_approval.user_input | default('') != 'yes'
+    - docker_restart_approval.user_input | default('') != ''
+    - docker_restart_approval.user_input | default('') | lower != 'yes'
 
 - name: Restart Docker when approved
   become: true
@@ -136,10 +137,7 @@
     state: restarted
   when: >-
     not ansible_check_mode
-    and (
-      docker_yes_mode
-      or (docker_restart_approval is defined and (docker_restart_approval.user_input | default('')) == 'yes')
-    )
+    and docker_restart_approved
     and (
       docker_update_config.changed
       or (docker_update_systemd_override is defined and docker_update_systemd_override.changed)
@@ -157,10 +155,7 @@
   changed_when: false
   when: >-
     not ansible_check_mode
-    and (
-      docker_yes_mode
-      or (docker_restart_approval is defined and (docker_restart_approval.user_input | default('')) == 'yes')
-    )
+    and docker_restart_approved
     and (
       docker_update_config.changed
       or (docker_update_systemd_override is defined and docker_update_systemd_override.changed)
