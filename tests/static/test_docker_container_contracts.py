@@ -400,7 +400,7 @@ def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
         )
         variables = load_yaml(role_dir / "vars" / "main.yml")
         assert isinstance(variables, Mapping)
-        variables = cast("Mapping[str, object]", variables)
+        variables = cast("Mapping[object, object]", variables)
         docker_restart_approved = variables.get("docker_restart_approved")
         assert isinstance(docker_restart_approved, str)
         assert "docker_yes_mode" in docker_restart_approved
