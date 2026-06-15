@@ -9,14 +9,22 @@
     owner: '{{ haproxy_rsyslog_user }}'
     group: '{{ haproxy_rsyslog_group }}'
 
+- name: Remove previous managed HAProxy rsyslog configuration
+  become: true
+  ansible.builtin.file:
+    path: /etc/rsyslog.d/49-haproxy-managed.conf
+    state: absent
+  notify: Restart rsyslog
+
 - name: Deploy HAProxy rsyslog configuration
   become: true
   ansible.builtin.template:
     src: rsyslog/haproxy.conf.j2
-    dest: /etc/rsyslog.d/49-haproxy-managed.conf
+    dest: /etc/rsyslog.d/49-haproxy.conf
     mode: '0644'
     owner: root
     group: root
+    backup: true
   notify: Restart rsyslog
 
 - name: Verify rsyslog configuration (full config including includes)

@@ -11,6 +11,7 @@ This role configures HAProxy logging support.
 - Enable HAProxy service.
 - Restart HAProxy after systemd override changes.
 - Ensure HAProxy log directory exists.
+- Remove previous managed HAProxy rsyslog configuration.
 - Deploy HAProxy rsyslog configuration.
 - Deploy HAProxy logrotate configuration.
 
