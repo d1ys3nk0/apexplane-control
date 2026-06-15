@@ -12,6 +12,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: '{{ $labels.instance }}/{{ $labels.job }} is not reachable'
           description: up == {{ $value }}
@@ -26,6 +27,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: SystemD service crashed on {{ $labels.instance }}
           description: Detected a failed SystemD service with value {{ $value }}.
@@ -38,6 +40,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: OOM kill detected on {{ $labels.instance }}
           description: Detected an out-of-memory kill event with value {{ $value }}.
@@ -50,6 +53,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Disk space critically low on {{ $labels.instance }}
           description: Available disk space is below 10% (currently {{ $value }}%).
@@ -62,6 +66,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Inode shortage on {{ $labels.instance }}
           description: 'Available inodes are below 10% (current value: {{ $value }}%).'
@@ -74,6 +79,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Swap usage high on {{ $labels.instance }}
           description: 'Swap utilization exceeds 70% (current: {{ $value }}%).'
@@ -86,6 +92,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Out of memory on {{ $labels.instance }}
           description: Available memory is below 10% (currently {{ $value }}%).
@@ -98,6 +105,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High memory pressure on {{ $labels.instance }}
           description: Major page fault rate exceeds threshold (>1000 faults/min) with value {{ $value }}.
@@ -110,6 +118,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High CPU load on {{ $labels.instance }}
           description: 'CPU load exceeds 90% (current load: {{ $value }}%).'
@@ -122,6 +131,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High CPU steal on {{ $labels.instance }}
           description: 'CPU steal exceeds 10%, suggesting resource contention (current: {{ $value }}%).'
@@ -134,6 +144,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High file descriptor usage on {{ $labels.instance }}
           description: 'Open file descriptors exceed 90% of the system limit (current: {{ $value }}%).'
@@ -146,6 +157,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: PID exhaustion approaching on {{ $labels.instance }}
           description: 'Allocated PIDs exceed 85% of the system limit (current: {{ $value }}%).'
@@ -158,6 +170,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Read-only filesystem detected on {{ $labels.instance }}
           description: Filesystem {{ $labels.mountpoint }} ({{ $labels.device }}) has been remounted read-only.
@@ -170,6 +183,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High zombie process count on {{ $labels.instance }}
           description: 'More than 50 zombie processes detected (current: {{ $value }}). Parent process may be stuck.'
@@ -182,6 +196,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High blocked process count on {{ $labels.instance }}
           description: 'More than 20 processes are in uninterruptible I/O sleep (current: {{ $value }}).'
@@ -194,6 +209,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High TCP socket allocation on {{ $labels.instance }}
           description: 'Allocated TCP sockets are unusually high (current: {{ $value }}).'
@@ -206,6 +222,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High TIME_WAIT socket count on {{ $labels.instance }}
           description: 'TCP TIME_WAIT sockets are unusually high (current: {{ $value }}).'
@@ -218,6 +235,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Network receive errors on {{ $labels.instance }}:{{ $labels.device }}
           description: 'Persistent network receive errors detected (current rate: {{ $value }}/s).'
@@ -230,6 +248,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Network transmit errors on {{ $labels.instance }}:{{ $labels.device }}
           description: 'Persistent network transmit errors detected (current rate: {{ $value }}/s).'
@@ -242,6 +261,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Low entropy pool on {{ $labels.instance }}
           description: 'Available entropy is critically low (current: {{ $value }} bits).'
@@ -254,6 +274,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High conntrack usage on {{ $labels.instance }}
           description: 'Conntrack entries exceed 80% of the limit (current: {{ $value }}).'
@@ -266,6 +287,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Network interface saturated on {{ $labels.instance }}:{{ $labels.device }}
           description: 'Combined network throughput exceeds 80% of capacity (current: {{ $value }}).'
@@ -278,6 +300,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High inbound network throughput on {{ $labels.instance }}
           description: 'Inbound network rate exceeds 100 MB/s (current: {{ $value }} MB/s).'
@@ -290,6 +313,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High outbound network throughput on {{ $labels.instance }}
           description: 'Outbound network rate exceeds 100 MB/s (current: {{ $value }} MB/s).'
@@ -302,6 +326,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High disk read rate on {{ $labels.instance }}
           description: 'Disk read throughput exceeds 50 MB/s (current: {{ $value }} MB/s).'
@@ -314,6 +339,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High disk write rate on {{ $labels.instance }}
           description: 'Disk write throughput exceeds 50 MB/s (current: {{ $value }} MB/s).'
@@ -326,6 +352,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High disk read latency on {{ $labels.instance }}
           description: 'Average disk read latency exceeds 0.1 seconds (current: {{ $value }} s).'
@@ -338,6 +365,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High disk write latency on {{ $labels.instance }}
           description: 'Average disk write latency exceeds 0.1 seconds (current: {{ $value }} s).'
@@ -350,6 +378,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High context switching on {{ $labels.instance }}
           description: 'Context switch rate exceeds 5000 (current: {{ $value }}).'
@@ -362,6 +391,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Clock skew detected on {{ $labels.instance }}
           description: 'Clock offset is abnormal (current offset: {{ $value }} seconds).'
@@ -374,6 +404,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Clock synchronization failure on {{ $labels.instance }}
           description: 'Clock is not synchronizing properly (max error: {{ $value }} seconds).'
@@ -386,6 +417,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Kernel version deviation on {{ $labels.instance }}
           description: 'Multiple kernel versions detected on the host (count: {{ $value }}).'
@@ -400,6 +432,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High container restart count on {{ $labels.instance }}
           description: 'Container {{ $labels.name }} restarted more than 2 times in 5 minutes (restarts: {{ $value }}).'
@@ -412,6 +445,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High memory usage in container on {{ $labels.instance }}
           description: 'Container {{ $labels.name }} memory usage exceeds 90% (current: {{ $value }}%).'
@@ -424,6 +458,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: High CPU usage in container on {{ $labels.instance }}
           description: 'Container {{ $labels.name }} CPU usage exceeds 90% (current: {{ $value }}%).'
@@ -436,6 +471,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Unhealthy container on {{ $labels.instance }}
           description: 'Container {{ $labels.name }} is reporting an unhealthy status (value: {{ $value }}).'
@@ -448,6 +484,7 @@ groups:
           cluster: '{{ $labels.cluster }}'
           realm: '{{ $labels.realm }}'
           platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
         annotations:
           summary: Container {{ $labels.name }} is down on {{ $labels.instance }}
           description: 'Container {{ $labels.name }} has not reported metrics recently (seconds since last seen: {{ $value }}).'

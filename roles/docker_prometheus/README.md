@@ -16,12 +16,14 @@ This role runs Prometheus and Blackbox Exporter in standalone Docker containers.
 - Additional focused setup tasks for the same role-owned desired state.
 
 ## Configuration
-Set these required inputs before applying the role: `docker_prometheus_cluster_platform`, `docker_prometheus_cluster_realm`, `docker_prometheus_fqdn_ext`.
+Set these required inputs before applying the role: `docker_prometheus_cluster_name`, `docker_prometheus_cluster_platform`, `docker_prometheus_cluster_realm`, `docker_prometheus_cluster_world`, `docker_prometheus_fqdn_ext`.
 
 | Variable | Default |
 | --- | --- |
+| `docker_prometheus_cluster_name` | `~` |
 | `docker_prometheus_cluster_platform` | `~` |
 | `docker_prometheus_cluster_realm` | `~` |
+| `docker_prometheus_cluster_world` | `~` |
 | `docker_prometheus_ci_mode` | `<derived>` |
 | `docker_prometheus_debug_mode` | `<derived>` |
 | `docker_prometheus_nolog` | `<derived>` |
@@ -72,5 +74,7 @@ Set these required inputs before applying the role: `docker_prometheus_cluster_p
       vars:
         docker_prometheus_cluster_platform: <value>
         docker_prometheus_cluster_realm: <value>
+        docker_prometheus_cluster_name: <value>
+        docker_prometheus_cluster_world: <value>
         docker_prometheus_fqdn_ext: <value>
 ```

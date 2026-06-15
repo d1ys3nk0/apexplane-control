@@ -1,7 +1,9 @@
 ---
 
+docker_prometheus_cluster_name: ~
 docker_prometheus_cluster_platform: ~
 docker_prometheus_cluster_realm: ~
+docker_prometheus_cluster_world: ~
 docker_prometheus_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
 docker_prometheus_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
 docker_prometheus_nolog: '{{ (docker_prometheus_ci_mode | bool) and not (docker_prometheus_debug_mode | bool) }}'

@@ -90,6 +90,11 @@ discovery.relabel "host_metrics" {
   }
 
   rule {
+    target_label = "world"
+    replacement  = "{{ alloy_cluster_world }}"
+  }
+
+  rule {
     target_label = "instance"
     replacement  = "{{ ansible_hostname }}"
   }
@@ -136,6 +141,11 @@ discovery.relabel "docker_metrics" {
   rule {
     target_label = "platform"
     replacement  = "{{ alloy_cluster_platform }}"
+  }
+
+  rule {
+    target_label = "world"
+    replacement  = "{{ alloy_cluster_world }}"
   }
 
   rule {
@@ -213,6 +223,7 @@ prometheus.scrape "extra_{{ loop.index0 }}" {
       cluster     = "{{ alloy_cluster_name }}",
       realm       = "{{ alloy_cluster_realm }}",
       platform    = "{{ alloy_cluster_platform }}",
+      world       = "{{ alloy_cluster_world }}",
       instance    = "{{ ansible_hostname }}",
       job         = "{{ extra_target.job_name }}",
 {% for label_key, label_value in extra_target.labels | default({}) | dictsort %}
@@ -290,6 +301,11 @@ loki.relabel "system_logs" {
   }
 
   rule {
+    target_label = "world"
+    replacement  = "{{ alloy_cluster_world }}"
+  }
+
+  rule {
     target_label = "instance"
     replacement  = "{{ ansible_hostname }}"
   }
@@ -340,6 +356,11 @@ loki.relabel "journal_logs" {
   }
 
   rule {
+    target_label = "world"
+    replacement  = "{{ alloy_cluster_world }}"
+  }
+
+  rule {
     target_label = "instance"
     replacement  = "{{ ansible_hostname }}"
   }
@@ -374,6 +395,11 @@ discovery.relabel "docker_logs" {
   rule {
     target_label = "platform"
     replacement  = "{{ alloy_cluster_platform }}"
+  }
+
+  rule {
+    target_label = "world"
+    replacement  = "{{ alloy_cluster_world }}"
   }
 
   rule {
@@ -422,7 +448,7 @@ discovery.relabel "docker_logs" {
 
   rule {
     action = "labelkeep"
-    regex  = "cluster|realm|platform|instance|component|job|service_name|container_name|swarm_task|swarm_service|stream"
+    regex  = "cluster|realm|platform|world|instance|component|job|service_name|container_name|swarm_task|swarm_service|stream"
   }
 }
 

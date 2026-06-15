@@ -22,7 +22,8 @@ scrape_configs:
           instance: {{ docker_prometheus_fqdn_ext }}
           platform: {{ docker_prometheus_cluster_platform }}
           realm: {{ docker_prometheus_cluster_realm }}
-          cluster: obs
+          cluster: {{ docker_prometheus_cluster_name }}
+          world: {{ docker_prometheus_cluster_world }}
 {% if docker_prometheus_common_labels | length > 0 %}
 {{ docker_prometheus_common_labels | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(10, true) }}
 {% endif %}
@@ -36,7 +37,8 @@ scrape_configs:
           instance: {{ docker_prometheus_fqdn_ext }}
           platform: {{ docker_prometheus_cluster_platform }}
           realm: {{ docker_prometheus_cluster_realm }}
-          cluster: obs
+          cluster: {{ docker_prometheus_cluster_name }}
+          world: {{ docker_prometheus_cluster_world }}
 {% if docker_prometheus_common_labels | length > 0 %}
 {{ docker_prometheus_common_labels | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(10, true) }}
 {% endif %}
@@ -49,7 +51,8 @@ scrape_configs:
           instance: {{ docker_prometheus_fqdn_ext }}
           platform: {{ docker_prometheus_cluster_platform }}
           realm: {{ docker_prometheus_cluster_realm }}
-          cluster: obs
+          cluster: {{ docker_prometheus_cluster_name }}
+          world: {{ docker_prometheus_cluster_world }}
 {% if docker_prometheus_common_labels | length > 0 %}
 {{ docker_prometheus_common_labels | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(10, true) }}
 {% endif %}

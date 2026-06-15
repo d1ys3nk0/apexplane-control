@@ -9,6 +9,8 @@
       - alloy_cluster_realm | string | length > 0
       - alloy_cluster_platform is not none
       - alloy_cluster_platform | string | length > 0
+      - alloy_cluster_world is not none
+      - alloy_cluster_world | string | length > 0
       - (alloy_logs_url | default('', true) | string | length > 0) or (alloy_metrics_url | default('', true) | string | length > 0) or (alloy_traces_url | default('', true) | string | length > 0)
       - alloy_traces_tls_insecure | type_debug == 'bool'
       - alloy_docker_enabled is boolean

@@ -3,10 +3,47 @@
 - name: Assert Prometheus required variables are set
   ansible.builtin.assert:
     that:
+      - docker_prometheus_cluster_name is not none
+      - docker_prometheus_cluster_name | string | length > 0
       - docker_prometheus_cluster_platform is not none
       - docker_prometheus_cluster_platform | string | length > 0
       - docker_prometheus_cluster_realm is not none
       - docker_prometheus_cluster_realm | string | length > 0
+      - docker_prometheus_cluster_world is not none
+      - docker_prometheus_cluster_world | string | length > 0
       - docker_prometheus_fqdn_ext is not none
       - docker_prometheus_fqdn_ext | string | length > 0
-    fail_msg: Define docker_prometheus cluster platform, cluster realm, and external FQDN before running role docker_prometheus.
+      - docker_prometheus_common_labels is mapping
+      - docker_prometheus_common_labels.keys() | list | intersect(['cluster', 'instance', 'platform', 'realm', 'world']) | length == 0
+      - docker_prometheus_blackbox_targets is iterable
+      - docker_prometheus_blackbox_targets is not string
+    fail_msg: Define valid docker_prometheus cluster labels, common labels, blackbox targets, and external FQDN before running role docker_prometheus.
+
+- name: Assert Prometheus blackbox targets define static configs
+  ansible.builtin.assert:
+    that:
+      - item.static_configs is defined
+      - item.static_configs is iterable
+      - item.static_configs is not string
+    fail_msg: Prometheus blackbox targets must define static_configs.
+  loop: '{{ docker_prometheus_blackbox_targets }}'
+  loop_control:
+    label: '{{ item.job_name | default("?") }}'
+
+- name: Assert Prometheus blackbox target labels are complete
+  ansible.builtin.assert:
+    that:
+      - item.1.labels is defined
+      - item.1.labels is mapping
+      - item.1.labels.world is defined
+      - item.1.labels.world | string | length > 0
+      - item.1.labels.realm is defined
+      - item.1.labels.realm | string | length > 0
+      - item.1.labels.platform is defined
+      - item.1.labels.platform is not none
+      - item.1.labels.cluster is defined
+      - item.1.labels.cluster is not none
+    fail_msg: Prometheus blackbox static configs must define world, realm, platform, and cluster labels.
+  loop: "{{ docker_prometheus_blackbox_targets | subelements('static_configs') }}"
+  loop_control:
+    label: '{{ item.0.job_name | default("?") }}'

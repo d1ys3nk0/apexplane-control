@@ -19,7 +19,7 @@ This role installs and configures Grafana Alloy as a system service.
 - Enable and start Alloy service.
 
 ## Configuration
-Set these required inputs before applying the role: `alloy_cluster_name`, `alloy_cluster_realm`, `alloy_cluster_platform`.
+Set these required inputs before applying the role: `alloy_cluster_name`, `alloy_cluster_realm`, `alloy_cluster_platform`, `alloy_cluster_world`.
 
 | Variable | Default |
 | --- | --- |
@@ -48,6 +48,7 @@ Set these required inputs before applying the role: `alloy_cluster_name`, `alloy
 | `alloy_cluster_name` | `~` |
 | `alloy_cluster_realm` | `~` |
 | `alloy_cluster_platform` | `~` |
+| `alloy_cluster_world` | `~` |
 | `alloy_docker_enabled` | `<derived>` |
 | `alloy_metrics_extra_targets` | `[]` |
 | `alloy_apt_repo_url` | `https://apt.grafana.com` |
@@ -66,4 +67,5 @@ Set these required inputs before applying the role: `alloy_cluster_name`, `alloy
         alloy_cluster_name: <value>
         alloy_cluster_realm: <value>
         alloy_cluster_platform: <value>
+        alloy_cluster_world: <value>
 ```

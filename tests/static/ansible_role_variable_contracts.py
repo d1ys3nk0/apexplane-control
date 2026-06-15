@@ -22,6 +22,7 @@ FALLBACK_VAR_RE = re.compile(r"(?<![.\w])(?P<name>[A-Za-z_][A-Za-z0-9_]*)\b")
 YAML_ALIAS_RE = re.compile(r"(?<![A-Za-z0-9_])\*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\b")
 FORBIDDEN_PREFIXES = ("gv_", "iv_", "vv_", "c_")
 YAML_SUFFIXES = {".yml", ".yaml"}
+PROMETHEUS_ALERT_TOPOLOGY_LABELS = {"cluster", "platform", "realm", "world"}
 EXPRESSION_KEYS = {
     "changed_when",
     "failed_when",
@@ -611,6 +612,64 @@ def _task_accumulation_errors(role_dir: Path, repo_root: Path) -> list[str]:
     ]
 
 
+def _prometheus_alert_topology_label_errors(role_dir: Path, repo_root: Path) -> list[str]:
+    if role_dir.name != "docker_prometheus":
+        return []
+
+    alerts_path = role_dir / "templates" / "alerts.yml.j2"
+    if not alerts_path.is_file():
+        return []
+
+    errors: list[str] = []
+    current_alert: str | None = None
+    current_line_number = 1
+    current_labels: set[str] | None = None
+    labels_indent = -1
+
+    def finish_alert() -> None:
+        if current_alert is None:
+            return
+        missing = PROMETHEUS_ALERT_TOPOLOGY_LABELS - (current_labels or set())
+        if missing:
+            errors.append(
+                f"{_rel_path(alerts_path, repo_root)}:{current_line_number}: alert {current_alert} labels must include "
+                f"{', '.join(sorted(PROMETHEUS_ALERT_TOPOLOGY_LABELS))}"
+            )
+
+    for line_number, line in enumerate(alerts_path.read_text(encoding="utf-8").splitlines(), start=1):
+        alert_match = re.match(r"^\s*-\s+alert:\s+(?P<name>[A-Za-z0-9_]+)\s*$", line)
+        if alert_match is not None:
+            finish_alert()
+            current_alert = alert_match.group("name")
+            current_line_number = line_number
+            current_labels = None
+            labels_indent = -1
+            continue
+
+        if current_alert is None:
+            continue
+
+        if re.match(r"^\s*labels:\s*$", line) is not None:
+            current_labels = set()
+            labels_indent = len(line) - len(line.lstrip())
+            continue
+
+        if current_labels is None or labels_indent < 0:
+            continue
+
+        line_indent = len(line) - len(line.lstrip())
+        if line.strip() and line_indent <= labels_indent:
+            labels_indent = -1
+            continue
+
+        label_match = re.match(r"^\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*):", line)
+        if label_match is not None:
+            current_labels.add(label_match.group("name"))
+
+    finish_alert()
+    return errors
+
+
 def _role_errors(role_dir: Path, repo_root: Path, env: Environment) -> list[str]:
     role_name = role_dir.name
     role_prefix = f"{role_name}_"
@@ -654,6 +713,7 @@ def _role_errors(role_dir: Path, repo_root: Path, env: Environment) -> list[str]
     errors.extend(_swarm_service_mode_contract_errors(role_dir, repo_root, defaults))
     errors.extend(_nolog_contract_errors(role_dir, repo_root, defaults))
     errors.extend(_task_accumulation_errors(role_dir, repo_root))
+    errors.extend(_prometheus_alert_topology_label_errors(role_dir, repo_root))
     return errors
 
 
