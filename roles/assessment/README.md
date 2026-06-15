@@ -13,7 +13,7 @@ This role collects host, service, container, Swarm, HTTP endpoint, and log asses
 - Gather recent systemd journal logs.
 - Gather recent Docker Swarm service logs.
 - Inspect Docker Swarm services.
-- Verify Docker Swarm global services run on every active node.
+- Verify Docker Swarm global services run on expected active nodes.
 - Verify Docker Swarm replicated services have an exact desired and running replica count.
 
 ## Configuration
@@ -39,6 +39,7 @@ This role collects host, service, container, Swarm, HTTP endpoint, and log asses
 | `assessment_log_match_limit` | `20` |
 
 Use `assessment_swarm_replicated_services` entries as mappings with `name` and `replicas`.
+Use `assessment_swarm_global_services` entries as service-name strings for every active node or mappings with `name` and optional `node_role` set to `all`, `manager`, or `worker`.
 
 ## Usage
 ```yaml

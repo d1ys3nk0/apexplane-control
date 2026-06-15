@@ -15,7 +15,7 @@ assessment_docker_log_containers: '{{ assessment_docker_containers }}'
 assessment_swarm_log_services: >-
   {{
     assessment_swarm_services
-    + assessment_swarm_global_services
+    + assessment_swarm_global_service_names
     + (assessment_swarm_replicated_services | map(attribute='name') | list)
   }}
 assessment_log_since_journal: 24 hours ago

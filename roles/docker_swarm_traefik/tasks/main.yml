@@ -80,9 +80,12 @@
     networks:
       - '{{ docker_swarm_traefik_network }}'
     mode: global
+    placement:
+      constraints: '{{ docker_swarm_traefik_placement_constraints }}'
     publish: '{{ docker_swarm_traefik_published_ports }}'
     update_config:
-      order: stop-first
+      order: '{{ docker_swarm_traefik_update_order }}'
+      parallelism: '{{ docker_swarm_traefik_update_parallelism }}'
     restart_config:
       condition: any
       delay: 5s
@@ -135,7 +138,7 @@
       - node
       - ls
       - --format
-      - "{% raw %}{{.Hostname}} {{.Availability}}{% endraw %}"
+      - "{% raw %}{{.Hostname}}|{{.Availability}}|{{.ManagerStatus}}{% endraw %}"
   register: docker_swarm_traefik_active_nodes
   changed_when: false
   when:
@@ -143,7 +146,7 @@
     - docker_swarm_traefik_service_manage_enabled | bool
     - not ansible_check_mode
 
-- name: Verify Traefik swarm service has one running task per active node
+- name: Verify Traefik swarm service has one running task per expected active node
   become: true
   ansible.builtin.command:
     argv:
@@ -157,11 +160,11 @@
       - traefik
   register: docker_swarm_traefik_service_tasks
   until:
-    - docker_swarm_traefik_active_node_names | length > 0
-    - (docker_swarm_traefik_running_task_nodes | length) == (docker_swarm_traefik_active_node_names | length)
+    - docker_swarm_traefik_expected_node_names | length > 0
+    - (docker_swarm_traefik_running_task_nodes | length) == (docker_swarm_traefik_expected_node_names | length)
     - >-
       (docker_swarm_traefik_running_task_nodes | unique | sort | list)
-      == (docker_swarm_traefik_active_node_names | unique | sort | list)
+      == (docker_swarm_traefik_expected_node_names | unique | sort | list)
   retries: 30
   delay: 2
   changed_when: false
@@ -173,12 +176,18 @@
         | map('regex_replace', '^([^ ]+) .+$', '\\1')
         | list
       }}
-    docker_swarm_traefik_active_node_names: >-
+    docker_swarm_traefik_expected_node_names: >-
       {{
         docker_swarm_traefik_active_nodes.stdout_lines
-        | select('match', '^[^ ]+ Active$')
-        | map('regex_replace', '^([^ ]+) .+$', '\\1')
+        | select('match', docker_swarm_traefik_expected_node_regex)
+        | map('regex_replace', '^([^|]+)\\|.+$', '\\1')
         | list
+      }}
+    docker_swarm_traefik_expected_node_regex: >-
+      {{
+        '^[^|]+\\|Active\\|.+$'
+        if docker_swarm_traefik_manager_only_enabled | bool
+        else '^[^|]+\\|Active\\|.*$'
       }}
   when:
     - docker_swarm_traefik_enabled | bool

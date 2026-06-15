@@ -207,6 +207,25 @@ def test_pghero_swarm_service_has_explicit_single_replica() -> None:
     assert any(service.get("replicas") == 1 for service in replicated_services)
 
 
+def test_traefik_swarm_service_uses_manager_placement_and_rolling_updates() -> None:
+    role_dir = REPO_ROOT / "roles" / "docker_swarm_traefik"
+    defaults = role_defaults(role_dir)
+    services = list(swarm_service_modules(role_dir))
+
+    assert defaults["docker_swarm_traefik_placement_constraints"] == ["node.role == manager"]
+    assert defaults["docker_swarm_traefik_update_order"] == "stop-first"
+    assert defaults["docker_swarm_traefik_update_parallelism"] == 1
+    assert any(
+        placement_constraints(service) == "{{ docker_swarm_traefik_placement_constraints }}"
+        and service.get("update_config")
+        == {
+            "order": "{{ docker_swarm_traefik_update_order }}",
+            "parallelism": "{{ docker_swarm_traefik_update_parallelism }}",
+        }
+        for service in services
+    )
+
+
 def test_docker_image_defaults_use_name_tag_and_full_image() -> None:
     errors: list[str] = []
 

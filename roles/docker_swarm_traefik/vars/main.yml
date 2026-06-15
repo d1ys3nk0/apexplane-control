@@ -1,6 +1,7 @@
 ---
 
 docker_swarm_traefik_letsencrypt_enabled: "{{ docker_swarm_traefik_letsencrypt_email is not none and docker_swarm_traefik_letsencrypt_email | string | length > 0 }}"
+docker_swarm_traefik_manager_only_enabled: "{{ 'node.role == manager' in docker_swarm_traefik_placement_constraints }}"
 docker_swarm_traefik_published_ports: >-
   {{
     [

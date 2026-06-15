@@ -8,7 +8,7 @@
       - node
       - ls
       - --format
-      - "{% raw %}{{.Hostname}} {{.Availability}}{% endraw %}"
+      - "{% raw %}{{.Hostname}}|{{.Availability}}|{{.ManagerStatus}}{% endraw %}"
   register: assessment_swarm_active_nodes
   changed_when: false
 
@@ -21,13 +21,15 @@
       - inspect
       - --format
       - "{% raw %}{{if .Spec.Mode.Global}}global{{else}}replicated{{end}}{% endraw %}"
-      - '{{ item }}'
+      - '{{ item.name if item is mapping else item }}'
   register: assessment_swarm_global_service_modes
   changed_when: false
   failed_when: assessment_swarm_global_service_modes.rc != 0 or assessment_swarm_global_service_modes.stdout != 'global'
   loop: '{{ assessment_swarm_global_services }}'
+  loop_control:
+    label: '{{ item.name if item is mapping else item }}'
 
-- name: Verify Docker Swarm global services run on every active node
+- name: Verify Docker Swarm global services run on expected active nodes
   become: true
   ansible.builtin.command:
     argv:
@@ -38,16 +40,17 @@
       - desired-state=running
       - --format
       - "{% raw %}{{.Node}} {{.CurrentState}}{% endraw %}"
-      - '{{ item }}'
+      - '{{ item.name if item is mapping else item }}'
   register: assessment_swarm_global_service_tasks
   changed_when: false
   failed_when: >-
     assessment_swarm_global_service_tasks.rc != 0
-    or (assessment_swarm_active_node_names | length) == 0
-    or (assessment_swarm_global_running_task_nodes | length) != (assessment_swarm_active_node_names | length)
+    or (assessment_swarm_expected_node_names | length) == 0
+    or (assessment_swarm_global_running_task_nodes | length) != (assessment_swarm_expected_node_names | length)
     or (assessment_swarm_global_running_task_nodes | unique | sort | list)
-    != (assessment_swarm_active_node_names | unique | sort | list)
+    != (assessment_swarm_expected_node_names | unique | sort | list)
   vars:
+    assessment_swarm_global_node_role: "{{ item.node_role | default('all', true) if item is mapping else 'all' }}"
     assessment_swarm_global_running_task_nodes: >-
       {{
         assessment_swarm_global_service_tasks.stdout_lines
@@ -55,11 +58,21 @@
         | map('regex_replace', '^([^ ]+) .+$', '\\1')
         | list
       }}
-    assessment_swarm_active_node_names: >-
+    assessment_swarm_expected_node_names: >-
       {{
         assessment_swarm_active_nodes.stdout_lines
-        | select('match', '^[^ ]+ Active$')
-        | map('regex_replace', '^([^ ]+) .+$', '\\1')
+        | select('match', assessment_swarm_expected_node_regex)
+        | map('regex_replace', '^([^|]+)\\|.+$', '\\1')
         | list
       }}
+    assessment_swarm_expected_node_regex: >-
+      {{
+        {
+          'all': '^[^|]+\\|Active\\|.*$',
+          'manager': '^[^|]+\\|Active\\|.+$',
+          'worker': '^[^|]+\\|Active\\|$',
+        }[assessment_swarm_global_node_role]
+      }}
   loop: '{{ assessment_swarm_global_services }}'
+  loop_control:
+    label: '{{ item.name if item is mapping else item }}'

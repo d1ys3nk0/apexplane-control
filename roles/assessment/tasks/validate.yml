@@ -17,13 +17,30 @@
       - assessment_log_match_limit | int > 0
     fail_msg: Assessment inputs must be iterable lists and assessment_log_match_limit must be positive.
 
-- name: Validate Docker Swarm global service checks
+- name: Validate Docker Swarm global service check types
   ansible.builtin.assert:
     that:
-      - item is string
+      - item is string or item is mapping
+    fail_msg: Each assessment_swarm_global_services item must be a service name or check mapping.
+  loop: '{{ assessment_swarm_global_services }}'
+
+- name: Validate Docker Swarm global service string checks
+  ansible.builtin.assert:
+    that:
       - item | length > 0
     fail_msg: Each assessment_swarm_global_services item must be a non-empty service name.
   loop: '{{ assessment_swarm_global_services }}'
+  when: item is string
+
+- name: Validate Docker Swarm global service mapping checks
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.name | string | length > 0
+      - item.node_role is not defined or item.node_role in ['all', 'manager', 'worker']
+    fail_msg: Each assessment_swarm_global_services mapping must define name and optional node_role all, manager, or worker.
+  loop: '{{ assessment_swarm_global_services }}'
+  when: item is mapping
 
 - name: Validate Docker Swarm replicated service checks
   ansible.builtin.assert:

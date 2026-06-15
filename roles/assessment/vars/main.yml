@@ -1,0 +1,9 @@
+---
+
+assessment_swarm_global_service_names: >-
+  {%- set services = [] -%}
+  {%- for service in assessment_swarm_global_services -%}
+  {%- set service_name = service.name if service is mapping else service -%}
+  {%- set _ = services.append(service_name) -%}
+  {%- endfor -%}
+  {{ services }}

@@ -9,6 +9,7 @@ This role deploys Traefik as a Docker Swarm service.
 - Deploy Traefik static config.
 - Deploy Traefik as Docker Swarm service.
 - Force Traefik service update on config change.
+- Verify the global Traefik service has running tasks on its expected active nodes.
 
 ## Configuration
 Set these required inputs before applying the role: `docker_swarm_traefik_domain`, `docker_swarm_traefik_letsencrypt_email`.
@@ -24,6 +25,9 @@ Set these required inputs before applying the role: `docker_swarm_traefik_domain
 | `docker_swarm_traefik_domain` | `~` |
 | `docker_swarm_traefik_http_expose_port` | `1080` |
 | `docker_swarm_traefik_https_expose_port` | `1443` |
+| `docker_swarm_traefik_placement_constraints` | `[node.role == manager]` |
+| `docker_swarm_traefik_update_order` | `stop-first` |
+| `docker_swarm_traefik_update_parallelism` | `1` |
 | `docker_swarm_traefik_letsencrypt_email` | `~` |
 | `docker_swarm_traefik_letsencrypt_resolver` | `letsencrypt` |
 | `docker_swarm_traefik_letsencrypt_storage` | `/etc/traefik/acme/acme.json` |
