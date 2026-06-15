@@ -5,12 +5,19 @@ assessment_systemd_units: '{{ assessment_common_systemd_units }}'
 assessment_docker_containers: []
 assessment_docker_container_health_required: true
 assessment_swarm_services: []
+assessment_swarm_global_services: []
+assessment_swarm_replicated_services: []
 assessment_tcp_ports: []
 assessment_http_endpoints: []
 assessment_commands: []
 assessment_journal_units: '{{ assessment_systemd_units }}'
 assessment_docker_log_containers: '{{ assessment_docker_containers }}'
-assessment_swarm_log_services: '{{ assessment_swarm_services }}'
+assessment_swarm_log_services: >-
+  {{
+    assessment_swarm_services
+    + assessment_swarm_global_services
+    + (assessment_swarm_replicated_services | map(attribute='name') | list)
+  }}
 assessment_log_since_journal: 24 hours ago
 assessment_log_since_docker: 24h
 assessment_log_error_regex: '(?i)\b(fatal|panic|critical|crit|error|exception|traceback)\b'

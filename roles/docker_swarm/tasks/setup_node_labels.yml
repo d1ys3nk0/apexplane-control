@@ -1,0 +1,12 @@
+---
+
+- name: Merge Docker Swarm node labels
+  become: true
+  community.docker.docker_node:
+    hostname: '{{ item }}'
+    labels: '{{ hostvars[item].docker_swarm_node_labels | default({}, true) }}'
+    labels_state: merge
+  loop: '{{ groups[docker_swarm_cluster_nodes_group] }}'
+  when:
+    - hostvars[item].docker_swarm_node_labels | default({}, true) | length > 0
+    - not ansible_check_mode

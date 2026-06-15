@@ -6,6 +6,7 @@ docker_swarm_pghero_image_full: '{{ docker_swarm_pghero_image_name }}:{{ docker_
 docker_swarm_pghero_public_port: 10000
 docker_swarm_pghero_mem_res: 300M
 docker_swarm_pghero_mem_lim: 450M
+docker_swarm_pghero_placement_constraints: []
 docker_swarm_pghero_pg_admin_user: ''
 docker_swarm_pghero_pg_admin_pass: ''
 docker_swarm_pghero_pg_admin_database: postgres

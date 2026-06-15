@@ -24,6 +24,7 @@ Set these required inputs before applying the role: `docker_swarm_postgres_expor
 | `docker_swarm_postgres_exporter_image_full` | `<derived>` |
 | `docker_swarm_postgres_exporter_mem_res` | `100M` |
 | `docker_swarm_postgres_exporter_mem_lim` | `150M` |
+| `docker_swarm_postgres_exporter_placement_constraints` | `[]` |
 | `docker_swarm_postgres_exporter_pg_base` | `~` |
 | `docker_swarm_postgres_exporter_pg_user` | `~` |
 | `docker_swarm_postgres_exporter_pg_pass` | `~` |

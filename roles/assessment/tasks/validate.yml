@@ -6,6 +6,8 @@
       - assessment_systemd_units is iterable
       - assessment_docker_containers is iterable
       - assessment_swarm_services is iterable
+      - assessment_swarm_global_services is iterable
+      - assessment_swarm_replicated_services is iterable
       - assessment_tcp_ports is iterable
       - assessment_http_endpoints is iterable
       - assessment_commands is iterable
@@ -14,6 +16,25 @@
       - assessment_swarm_log_services is iterable
       - assessment_log_match_limit | int > 0
     fail_msg: Assessment inputs must be iterable lists and assessment_log_match_limit must be positive.
+
+- name: Validate Docker Swarm global service checks
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item | length > 0
+    fail_msg: Each assessment_swarm_global_services item must be a non-empty service name.
+  loop: '{{ assessment_swarm_global_services }}'
+
+- name: Validate Docker Swarm replicated service checks
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.name is defined
+      - item.name | string | length > 0
+      - item.replicas is defined
+      - item.replicas | int >= 0
+    fail_msg: Each assessment_swarm_replicated_services item must define name and non-negative replicas.
+  loop: '{{ assessment_swarm_replicated_services }}'
 
 - name: Validate TCP port checks
   ansible.builtin.assert:

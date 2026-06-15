@@ -21,6 +21,17 @@
       - docker_swarm_postgres_exporter_pg_port | int > 0
       - docker_swarm_postgres_exporter_pg_ssl | string | length > 0
       - docker_swarm_postgres_exporter_public_port | int > 0
+      - docker_swarm_postgres_exporter_placement_constraints is sequence
+      - docker_swarm_postgres_exporter_placement_constraints is not string
     fail_msg: Define Docker Swarm PostgreSQL exporter connection settings before running role docker_swarm_postgres_exporter.
   no_log: '{{ docker_swarm_postgres_exporter_nolog }}'
+  when: docker_swarm_postgres_exporter_enabled | bool
+
+- name: Validate Docker Swarm PostgreSQL exporter placement constraints
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item | length > 0
+    fail_msg: Docker Swarm PostgreSQL exporter placement constraints must be non-empty strings.
+  loop: '{{ docker_swarm_postgres_exporter_placement_constraints }}'
   when: docker_swarm_postgres_exporter_enabled | bool

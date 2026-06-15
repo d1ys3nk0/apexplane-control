@@ -20,3 +20,7 @@
     docker_swarm_join_role: worker
     docker_swarm_join_token: Worker
   when: docker_swarm_mode | default('', true) == 'worker'
+
+- name: Configure Docker Swarm node labels
+  ansible.builtin.include_tasks: setup_node_labels.yml
+  when: docker_swarm_mode | default('', true) == 'leader'

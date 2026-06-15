@@ -1,0 +1,42 @@
+---
+
+- name: Verify Docker Swarm replicated service modes
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - inspect
+      - --format
+      - "{% raw %}{{if .Spec.Mode.Replicated}}{{.Spec.Mode.Replicated.Replicas}}{{else}}global{{end}}{% endraw %}"
+      - '{{ item.name }}'
+  register: assessment_swarm_replicated_service_modes
+  changed_when: false
+  failed_when: >-
+    assessment_swarm_replicated_service_modes.rc != 0
+    or assessment_swarm_replicated_service_modes.stdout != (item.replicas | string)
+  loop: '{{ assessment_swarm_replicated_services }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Verify Docker Swarm replicated service running task counts
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - ps
+      - --filter
+      - desired-state=running
+      - --format
+      - "{% raw %}{{.CurrentState}}{% endraw %}"
+      - '{{ item.name }}'
+  register: assessment_swarm_replicated_service_tasks
+  changed_when: false
+  failed_when: >-
+    assessment_swarm_replicated_service_tasks.rc != 0
+    or (assessment_swarm_replicated_service_tasks.stdout_lines | length) != (item.replicas | int)
+    or (assessment_swarm_replicated_service_tasks.stdout_lines | reject('match', '^Running') | list | length) > 0
+  loop: '{{ assessment_swarm_replicated_services }}'
+  loop_control:
+    label: '{{ item.name }}'

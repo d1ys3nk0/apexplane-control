@@ -11,6 +11,7 @@ This role initializes and joins Docker Swarm managers and workers.
 - Store Docker Swarm leader host.
 - Determine Docker Swarm leader IP to join cluster.
 - Join as Docker Swarm {{ docker_swarm_join_role }}.
+- Merge configured Docker Swarm node labels.
 
 ## Configuration
 Set these required inputs before applying the role: `docker_swarm_cidr`, `docker_swarm_cluster_nodes_group`, `docker_swarm_mode`, `docker_swarm_vpc_cidr`.
@@ -21,6 +22,7 @@ Set these required inputs before applying the role: `docker_swarm_cidr`, `docker
 | `docker_swarm_cidr` | `~` |
 | `docker_swarm_cluster_nodes_group` | `~` |
 | `docker_swarm_mode` | `~` |
+| `docker_swarm_node_labels` | `{}` |
 | `docker_swarm_vpc_addr` | `''` |
 | `docker_swarm_vpc_cidr` | `~` |
 

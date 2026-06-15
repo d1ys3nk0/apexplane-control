@@ -8,7 +8,7 @@ This role deploys PgHero as a Docker Swarm service and can provision PostgreSQL 
 - Set PgHero config data.
 - Set PgHero config hash.
 - Ensure PgHero docker config created.
-- Ensure PgHero swarm service created.
+- Ensure PgHero single-replica swarm service created.
 - Create pghero user.
 
 ## Configuration
@@ -22,6 +22,7 @@ Set these required inputs before applying the role: `docker_swarm_pghero_pg_user
 | `docker_swarm_pghero_public_port` | `10000` |
 | `docker_swarm_pghero_mem_res` | `300M` |
 | `docker_swarm_pghero_mem_lim` | `450M` |
+| `docker_swarm_pghero_placement_constraints` | `[]` |
 | `docker_swarm_pghero_pg_admin_user` | `''` |
 | `docker_swarm_pghero_pg_admin_pass` | `''` |
 | `docker_swarm_pghero_pg_admin_database` | `postgres` |

@@ -15,6 +15,14 @@
   ansible.builtin.include_tasks: setup_swarm_services.yml
   when: assessment_swarm_services | length > 0
 
+- name: Check Docker Swarm global services
+  ansible.builtin.include_tasks: setup_swarm_global_services.yml
+  when: assessment_swarm_global_services | length > 0
+
+- name: Check Docker Swarm replicated services
+  ansible.builtin.include_tasks: setup_swarm_replicated_services.yml
+  when: assessment_swarm_replicated_services | length > 0
+
 - name: Check TCP ports
   ansible.builtin.include_tasks: setup_tcp_ports.yml
   when: assessment_tcp_ports | length > 0

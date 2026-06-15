@@ -10,6 +10,7 @@
       - docker_swarm_mode is not none
       - docker_swarm_mode | string | length > 0
       - docker_swarm_mode in ['leader', 'manager', 'worker']
+      - docker_swarm_node_labels is mapping
       - docker_swarm_vpc_cidr is not none
       - docker_swarm_vpc_cidr | string | length > 0
     fail_msg: Define Docker Swarm network and mode variables before running role docker_swarm.
@@ -25,4 +26,12 @@
         | list
         | length == 1
     fail_msg: Define exactly one Docker Swarm leader in docker_swarm_cluster_nodes_group.
+  run_once: true
+
+- name: Assert Docker Swarm node labels are mappings
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].docker_swarm_node_labels | default({}, true) is mapping
+    fail_msg: Docker Swarm node labels must be mappings.
+  loop: '{{ groups[docker_swarm_cluster_nodes_group] }}'
   run_once: true

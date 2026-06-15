@@ -33,6 +33,8 @@
             published_port: '{{ docker_swarm_postgres_exporter_public_port }}'
             protocol: tcp
             mode: ingress
+        placement:
+          constraints: '{{ docker_swarm_postgres_exporter_placement_constraints }}'
         restart_config:
           condition: any
           delay: 5s

@@ -43,12 +43,15 @@
           - config_name: '{{ docker_swarm_pghero_config_name }}'
             filename: /app/config/pghero.yml
         mode: replicated
+        replicas: 1
         endpoint_mode: vip
         publish:
           - target_port: 8080
             published_port: '{{ docker_swarm_pghero_public_port }}'
             protocol: tcp
             mode: ingress
+        placement:
+          constraints: '{{ docker_swarm_pghero_placement_constraints }}'
         reservations:
           cpus: 0.1
           memory: '{{ docker_swarm_pghero_mem_res }}'

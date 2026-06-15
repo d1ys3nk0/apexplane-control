@@ -1,0 +1,60 @@
+---
+
+- name: Inspect active Docker Swarm nodes
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - node
+      - ls
+      - --filter
+      - availability=active
+      - --format
+      - "{% raw %}{{.Hostname}}{% endraw %}"
+  register: assessment_swarm_active_nodes
+  changed_when: false
+
+- name: Verify Docker Swarm global service modes
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - inspect
+      - --format
+      - "{% raw %}{{if .Spec.Mode.Global}}global{{else}}replicated{{end}}{% endraw %}"
+      - '{{ item }}'
+  register: assessment_swarm_global_service_modes
+  changed_when: false
+  failed_when: assessment_swarm_global_service_modes.rc != 0 or assessment_swarm_global_service_modes.stdout != 'global'
+  loop: '{{ assessment_swarm_global_services }}'
+
+- name: Verify Docker Swarm global services run on every active node
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - service
+      - ps
+      - --filter
+      - desired-state=running
+      - --format
+      - "{% raw %}{{.Node}} {{.CurrentState}}{% endraw %}"
+      - '{{ item }}'
+  register: assessment_swarm_global_service_tasks
+  changed_when: false
+  failed_when: >-
+    assessment_swarm_global_service_tasks.rc != 0
+    or (assessment_swarm_active_nodes.stdout_lines | length) == 0
+    or (assessment_swarm_global_running_task_nodes | length) != (assessment_swarm_active_nodes.stdout_lines | length)
+    or (assessment_swarm_global_running_task_nodes | unique | sort | list)
+    != (assessment_swarm_active_nodes.stdout_lines | unique | sort | list)
+  vars:
+    assessment_swarm_global_running_task_nodes: >-
+      {{
+        assessment_swarm_global_service_tasks.stdout_lines
+        | select('match', '^[^ ]+ Running')
+        | map('regex_replace', '^([^ ]+) .+$', '\\1')
+        | list
+      }}
+  loop: '{{ assessment_swarm_global_services }}'

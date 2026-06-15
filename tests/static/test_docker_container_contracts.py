@@ -112,6 +112,21 @@ def has_hostname_placement_constraint(module: Mapping[str, object]) -> bool:
     return any(isinstance(constraint, str) and "node.hostname" in constraint for constraint in constraints)
 
 
+def swarm_service_modules(role_dir: Path) -> Iterator[Mapping[str, object]]:
+    for task_path in sorted((role_dir / "tasks").glob("*.yml")):
+        for task in iter_tasks(load_yaml(task_path)):
+            service = task.get("community.docker.docker_swarm_service")
+            if isinstance(service, Mapping):
+                yield cast("Mapping[str, object]", service)
+
+
+def placement_constraints(service: Mapping[str, object]) -> object:
+    placement = service.get("placement")
+    if not isinstance(placement, Mapping):
+        return None
+    return cast("Mapping[str, object]", placement).get("constraints")
+
+
 def uses_docker_cli(task: Mapping[str, object]) -> bool:
     for module_name in ("ansible.builtin.command", "ansible.builtin.shell", "command", "shell"):
         module = task.get(module_name)
@@ -170,6 +185,26 @@ def test_docker_swarm_hostname_constraints_are_limited_to_host_binds() -> None:
                     )
 
     assert errors == []
+
+
+def test_single_replica_swarm_service_roles_expose_placement_constraints() -> None:
+    for role_name in ("docker_swarm_pghero", "docker_swarm_postgres_exporter"):
+        role_dir = REPO_ROOT / "roles" / role_name
+        constraint_var = f"{role_name}_placement_constraints"
+        defaults = role_defaults(role_dir)
+        services = list(swarm_service_modules(role_dir))
+
+        assert defaults[constraint_var] == []
+        assert any(placement_constraints(service) == f"{{{{ {constraint_var} }}}}" for service in services)
+
+
+def test_pghero_swarm_service_has_explicit_single_replica() -> None:
+    role_dir = REPO_ROOT / "roles" / "docker_swarm_pghero"
+    replicated_services = [
+        service for service in swarm_service_modules(role_dir) if service.get("mode") == "replicated"
+    ]
+
+    assert any(service.get("replicas") == 1 for service in replicated_services)
 
 
 def test_docker_image_defaults_use_name_tag_and_full_image() -> None:
