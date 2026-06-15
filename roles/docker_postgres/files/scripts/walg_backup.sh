@@ -66,6 +66,10 @@ Optional environment:
   WALG_DELTA_MAX_STEPS=24
   WALG_COMPRESSION_METHOD=brotli
   WALG_COMPRESSION_LEVEL=5
+  WALG_BACKUP_CONTAINER=postgres-walg-backup
+  WALG_BACKUP_CPUS=1.0
+  WALG_BACKUP_MEMORY=1000M
+  WALG_BACKUP_MEMORY_SWAP=1500M
   WALG_DISK_RATE_LIMIT=10485760
   WALG_UPLOAD_DISK_CONCURRENCY=1
   WALG_TAR_SIZE_THRESHOLD=<unset>
@@ -140,6 +144,10 @@ init_config() {
     WALG_DELTA_MAX_STEPS="${WALG_DELTA_MAX_STEPS:-24}"
     WALG_COMPRESSION_METHOD="${WALG_COMPRESSION_METHOD:-brotli}"
     WALG_COMPRESSION_LEVEL="${WALG_COMPRESSION_LEVEL:-5}"
+    WALG_BACKUP_CONTAINER="${WALG_BACKUP_CONTAINER:-postgres-walg-backup}"
+    WALG_BACKUP_CPUS="${WALG_BACKUP_CPUS:-1.0}"
+    WALG_BACKUP_MEMORY="${WALG_BACKUP_MEMORY:-768M}"
+    WALG_BACKUP_MEMORY_SWAP="${WALG_BACKUP_MEMORY_SWAP:-1024M}"
     WALG_DISK_RATE_LIMIT="${WALG_DISK_RATE_LIMIT:-10485760}"
     WALG_UPLOAD_DISK_CONCURRENCY="${WALG_UPLOAD_DISK_CONCURRENCY:-1}"
     WALG_TAR_SIZE_THRESHOLD="${WALG_TAR_SIZE_THRESHOLD:-}"
@@ -171,7 +179,7 @@ create_backup() {
 
     backup_started=${SECONDS}
     info "Creating WAL-G backup from Docker volume ${WALG_DATA_VOLUME}:${WALG_DATA_DIR} to ${WALG_BACKUP_STORAGE_PATH}"
-    info "Backup settings: delta_origin=${WALG_DELTA_ORIGIN}; delta_max_steps=${WALG_DELTA_MAX_STEPS}; compression=${WALG_COMPRESSION_METHOD}:${WALG_COMPRESSION_LEVEL}; disk_rate_limit=${WALG_DISK_RATE_LIMIT}; upload_disk_concurrency=${WALG_UPLOAD_DISK_CONCURRENCY}; tar_size_threshold=${WALG_TAR_SIZE_THRESHOLD:-unset}"
+    info "Backup settings: container=${WALG_BACKUP_CONTAINER}; cpus=${WALG_BACKUP_CPUS}; memory=${WALG_BACKUP_MEMORY}; memory_swap=${WALG_BACKUP_MEMORY_SWAP}; delta_origin=${WALG_DELTA_ORIGIN}; delta_max_steps=${WALG_DELTA_MAX_STEPS}; compression=${WALG_COMPRESSION_METHOD}:${WALG_COMPRESSION_LEVEL}; disk_rate_limit=${WALG_DISK_RATE_LIMIT}; upload_disk_concurrency=${WALG_UPLOAD_DISK_CONCURRENCY}; tar_size_threshold=${WALG_TAR_SIZE_THRESHOLD:-unset}"
     if [ "${WALG_BACKUP_STORAGE}" = "s3" ]; then
         storage_env=(
             -e "AWS_ENDPOINT=${WALG_BACKUP_S3_ENDPOINT}"
@@ -191,8 +199,12 @@ create_backup() {
         tar_size_threshold_env=(-e "WALG_TAR_SIZE_THRESHOLD=${WALG_TAR_SIZE_THRESHOLD}")
     fi
     docker run --rm \
+        --name "${WALG_BACKUP_CONTAINER}" \
         --network host \
         --user postgres \
+        --cpus "${WALG_BACKUP_CPUS}" \
+        --memory "${WALG_BACKUP_MEMORY}" \
+        --memory-swap "${WALG_BACKUP_MEMORY_SWAP}" \
         -v "${WALG_DATA_VOLUME}:${WALG_DATA_ROOT}:ro" \
         "${local_storage_volume[@]}" \
         -e "PGHOST=${WALG_PGHOST}" \

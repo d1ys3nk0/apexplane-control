@@ -55,6 +55,10 @@ docker_postgres_walg_backup_delta_origin: LATEST
 docker_postgres_walg_backup_delta_max_steps: 24
 docker_postgres_walg_backup_compression_method: brotli
 docker_postgres_walg_backup_compression_level: 5
+docker_postgres_walg_backup_container: postgres-walg-backup
+docker_postgres_walg_backup_cpus: '1.0'
+docker_postgres_walg_backup_memory: 1000M
+docker_postgres_walg_backup_memory_swap: 1500M
 docker_postgres_walg_backup_disk_rate_limit: 10485760
 docker_postgres_walg_backup_upload_disk_concurrency: 1
 docker_postgres_walg_backup_tar_size_threshold: ''

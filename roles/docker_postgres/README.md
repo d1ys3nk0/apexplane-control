@@ -67,6 +67,10 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_walg_backup_delta_max_steps` | `24` |
 | `docker_postgres_walg_backup_compression_method` | `brotli` |
 | `docker_postgres_walg_backup_compression_level` | `5` |
+| `docker_postgres_walg_backup_container` | `postgres-walg-backup` |
+| `docker_postgres_walg_backup_cpus` | `'1.0'` |
+| `docker_postgres_walg_backup_memory` | `1000M` |
+| `docker_postgres_walg_backup_memory_swap` | `1500M` |
 | `docker_postgres_walg_backup_disk_rate_limit` | `10485760` |
 | `docker_postgres_walg_backup_upload_disk_concurrency` | `1` |
 | `docker_postgres_walg_backup_tar_size_threshold` | `''` |
@@ -167,6 +171,8 @@ sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_backup s3:
 sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_backup s3://<bucket>/<key-or-prefix>
 sudo /opt/toolbox/bin/dotenv /opt/postgres/env /opt/postgres/bin/walg_backup /mnt/walg/<repository>
 ```
+
+The backup container defaults to `postgres-walg-backup` and runs with Docker CPU and memory limits from `docker_postgres_walg_backup_cpus`, `docker_postgres_walg_backup_memory`, and `docker_postgres_walg_backup_memory_swap`. The fixed container name intentionally prevents overlapping backup runs: Docker rejects a second backup container with the same name while the first one is still running.
 
 `walg_backup`, `walg_recover`, `docker_postgres_walg_backup_path`, and `docker_postgres_walg_recover_path` accept the same repository path formats: `s3:<key-or-prefix>`, `s3://<bucket>/<key-or-prefix>`, or an absolute local WAL-G repository path such as an NFS mount. Relative S3 paths use the matching configured S3 bucket; absolute S3 paths include the bucket in the path. Local paths must already exist on the host before the role starts PostgreSQL, and the role bind-mounts them into the PostgreSQL WAL-G container at the same path. The role does not create local WAL-G paths, so a missing NFS mount fails instead of causing backups to write to local disk.
 

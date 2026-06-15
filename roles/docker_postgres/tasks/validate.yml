@@ -66,6 +66,10 @@
       - docker_postgres_walg_backup_delta_max_steps | string is match('^[1-9][0-9]*$')
       - docker_postgres_walg_backup_compression_method | string | length > 0
       - docker_postgres_walg_backup_compression_level | string is match('^[1-9][0-9]*$')
+      - docker_postgres_walg_backup_container | string is match('^[a-zA-Z0-9][a-zA-Z0-9_.-]*$')
+      - docker_postgres_walg_backup_cpus | string is match('^[1-9][0-9]*(\\.[0-9]+)?$|^0\\.[0-9]*[1-9][0-9]*$')
+      - docker_postgres_walg_backup_memory | string is match('^[1-9][0-9]*[bkmgBKMG]?$')
+      - docker_postgres_walg_backup_memory_swap | string is match('^[1-9][0-9]*[bkmgBKMG]?$')
       - docker_postgres_walg_backup_disk_rate_limit | string is match('^[1-9][0-9]*$')
       - docker_postgres_walg_backup_upload_disk_concurrency | string is match('^[1-9][0-9]*$')
       - docker_postgres_walg_backup_tar_size_threshold | string | length == 0 or docker_postgres_walg_backup_tar_size_threshold | string is match('^[1-9][0-9]*$')
