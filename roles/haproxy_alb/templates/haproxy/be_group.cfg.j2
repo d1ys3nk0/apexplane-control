@@ -4,8 +4,8 @@ backend {{ route.name }}
   mode http
   balance leastconn
 {% for inv_name, host in haproxy_alb_target_groups[route.target_group] | dictsort %}
-  server {{ inv_name }}:{{ route.target_port }} {{ host }}:{{ route.target_port }} check inter 5s fall 2 rise 1{% if route.backend_proto | default('http', true) == 'h2' %} proto h2{% endif %}
-{% endfor +%}
+  server {{ inv_name }}:{{ route.target_port }} {{ host }}:{{ route.target_port }} check inter 5s fall 2 rise 1{% if route.backend_proto | default('http', true) == 'h2' %} proto h2{% endif %}{{ "\n" }}
+{% endfor %}
 
 {% endif %}
 {% endfor %}

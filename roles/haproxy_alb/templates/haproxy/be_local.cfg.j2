@@ -3,7 +3,7 @@
 backend {{ route.name }}
   mode http
   balance leastconn
-  server {{ route.target_host }}:{{ route.target_port }} {{ route.target_host }}:{{ route.target_port }} check inter 5s fall 2 rise 1{% if route.backend_proto | default('http', true) == 'h2' %} proto h2{% endif %}
+  server {{ route.target_host }}:{{ route.target_port }} {{ route.target_host }}:{{ route.target_port }} check inter 5s fall 2 rise 1{% if route.backend_proto | default('http', true) == 'h2' %} proto h2{% endif %}{{ "\n" }}
 
 {% endif %}
 {% endfor %}
