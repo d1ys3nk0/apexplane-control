@@ -30,10 +30,10 @@
 
 - name: Update config
   become: true
-  ansible.builtin.template:
-    src: daemon.json.j2
+  ansible.builtin.copy:
     dest: /etc/docker/daemon.json
     mode: '0644'
+    content: "{{ docker_daemon_config | to_nice_json }}\n"
   register: docker_update_config
 
 - name: Create Docker systemd override directory
