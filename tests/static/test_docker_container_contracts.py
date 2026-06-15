@@ -396,5 +396,5 @@ def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
             "docker_update_config.changed",
             "docker_yes_mode",
             "docker_restart_approval is defined",
-            "docker_restart_approval.user_input == 'yes'",
+            "docker_restart_approval.user_input | default('')) == 'yes'",
         )
