@@ -2,6 +2,9 @@
 
 docker_deb_repo: https://download.docker.com/linux/ubuntu
 docker_mirrors: ['https://cr.yandex/mirror', 'https://dockerhub.timeweb.cloud']
+docker_tcp_socket_enabled: false
+docker_tcp_socket_bind_address: 0.0.0.0
+docker_tcp_socket_port: 2375
 docker_force_mode: "{{ lookup('env', 'FORCE') | default('0', true) in ['1', 'true'] }}"
 docker_interactive_mode: "{{ lookup('env', 'INTERACTIVE') | default('1', true) | lower not in ['0', 'false'] }}"
 

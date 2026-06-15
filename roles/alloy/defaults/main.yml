@@ -22,10 +22,10 @@ alloy_traces_url: "{{ alloy_traces_ep | default('', true) }}"
 alloy_traces_user: "{{ alloy_traces_basic_auth_user | default('', true) }}"
 alloy_traces_pass: "{{ alloy_traces_basic_auth_password | default('', true) }}"
 alloy_traces_tls_insecure: true
-alloy_cluster_name: ~
-alloy_cluster_realm: ~
-alloy_cluster_platform: ~
-alloy_cluster_world: ~
+alloy_world: ~
+alloy_realm: ~
+alloy_platform: ~
+alloy_cluster: ~
 alloy_docker_enabled: "{{ alloy_detected_docker_enabled | default(false) }}"
 alloy_metrics_extra_targets: []
 alloy_apt_repo_url: https://apt.grafana.com

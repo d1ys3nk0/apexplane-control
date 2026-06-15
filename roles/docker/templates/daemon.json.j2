@@ -4,5 +4,10 @@
     "max-size": "10m",
     "max-file": "5"
   },
-  "registry-mirrors": {{ docker_mirrors | to_json }}
+  "registry-mirrors": {{ docker_mirrors | to_json }}{% if docker_tcp_socket_enabled | bool %},
+  "hosts": [
+    "unix:///var/run/docker.sock",
+    "tcp://{{ docker_tcp_socket_bind_address }}:{{ docker_tcp_socket_port }}"
+  ]
+{% endif %}
 }

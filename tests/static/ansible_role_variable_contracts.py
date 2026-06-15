@@ -494,6 +494,9 @@ def _cluster_context_naming_errors(role_dir: Path, repo_root: Path, defaults: De
         return []
 
     role_name = role_dir.name
+    if role_name == "alloy":
+        return []
+
     forbidden_names = {
         f"{role_name}_platform": f"{role_name}_cluster_platform",
         f"{role_name}_realm": f"{role_name}_cluster_realm",

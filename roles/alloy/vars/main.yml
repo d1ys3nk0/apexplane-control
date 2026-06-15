@@ -2,3 +2,4 @@
 
 alloy_service_user: "{{ (alloy_docker_enabled | bool) | ternary('root', 'alloy') }}"
 alloy_service_group: "{{ (alloy_docker_enabled | bool) | ternary('root', 'alloy') }}"
+alloy_instance_name: '{{ alloy_world }}-{{ inventory_hostname }}'

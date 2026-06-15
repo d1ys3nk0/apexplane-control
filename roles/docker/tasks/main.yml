@@ -36,13 +36,56 @@
     mode: '0644'
   register: docker_update_config
 
+- name: Create Docker systemd override directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    mode: '0755'
+  when: docker_tcp_socket_enabled | bool
+
+- name: Update Docker systemd override
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/docker.service.d/docker.conf
+    mode: '0644'
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=/usr/bin/dockerd
+  register: docker_update_systemd_override
+  when: docker_tcp_socket_enabled | bool
+
+- name: Remove Docker systemd override
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/system/docker.service.d/docker.conf
+    state: absent
+  register: docker_remove_systemd_override
+  when: not (docker_tcp_socket_enabled | bool)
+
+- name: Reload systemd daemon after Docker override change
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: >-
+    (docker_update_systemd_override is defined and docker_update_systemd_override.changed)
+    or (docker_remove_systemd_override is defined and docker_remove_systemd_override.changed)
+
 - name: Report Docker restart approval required in check mode
   ansible.builtin.debug:
     msg: >-
-      Docker daemon config would change. A live run with Docker force mode enabled requires interactive approval
+      Docker daemon configuration would change. A live run with Docker force mode enabled requires interactive approval
       by typing: yes
   changed_when: true
-  when: ansible_check_mode and docker_update_config.changed and docker_force_mode
+  when: >-
+    ansible_check_mode
+    and docker_force_mode
+    and (
+      docker_update_config.changed
+      or (docker_update_systemd_override is defined and docker_update_systemd_override.changed)
+      or (docker_remove_systemd_override is defined and docker_remove_systemd_override.changed)
+    )
 
 - name: Refuse Docker restart in non-interactive mode
   ansible.builtin.fail:
@@ -50,39 +93,55 @@
       Docker daemon restart is required but INTERACTIVE is disabled. Run interactively and type "yes" to approve the restart.
   when:
     - not ansible_check_mode
-    - docker_update_config.changed
     - docker_force_mode
     - not (docker_interactive_mode | bool)
+    - >-
+      docker_update_config.changed
+      or (docker_update_systemd_override is defined and docker_update_systemd_override.changed)
+      or (docker_remove_systemd_override is defined and docker_remove_systemd_override.changed)
 
 - name: Confirm Docker restart
   ansible.builtin.pause:
     prompt: |-
-      Docker daemon config changed and restarting Docker can interrupt running containers.
+      Docker daemon configuration changed and restarting Docker can interrupt running containers.
 
       Type "yes" to proceed
   register: docker_restart_approval
   when:
     - not ansible_check_mode
-    - docker_update_config.changed
     - docker_force_mode
     - docker_interactive_mode | bool
+    - >-
+      docker_update_config.changed
+      or (docker_update_systemd_override is defined and docker_update_systemd_override.changed)
+      or (docker_remove_systemd_override is defined and docker_remove_systemd_override.changed)
 
 - name: Refuse Docker restart without typed approval
   ansible.builtin.fail:
     msg: Docker daemon restart was not approved. Type exactly "yes" to proceed.
   when:
     - not ansible_check_mode
-    - docker_update_config.changed
     - docker_force_mode
     - docker_interactive_mode | bool
     - docker_restart_approval.user_input != 'yes'
+    - >-
+      docker_update_config.changed
+      or (docker_update_systemd_override is defined and docker_update_systemd_override.changed)
+      or (docker_remove_systemd_override is defined and docker_remove_systemd_override.changed)
 
 - name: Restart Docker when force mode is enabled
   become: true
   ansible.builtin.service:
     name: docker
     state: restarted
-  when: not ansible_check_mode and docker_update_config.changed and docker_force_mode
+  when: >-
+    not ansible_check_mode
+    and docker_force_mode
+    and (
+      docker_update_config.changed
+      or (docker_update_systemd_override is defined and docker_update_systemd_override.changed)
+      or (docker_remove_systemd_override is defined and docker_remove_systemd_override.changed)
+    )
 
 - name: Verify Docker service is active after restart
   become: true
@@ -93,4 +152,11 @@
       - docker
   register: docker_service_health
   changed_when: false
-  when: not ansible_check_mode and docker_update_config.changed and docker_force_mode
+  when: >-
+    not ansible_check_mode
+    and docker_force_mode
+    and (
+      docker_update_config.changed
+      or (docker_update_systemd_override is defined and docker_update_systemd_override.changed)
+      or (docker_remove_systemd_override is defined and docker_remove_systemd_override.changed)
+    )

@@ -72,6 +72,7 @@ These ports are the default observability convention for this collection.
 | CrowdSec | AppSec local listener | 7422 | template-local listener |
 | CrowdSec | SPOA bouncer | 9000 | `crowdsec_spoa_port` |
 | CrowdSec | SPOA bouncer local listener | 60601 | template-local listener |
+| Docker daemon | TCP API | 2375 | `docker_tcp_socket_port` |
 | Dockhand | Web UI listen | 3000 | `docker_swarm_dockhand_http_listen_port` |
 | Dockhand | Web UI expose | 9999 | `docker_swarm_dockhand_http_expose_port` |
 | GitLab | Node exporter | 9100 | `gitlab_node_exporter_port` |

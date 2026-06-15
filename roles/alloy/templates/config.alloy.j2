@@ -76,27 +76,27 @@ discovery.relabel "host_metrics" {
 
   rule {
     target_label = "cluster"
-    replacement  = "{{ alloy_cluster_name }}"
+    replacement  = "{{ alloy_cluster }}"
   }
 
   rule {
     target_label = "realm"
-    replacement  = "{{ alloy_cluster_realm }}"
+    replacement  = "{{ alloy_realm }}"
   }
 
   rule {
     target_label = "platform"
-    replacement  = "{{ alloy_cluster_platform }}"
+    replacement  = "{{ alloy_platform }}"
   }
 
   rule {
     target_label = "world"
-    replacement  = "{{ alloy_cluster_world }}"
+    replacement  = "{{ alloy_world }}"
   }
 
   rule {
     target_label = "instance"
-    replacement  = "{{ ansible_hostname }}"
+    replacement  = "{{ alloy_instance_name }}"
   }
 
   rule {
@@ -130,27 +130,27 @@ discovery.relabel "docker_metrics" {
 
   rule {
     target_label = "cluster"
-    replacement  = "{{ alloy_cluster_name }}"
+    replacement  = "{{ alloy_cluster }}"
   }
 
   rule {
     target_label = "realm"
-    replacement  = "{{ alloy_cluster_realm }}"
+    replacement  = "{{ alloy_realm }}"
   }
 
   rule {
     target_label = "platform"
-    replacement  = "{{ alloy_cluster_platform }}"
+    replacement  = "{{ alloy_platform }}"
   }
 
   rule {
     target_label = "world"
-    replacement  = "{{ alloy_cluster_world }}"
+    replacement  = "{{ alloy_world }}"
   }
 
   rule {
     target_label = "instance"
-    replacement  = "{{ ansible_hostname }}"
+    replacement  = "{{ alloy_instance_name }}"
   }
 
   rule {
@@ -220,11 +220,11 @@ prometheus.scrape "extra_{{ loop.index0 }}" {
 {% for target in extra_target.targets %}
     {
       __address__ = "{{ target }}",
-      cluster     = "{{ alloy_cluster_name }}",
-      realm       = "{{ alloy_cluster_realm }}",
-      platform    = "{{ alloy_cluster_platform }}",
-      world       = "{{ alloy_cluster_world }}",
-      instance    = "{{ ansible_hostname }}",
+      cluster     = "{{ alloy_cluster }}",
+      realm       = "{{ alloy_realm }}",
+      platform    = "{{ alloy_platform }}",
+      world       = "{{ alloy_world }}",
+      instance    = "{{ alloy_instance_name }}",
       job         = "{{ extra_target.job_name }}",
 {% for label_key, label_value in extra_target.labels | default({}) | dictsort %}
       {{ label_key }} = "{{ label_value }}",
@@ -287,27 +287,27 @@ loki.relabel "system_logs" {
 
   rule {
     target_label = "platform"
-    replacement  = "{{ alloy_cluster_platform }}"
+    replacement  = "{{ alloy_platform }}"
   }
 
   rule {
     target_label = "realm"
-    replacement  = "{{ alloy_cluster_realm }}"
+    replacement  = "{{ alloy_realm }}"
   }
 
   rule {
     target_label = "cluster"
-    replacement  = "{{ alloy_cluster_name }}"
+    replacement  = "{{ alloy_cluster }}"
   }
 
   rule {
     target_label = "world"
-    replacement  = "{{ alloy_cluster_world }}"
+    replacement  = "{{ alloy_world }}"
   }
 
   rule {
     target_label = "instance"
-    replacement  = "{{ ansible_hostname }}"
+    replacement  = "{{ alloy_instance_name }}"
   }
 
   rule {
@@ -342,27 +342,27 @@ loki.relabel "journal_logs" {
 
   rule {
     target_label = "cluster"
-    replacement  = "{{ alloy_cluster_name }}"
+    replacement  = "{{ alloy_cluster }}"
   }
 
   rule {
     target_label = "realm"
-    replacement  = "{{ alloy_cluster_realm }}"
+    replacement  = "{{ alloy_realm }}"
   }
 
   rule {
     target_label = "platform"
-    replacement  = "{{ alloy_cluster_platform }}"
+    replacement  = "{{ alloy_platform }}"
   }
 
   rule {
     target_label = "world"
-    replacement  = "{{ alloy_cluster_world }}"
+    replacement  = "{{ alloy_world }}"
   }
 
   rule {
     target_label = "instance"
-    replacement  = "{{ ansible_hostname }}"
+    replacement  = "{{ alloy_instance_name }}"
   }
 
   rule {
@@ -384,27 +384,27 @@ discovery.relabel "docker_logs" {
 
   rule {
     target_label = "cluster"
-    replacement  = "{{ alloy_cluster_name }}"
+    replacement  = "{{ alloy_cluster }}"
   }
 
   rule {
     target_label = "realm"
-    replacement  = "{{ alloy_cluster_realm }}"
+    replacement  = "{{ alloy_realm }}"
   }
 
   rule {
     target_label = "platform"
-    replacement  = "{{ alloy_cluster_platform }}"
+    replacement  = "{{ alloy_platform }}"
   }
 
   rule {
     target_label = "world"
-    replacement  = "{{ alloy_cluster_world }}"
+    replacement  = "{{ alloy_world }}"
   }
 
   rule {
     target_label = "instance"
-    replacement  = "{{ ansible_hostname }}"
+    replacement  = "{{ alloy_instance_name }}"
   }
 
   rule {
