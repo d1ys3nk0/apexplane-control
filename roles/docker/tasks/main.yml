@@ -123,11 +123,11 @@
     - not ansible_check_mode
     - docker_interactive_mode | bool
     - not (docker_yes_mode | bool)
-    - docker_restart_approval.user_input != 'yes'
     - >-
       docker_update_config.changed
       or (docker_update_systemd_override is defined and docker_update_systemd_override.changed)
       or (docker_remove_systemd_override is defined and docker_remove_systemd_override.changed)
+    - docker_restart_approval.user_input | default('') != 'yes'
 
 - name: Restart Docker when approved
   become: true

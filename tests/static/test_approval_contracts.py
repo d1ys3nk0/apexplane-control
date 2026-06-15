@@ -42,6 +42,14 @@ def task_when_contains(task: Mapping[str, object], *expected_values: str) -> boo
     return all(any(expected_value in when_value for when_value in when_values) for expected_value in expected_values)
 
 
+def task_when_requires_typed_approval(task: Mapping[str, object]) -> bool:
+    when_values = task_when_values(task)
+    return any(
+        "user_input" in when_value and "default" in when_value and "!= 'yes'" in when_value
+        for when_value in when_values
+    )
+
+
 def role_defaults(role_name: str) -> Mapping[str, object]:
     defaults = load_yaml(REPO_ROOT / "roles" / role_name / "defaults" / "main.yml")
     return cast("Mapping[str, object]", defaults) if isinstance(defaults, Mapping) else {}
@@ -78,6 +86,7 @@ def test_destructive_approval_flows_accept_yes_preapproval() -> None:
         ), f"{role_name} must prompt for destructive changes only when YES is not set"
         assert any(
             "ansible.builtin.fail" in task
-            and task_when_contains(task, ".user_input != 'yes'", f"not ({yes_mode} | bool)")
+            and task_when_requires_typed_approval(task)
+            and task_when_contains(task, f"not ({yes_mode} | bool)")
             for task in tasks
         ), f"{role_name} must reject destructive changes without typed approval"

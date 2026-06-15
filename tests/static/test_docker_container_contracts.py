@@ -321,6 +321,14 @@ def task_when_contains(task: Mapping[str, object], *expected_values: str) -> boo
     return all(any(expected_value in when_value for when_value in when_values) for expected_value in expected_values)
 
 
+def task_when_requires_typed_approval(task: Mapping[str, object]) -> bool:
+    when_values = task_when_values(task)
+    return any(
+        "user_input" in when_value and "default" in when_value and "!= 'yes'" in when_value
+        for when_value in when_values
+    )
+
+
 def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
     role_dir = REPO_ROOT / "roles" / "docker"
     defaults = role_defaults(role_dir)
@@ -372,13 +380,13 @@ def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
         )
         assert any(
             "ansible.builtin.fail" in task
+            and task_when_requires_typed_approval(task)
             and task_when_contains(
                 task,
                 "not ansible_check_mode",
                 "docker_update_config.changed",
                 "docker_interactive_mode | bool",
                 "not (docker_yes_mode | bool)",
-                "docker_restart_approval.user_input != 'yes'",
             )
             for task in prior_tasks
         )

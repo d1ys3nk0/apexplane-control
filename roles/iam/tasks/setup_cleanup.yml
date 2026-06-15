@@ -44,8 +44,8 @@
     - iam_cleanup_mode | bool
     - iam_interactive_mode | bool
     - not (iam_yes_mode | bool)
-    - iam_cleanup_approval.user_input != 'yes'
     - iam_users_to_remove | length > 0
+    - iam_cleanup_approval.user_input | default('') != 'yes'
 
 - name: Remove unmanaged users
   become: true

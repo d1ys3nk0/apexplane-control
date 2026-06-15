@@ -152,8 +152,8 @@
         - not ansible_check_mode
         - iam_interactive_mode | bool
         - not (iam_yes_mode | bool)
-        - iam_authorized_keys_approval.user_input != 'yes'
         - iam_authorized_keys_destructive_users | length > 0
+        - iam_authorized_keys_approval.user_input | default('') != 'yes'
 
     - name: Inspect managed authorized SSH key home directories
       become: true

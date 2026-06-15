@@ -155,8 +155,8 @@
         - not ansible_check_mode
         - crontab_interactive_mode | bool
         - not (crontab_yes_mode | bool)
-        - crontab_reconciliation_approval.user_input != 'yes'
         - crontab_changed_users | length > 0
+        - crontab_reconciliation_approval.user_input | default('') != 'yes'
 
     - name: Install managed user crontab
       become: true
