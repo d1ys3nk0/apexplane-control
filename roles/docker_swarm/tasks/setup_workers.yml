@@ -25,12 +25,12 @@
   become: true
   community.docker.docker_swarm:
     state: join
-    join_as: '{{ docker_swarm_join_role }}'
     advertise_addr: '{{ docker_swarm_advertise_ip }}'
     listen_addr: '{{ docker_swarm_advertise_ip }}:2377'
     data_path_addr: '{{ docker_swarm_advertise_ip }}'
     join_token: '{{ docker_swarm_leader_host.docker_swarm_init.swarm_facts.JoinTokens[docker_swarm_join_token] }}'
-    remote_addrs: '{{ docker_swarm_leader_ip }}:2377'
+    remote_addrs:
+      - '{{ docker_swarm_leader_ip }}:2377'
   when:
     - not ansible_check_mode
     - docker_swarm_leader_host.docker_swarm_init is defined
