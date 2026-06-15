@@ -104,10 +104,12 @@
       ansible.builtin.fail:
         msg: >-
           Managed crontabs differ from repository declarations while INTERACTIVE is disabled:
-          {{ crontab_changed_users | join(', ') }}. Run interactively to approve replacement or update the remote crontab manually.
+          {{ crontab_changed_users | join(', ') }}. Run interactively to approve replacement, set YES=1 or YES=true,
+          or update the remote crontab manually.
       when:
         - not ansible_check_mode
         - not (crontab_interactive_mode | bool)
+        - not (crontab_yes_mode | bool)
         - crontab_changed_users | length > 0
 
     - name: Report changed crontab reconciliation in check mode
@@ -138,10 +140,22 @@
           {% endfor %}
           {% endfor %}
 
-          Press ENTER to proceed
+          Type "yes" to proceed
+      register: crontab_reconciliation_approval
       when:
         - not ansible_check_mode
         - crontab_interactive_mode | bool
+        - not (crontab_yes_mode | bool)
+        - crontab_changed_users | length > 0
+
+    - name: Refuse changed crontab reconciliation without typed approval
+      ansible.builtin.fail:
+        msg: Changed crontab reconciliation was not approved. Type exactly "yes" to proceed.
+      when:
+        - not ansible_check_mode
+        - crontab_interactive_mode | bool
+        - not (crontab_yes_mode | bool)
+        - crontab_reconciliation_approval.user_input != 'yes'
         - crontab_changed_users | length > 0
 
     - name: Install managed user crontab

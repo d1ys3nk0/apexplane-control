@@ -27,6 +27,7 @@ This role manages local administrative, service, and root account state.
 | `iam_cleanup_mode` | `true` |
 | `iam_cleanup_ignored_user_names` | `['syslog']` |
 | `iam_interactive_mode` | `<derived>` |
+| `iam_yes_mode` | `<derived>` |
 | `iam_master_pass` | `~` |
 | `iam_master_salt` | `~` |
 | `iam_provision_user_name` | `iac` |
@@ -37,6 +38,8 @@ This role manages local administrative, service, and root account state.
 | `iam_provision_user_sudo_commands` | `['ALL']` |
 | `iam_admin_users` | `[]` |
 | `iam_service_users` | `[]` |
+
+Destructive reconciliation prompts by default in interactive live runs and requires typing exactly `yes`. Set `YES=1` or `YES=true` to preapprove those changes. Set `INTERACTIVE=0` or `INTERACTIVE=false` to fail instead of prompting when approval is required and `YES` is not set.
 
 ## Usage
 ```yaml

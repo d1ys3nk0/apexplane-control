@@ -16,10 +16,12 @@
   ansible.builtin.fail:
     msg: >-
       Unmanaged users found while INTERACTIVE is disabled: {{ iam_users_to_remove | join(', ') }}.
-      Run interactively to approve deletion or add the users to the IAM provision, admin, or service user settings.
+      Run interactively to approve deletion, set YES=1 or YES=true, or add the users to the IAM provision, admin,
+      or service user settings.
   when:
     - iam_cleanup_mode | bool
     - not (iam_interactive_mode | bool)
+    - not (iam_yes_mode | bool)
     - iam_users_to_remove | length > 0
 
 - name: Confirm unmanaged user removal
@@ -27,10 +29,22 @@
     prompt: |-
       The following users will be removed: {{ iam_users_to_remove | join(', ') }}.
 
-      Press ENTER to proceed
+      Type "yes" to proceed
+  register: iam_cleanup_approval
   when:
     - iam_cleanup_mode | bool
     - iam_interactive_mode | bool
+    - not (iam_yes_mode | bool)
+    - iam_users_to_remove | length > 0
+
+- name: Refuse unmanaged user removal without typed approval
+  ansible.builtin.fail:
+    msg: Unmanaged user removal was not approved. Type exactly "yes" to proceed.
+  when:
+    - iam_cleanup_mode | bool
+    - iam_interactive_mode | bool
+    - not (iam_yes_mode | bool)
+    - iam_cleanup_approval.user_input != 'yes'
     - iam_users_to_remove | length > 0
 
 - name: Remove unmanaged users

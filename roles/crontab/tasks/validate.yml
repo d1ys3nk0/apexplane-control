@@ -4,11 +4,12 @@
   ansible.builtin.assert:
     that:
       - crontab_interactive_mode | type_debug == 'bool'
+      - crontab_yes_mode | type_debug == 'bool'
       - crontab_jobs is mapping
       - crontab_spool_dir is string
       - crontab_spool_dir | length > 0
       - crontab_spool_dir is match('^/')
-    fail_msg: Define crontab_jobs as a user-keyed mapping, crontab_interactive_mode as a boolean, and crontab_spool_dir as an absolute path before running role crontab.
+    fail_msg: Define crontab_jobs as a user-keyed mapping, crontab_interactive_mode and crontab_yes_mode as booleans, and crontab_spool_dir as an absolute path before running role crontab.
 
 - name: Assert managed crontab users are valid
   ansible.builtin.assert:

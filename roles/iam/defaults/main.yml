@@ -6,6 +6,7 @@ iam_cleanup_mode: true
 iam_cleanup_ignored_user_names:
   - syslog
 iam_interactive_mode: "{{ lookup('env', 'INTERACTIVE') | default('1', true) | lower not in ['0', 'false'] }}"
+iam_yes_mode: "{{ lookup('env', 'YES') | default('0', true) | lower in ['1', 'true'] }}"
 iam_master_pass: ~
 iam_master_salt: ~
 iam_provision_user_name: iac

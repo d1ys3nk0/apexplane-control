@@ -1,5 +1,6 @@
 ---
 
 crontab_interactive_mode: "{{ lookup('env', 'INTERACTIVE') | default('1', true) | lower not in ['0', 'false'] }}"
+crontab_yes_mode: "{{ lookup('env', 'YES') | default('0', true) | lower in ['1', 'true'] }}"
 crontab_jobs: {}
 crontab_spool_dir: /var/spool/cron/crontabs

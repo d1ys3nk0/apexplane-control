@@ -101,10 +101,12 @@
         msg: >-
           Managed authorized_keys files would remove SSH key lines while INTERACTIVE is disabled:
           {{ iam_authorized_keys_destructive_users | join(', ') }}.
-          Run interactively to approve replacement or update the remote authorized_keys file manually.
+          Run interactively to approve replacement, set YES=1 or YES=true, or update the remote authorized_keys file
+          manually.
       when:
         - not ansible_check_mode
         - not (iam_interactive_mode | bool)
+        - not (iam_yes_mode | bool)
         - iam_authorized_keys_destructive_users | length > 0
 
     - name: Report destructive authorized SSH key reconciliation in check mode
@@ -135,10 +137,22 @@
           {% endfor %}
           {% endfor %}
 
-          Press ENTER to proceed
+          Type "yes" to proceed
+      register: iam_authorized_keys_approval
       when:
         - not ansible_check_mode
         - iam_interactive_mode | bool
+        - not (iam_yes_mode | bool)
+        - iam_authorized_keys_destructive_users | length > 0
+
+    - name: Refuse destructive authorized SSH key reconciliation without typed approval
+      ansible.builtin.fail:
+        msg: Destructive authorized SSH key reconciliation was not approved. Type exactly "yes" to proceed.
+      when:
+        - not ansible_check_mode
+        - iam_interactive_mode | bool
+        - not (iam_yes_mode | bool)
+        - iam_authorized_keys_approval.user_input != 'yes'
         - iam_authorized_keys_destructive_users | length > 0
 
     - name: Inspect managed authorized SSH key home directories

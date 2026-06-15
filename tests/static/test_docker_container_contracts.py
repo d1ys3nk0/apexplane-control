@@ -327,6 +327,8 @@ def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
     tasks = list(iter_tasks(load_yaml(role_dir / "tasks" / "main.yml")))
 
     assert "docker_interactive_mode" in defaults
+    assert "docker_yes_mode" in defaults
+    assert "docker_force_mode" not in defaults
 
     guarded_restart_indexes: list[int] = []
     for index, task in enumerate(tasks):
@@ -342,7 +344,7 @@ def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
         assert any(
             "ansible.builtin.debug" in task
             and task.get("changed_when") is True
-            and task_when_contains(task, "ansible_check_mode", "docker_update_config.changed", "docker_force_mode")
+            and task_when_contains(task, "ansible_check_mode", "docker_update_config.changed")
             for task in prior_tasks
         )
         assert any(
@@ -351,8 +353,8 @@ def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
                 task,
                 "not ansible_check_mode",
                 "docker_update_config.changed",
-                "docker_force_mode",
                 "not (docker_interactive_mode | bool)",
+                "not (docker_yes_mode | bool)",
             )
             for task in prior_tasks
         )
@@ -363,8 +365,8 @@ def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
                 task,
                 "not ansible_check_mode",
                 "docker_update_config.changed",
-                "docker_force_mode",
                 "docker_interactive_mode | bool",
+                "not (docker_yes_mode | bool)",
             )
             for task in prior_tasks
         )
@@ -374,9 +376,17 @@ def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
                 task,
                 "not ansible_check_mode",
                 "docker_update_config.changed",
-                "docker_force_mode",
                 "docker_interactive_mode | bool",
+                "not (docker_yes_mode | bool)",
                 "docker_restart_approval.user_input != 'yes'",
             )
             for task in prior_tasks
+        )
+        restart_task = tasks[index]
+        assert task_when_contains(
+            restart_task,
+            "docker_update_config.changed",
+            "docker_yes_mode",
+            "docker_restart_approval is defined",
+            "docker_restart_approval.user_input == 'yes'",
         )

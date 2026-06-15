@@ -9,6 +9,7 @@
       - iam_cleanup_ignored_user_names is sequence
       - iam_cleanup_ignored_user_names is not string
       - iam_interactive_mode | type_debug == 'bool'
+      - iam_yes_mode | type_debug == 'bool'
       - iam_master_pass is not none
       - iam_master_pass is string
       - iam_master_salt is not none
@@ -29,7 +30,7 @@
       - iam_admin_users is not string
       - iam_service_users is iterable
       - iam_service_users is not string
-    fail_msg: Define IAM root, provision user, admin user, service user, cleanup, and interactive settings before running role iam.
+    fail_msg: Define IAM root, provision user, admin user, service user, cleanup, interactive, and approval settings before running role iam.
 
 - name: Validate IAM admin users
   ansible.builtin.assert:
