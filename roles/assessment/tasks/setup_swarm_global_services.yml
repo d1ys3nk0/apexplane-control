@@ -7,10 +7,8 @@
       - docker
       - node
       - ls
-      - --filter
-      - availability=active
       - --format
-      - "{% raw %}{{.Hostname}}{% endraw %}"
+      - "{% raw %}{{.Hostname}} {{.Availability}}{% endraw %}"
   register: assessment_swarm_active_nodes
   changed_when: false
 
@@ -45,15 +43,22 @@
   changed_when: false
   failed_when: >-
     assessment_swarm_global_service_tasks.rc != 0
-    or (assessment_swarm_active_nodes.stdout_lines | length) == 0
-    or (assessment_swarm_global_running_task_nodes | length) != (assessment_swarm_active_nodes.stdout_lines | length)
+    or (assessment_swarm_active_node_names | length) == 0
+    or (assessment_swarm_global_running_task_nodes | length) != (assessment_swarm_active_node_names | length)
     or (assessment_swarm_global_running_task_nodes | unique | sort | list)
-    != (assessment_swarm_active_nodes.stdout_lines | unique | sort | list)
+    != (assessment_swarm_active_node_names | unique | sort | list)
   vars:
     assessment_swarm_global_running_task_nodes: >-
       {{
         assessment_swarm_global_service_tasks.stdout_lines
         | select('match', '^[^ ]+ Running')
+        | map('regex_replace', '^([^ ]+) .+$', '\\1')
+        | list
+      }}
+    assessment_swarm_active_node_names: >-
+      {{
+        assessment_swarm_active_nodes.stdout_lines
+        | select('match', '^[^ ]+ Active$')
         | map('regex_replace', '^([^ ]+) .+$', '\\1')
         | list
       }}

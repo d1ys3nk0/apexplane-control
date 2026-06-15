@@ -134,10 +134,8 @@
       - docker
       - node
       - ls
-      - --filter
-      - availability=active
       - --format
-      - "{% raw %}{{.Hostname}}{% endraw %}"
+      - "{% raw %}{{.Hostname}} {{.Availability}}{% endraw %}"
   register: docker_swarm_traefik_active_nodes
   changed_when: false
   when:
@@ -159,11 +157,11 @@
       - traefik
   register: docker_swarm_traefik_service_tasks
   until:
-    - docker_swarm_traefik_active_nodes.stdout_lines | length > 0
-    - (docker_swarm_traefik_running_task_nodes | length) == (docker_swarm_traefik_active_nodes.stdout_lines | length)
+    - docker_swarm_traefik_active_node_names | length > 0
+    - (docker_swarm_traefik_running_task_nodes | length) == (docker_swarm_traefik_active_node_names | length)
     - >-
       (docker_swarm_traefik_running_task_nodes | unique | sort | list)
-      == (docker_swarm_traefik_active_nodes.stdout_lines | unique | sort | list)
+      == (docker_swarm_traefik_active_node_names | unique | sort | list)
   retries: 30
   delay: 2
   changed_when: false
@@ -172,6 +170,13 @@
       {{
         docker_swarm_traefik_service_tasks.stdout_lines
         | select('match', '^[^ ]+ Running')
+        | map('regex_replace', '^([^ ]+) .+$', '\\1')
+        | list
+      }}
+    docker_swarm_traefik_active_node_names: >-
+      {{
+        docker_swarm_traefik_active_nodes.stdout_lines
+        | select('match', '^[^ ]+ Active$')
         | map('regex_replace', '^([^ ]+) .+$', '\\1')
         | list
       }}
