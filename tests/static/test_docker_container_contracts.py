@@ -129,6 +129,14 @@ def uses_docker_cli(task: Mapping[str, object]) -> bool:
     return False
 
 
+def service_module(task: Mapping[str, object]) -> Mapping[str, object]:
+    for module_name in ("ansible.builtin.service", "ansible.builtin.systemd", "ansible.builtin.systemd_service"):
+        module = task.get(module_name)
+        if isinstance(module, Mapping):
+            return cast("Mapping[str, object]", module)
+    return {}
+
+
 def test_docker_api_tasks_escalate_privileges() -> None:
     errors: list[str] = []
 
@@ -243,3 +251,78 @@ def test_dbs_service_roles_expose_data_volume_defaults() -> None:
         assert defaults[volume_var] == default_volume
         assert f"name: '{{{{ {volume_var} }}}}'" in tasks_text
         assert f"{{{{ {volume_var} }}}}:" in tasks_text
+
+
+def task_when_values(task: Mapping[str, object]) -> list[str]:
+    when = task.get("when")
+    if isinstance(when, str):
+        return [when]
+    if isinstance(when, list):
+        return [item for item in when if isinstance(item, str)]
+    return []
+
+
+def task_when_contains(task: Mapping[str, object], *expected_values: str) -> bool:
+    when_values = task_when_values(task)
+    return all(any(expected_value in when_value for when_value in when_values) for expected_value in expected_values)
+
+
+def test_docker_daemon_restart_requires_typed_interactive_approval() -> None:
+    role_dir = REPO_ROOT / "roles" / "docker"
+    defaults = role_defaults(role_dir)
+    tasks = list(iter_tasks(load_yaml(role_dir / "tasks" / "main.yml")))
+
+    assert "docker_interactive_mode" in defaults
+
+    guarded_restart_indexes: list[int] = []
+    for index, task in enumerate(tasks):
+        module = service_module(task)
+        if module.get("name") == "docker" and module.get("state") == "restarted":
+            guarded_restart_indexes.append(index)
+
+    assert guarded_restart_indexes, "roles/docker must have a Docker restart task guarded by typed approval"
+
+    for index in guarded_restart_indexes:
+        prior_tasks = tasks[:index]
+
+        assert any(
+            "ansible.builtin.debug" in task
+            and task.get("changed_when") is True
+            and task_when_contains(task, "ansible_check_mode", "docker_update_config.changed", "docker_force_mode")
+            for task in prior_tasks
+        )
+        assert any(
+            "ansible.builtin.fail" in task
+            and task_when_contains(
+                task,
+                "not ansible_check_mode",
+                "docker_update_config.changed",
+                "docker_force_mode",
+                "not (docker_interactive_mode | bool)",
+            )
+            for task in prior_tasks
+        )
+        assert any(
+            "ansible.builtin.pause" in task
+            and task.get("register") == "docker_restart_approval"
+            and task_when_contains(
+                task,
+                "not ansible_check_mode",
+                "docker_update_config.changed",
+                "docker_force_mode",
+                "docker_interactive_mode | bool",
+            )
+            for task in prior_tasks
+        )
+        assert any(
+            "ansible.builtin.fail" in task
+            and task_when_contains(
+                task,
+                "not ansible_check_mode",
+                "docker_update_config.changed",
+                "docker_force_mode",
+                "docker_interactive_mode | bool",
+                "docker_restart_approval.user_input != 'yes'",
+            )
+            for task in prior_tasks
+        )

@@ -7,6 +7,7 @@
       - docker_mirrors is sequence
       - docker_mirrors is not string
       - docker_force_mode | type_debug == 'bool'
+      - docker_interactive_mode | type_debug == 'bool'
       - docker_arch_map is mapping
       - docker_dpkg_arch | string | length > 0
-    fail_msg: Define valid Docker repository, mirror, force mode, and architecture settings before running role docker.
+    fail_msg: Define valid Docker repository, mirror, force mode, interactive mode, and architecture settings before running role docker.
