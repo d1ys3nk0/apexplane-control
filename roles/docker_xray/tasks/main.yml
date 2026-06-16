@@ -1,0 +1,236 @@
+---
+
+- name: Validate Xray variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Create Xray directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - '{{ docker_xray_config_dir }}'
+  when: docker_xray_enabled | bool
+
+- name: Create temporary Xray config file
+  become: true
+  ansible.builtin.tempfile:
+    state: file
+    suffix: .json
+  register: docker_xray_temp_config
+  check_mode: false
+  changed_when: false
+  when:
+    - docker_xray_enabled | bool
+    - not ansible_check_mode
+
+- name: Render temporary Xray config file
+  become: true
+  ansible.builtin.template:
+    src: config.json.j2
+    dest: '{{ docker_xray_temp_config.path }}'
+    owner: root
+    group: root
+    mode: '0600'
+  check_mode: false
+  changed_when: false
+  no_log: '{{ docker_xray_nolog }}'
+  when:
+    - docker_xray_enabled | bool
+    - not ansible_check_mode
+
+- name: Remove stale Xray config check container
+  become: true
+  community.docker.docker_container:
+    name: xray-config-check
+    state: absent
+  changed_when: false
+  when:
+    - docker_xray_enabled | bool
+    - not ansible_check_mode
+
+- name: Validate rendered Xray config
+  become: true
+  community.docker.docker_container:
+    name: xray-config-check
+    image: '{{ docker_xray_image_full }}'
+    entrypoint: xray
+    command:
+      - run
+      - -test
+      - -config
+      - '{{ docker_xray_config_filename }}'
+    detach: false
+    cleanup: true
+    volumes:
+      - '{{ docker_xray_temp_config.path }}:{{ docker_xray_config_filename }}:ro'
+  changed_when: false
+  no_log: '{{ docker_xray_nolog }}'
+  when:
+    - docker_xray_enabled | bool
+    - not ansible_check_mode
+
+- name: Install Xray config
+  become: true
+  ansible.builtin.template:
+    src: config.json.j2
+    dest: '{{ docker_xray_host_config_file }}'
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: '{{ docker_xray_nolog }}'
+  register: docker_xray_config_result
+  when: docker_xray_enabled | bool
+
+- name: Install Xray TPROXY script
+  become: true
+  ansible.builtin.template:
+    src: xray-tproxy.sh.j2
+    dest: '{{ docker_xray_tproxy_script_file }}'
+    owner: root
+    group: root
+    mode: '0755'
+  register: docker_xray_tproxy_script_result
+  when:
+    - docker_xray_enabled | bool
+    - docker_xray_tproxy_enabled | bool
+
+- name: Install Xray TPROXY service
+  become: true
+  ansible.builtin.template:
+    src: xray-tproxy.service.j2
+    dest: '/lib/systemd/system/{{ docker_xray_tproxy_service_name }}.service'
+    owner: root
+    group: root
+    mode: '0644'
+  register: docker_xray_tproxy_service_result
+  when:
+    - docker_xray_enabled | bool
+    - docker_xray_tproxy_enabled | bool
+
+- name: Reload systemd for Xray TPROXY service
+  become: true
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when:
+    - docker_xray_enabled | bool
+    - docker_xray_tproxy_enabled | bool
+    - docker_xray_tproxy_service_result.changed
+
+- name: Start Xray container
+  become: true
+  community.docker.docker_container:
+    hostname: '{{ docker_xray_container_name }}.{{ inventory_hostname }}'
+    name: '{{ docker_xray_container_name }}'
+    image: '{{ docker_xray_image_full }}'
+    command:
+      - xray
+      - run
+      - -config
+      - '{{ docker_xray_config_filename }}'
+    restart_policy: unless-stopped
+    network_mode: '{{ docker_xray_network_mode }}'
+    memory_reservation: '{{ docker_xray_mem_res }}'
+    memory: '{{ docker_xray_mem_lim }}'
+    capabilities:
+      - NET_ADMIN
+    volumes:
+      - '{{ docker_xray_host_config_file }}:{{ docker_xray_config_filename }}:ro'
+    comparisons:
+      command: strict
+      networks: strict
+  register: docker_xray_container_result
+  no_log: '{{ docker_xray_nolog }}'
+  when:
+    - docker_xray_enabled | bool
+    - not ansible_check_mode
+
+- name: Restart Xray container after config update
+  become: true
+  community.docker.docker_container:
+    name: '{{ docker_xray_container_name }}'
+    state: started
+    restart: true
+  no_log: '{{ docker_xray_nolog }}'
+  when:
+    - docker_xray_enabled | bool
+    - not ansible_check_mode
+    - docker_xray_config_result.changed
+    - not docker_xray_container_result.changed
+
+- name: Enable Xray TPROXY service
+  become: true
+  ansible.builtin.systemd_service:
+    name: '{{ docker_xray_tproxy_service_name }}'
+    enabled: true
+    state: restarted
+  when:
+    - docker_xray_enabled | bool
+    - docker_xray_tproxy_enabled | bool
+    - not ansible_check_mode
+    - docker_xray_tproxy_script_result.changed or docker_xray_tproxy_service_result.changed
+
+- name: Ensure Xray TPROXY service is active
+  become: true
+  ansible.builtin.systemd_service:
+    name: '{{ docker_xray_tproxy_service_name }}'
+    enabled: true
+    state: started
+  when:
+    - docker_xray_enabled | bool
+    - docker_xray_tproxy_enabled | bool
+    - not ansible_check_mode
+
+- name: Verify Xray TPROXY service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - '{{ docker_xray_tproxy_service_name }}'
+  register: docker_xray_tproxy_service_health
+  changed_when: false
+  failed_when: docker_xray_tproxy_service_health.stdout != 'active'
+  when:
+    - docker_xray_enabled | bool
+    - docker_xray_tproxy_enabled | bool
+    - not ansible_check_mode
+
+- name: Verify Xray container is running
+  become: true
+  community.docker.docker_container_info:
+    name: '{{ docker_xray_container_name }}'
+  register: docker_xray_container_info
+  until:
+    - docker_xray_container_info.exists
+    - docker_xray_container_info.container.State.Running | bool
+  retries: 20
+  delay: 3
+  when:
+    - docker_xray_enabled | bool
+    - not ansible_check_mode
+
+- name: Wait for Xray inbound ports to be ready
+  ansible.builtin.wait_for:
+    host: '{{ item.listen | default("127.0.0.1") }}'
+    port: '{{ item.port }}'
+    sleep: 3
+    timeout: 60
+    state: started
+  loop: '{{ docker_xray_inbounds }}'
+  loop_control:
+    label: "{{ item.tag | default(item.type | default('xray')) }}"
+  when:
+    - docker_xray_enabled | bool
+    - not ansible_check_mode
+
+- name: Remove temporary Xray config file
+  become: true
+  ansible.builtin.file:
+    path: '{{ docker_xray_temp_config.path }}'
+    state: absent
+  changed_when: false
+  when: docker_xray_temp_config.path is defined

@@ -1,0 +1,13 @@
+[Unit]
+Description=Xray transparent proxy rules
+After=network.target docker.service
+Wants=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{ docker_xray_tproxy_script_file }} start
+ExecStop={{ docker_xray_tproxy_script_file }} stop
+
+[Install]
+WantedBy=multi-user.target

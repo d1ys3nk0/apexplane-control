@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CHAIN={{ docker_xray_tproxy_chain | quote }}
+FWMARK={{ docker_xray_tproxy_fwmark | quote }}
+ROUTE_TABLE={{ docker_xray_tproxy_route_table | quote }}
+TPROXY_PORT={{ docker_xray_tproxy_port | quote }}
+
+SOURCE_CIDRS=(
+{% for item in docker_xray_tproxy_source_cidrs %}
+  {{ item | quote }}
+{% endfor %}
+)
+
+BYPASS_CIDRS=(
+{% for item in docker_xray_tproxy_bypass_cidrs %}
+  {{ item | quote }}
+{% endfor %}
+)
+
+rule_exists() {
+    iptables -t mangle -C "$@" >/dev/null 2>&1
+}
+
+append_rule() {
+    if ! rule_exists "$@"; then
+        iptables -t mangle -A "$@"
+    fi
+}
+
+delete_rule() {
+    while rule_exists "$@"; do
+        iptables -t mangle -D "$@"
+    done
+}
+
+start() {
+    ip rule add fwmark "$FWMARK" table "$ROUTE_TABLE" 2>/dev/null || true
+    ip route replace local 0.0.0.0/0 dev lo table "$ROUTE_TABLE"
+
+    iptables -t mangle -N "$CHAIN" 2>/dev/null || true
+    iptables -t mangle -F "$CHAIN"
+
+    for cidr in "${BYPASS_CIDRS[@]}"; do
+        append_rule "$CHAIN" -d "$cidr" -j RETURN
+    done
+
+    append_rule "$CHAIN" -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port "$TPROXY_PORT" --tproxy-mark "$FWMARK"
+    append_rule "$CHAIN" -p udp -j TPROXY --on-ip 127.0.0.1 --on-port "$TPROXY_PORT" --tproxy-mark "$FWMARK"
+
+    for cidr in "${SOURCE_CIDRS[@]}"; do
+        append_rule PREROUTING -s "$cidr" -p tcp -j "$CHAIN"
+        append_rule PREROUTING -s "$cidr" -p udp -j "$CHAIN"
+    done
+}
+
+stop() {
+    for cidr in "${SOURCE_CIDRS[@]}"; do
+        delete_rule PREROUTING -s "$cidr" -p tcp -j "$CHAIN"
+        delete_rule PREROUTING -s "$cidr" -p udp -j "$CHAIN"
+    done
+
+    iptables -t mangle -F "$CHAIN" 2>/dev/null || true
+    iptables -t mangle -X "$CHAIN" 2>/dev/null || true
+    ip route flush table "$ROUTE_TABLE" 2>/dev/null || true
+    while ip rule delete fwmark "$FWMARK" table "$ROUTE_TABLE" 2>/dev/null; do true; done
+}
+
+case "${1:-}" in
+start)
+    start
+    ;;
+stop)
+    stop
+    ;;
+restart)
+    stop
+    start
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart}" >&2
+    exit 1
+    ;;
+esac

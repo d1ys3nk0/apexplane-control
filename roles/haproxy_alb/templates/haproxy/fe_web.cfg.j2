@@ -60,6 +60,15 @@ host_{{ route.name }}
 {%- endfor -%}
 {%- endmacro %}
 
+{% macro route_response_header_updates(route) -%}
+{%- for header_name in route.response_header_deletes | default([]) %}
+  http-response del-header {{ header_name }} if { var(txn.route) -m str {{ route.name }} }
+{%- endfor %}
+{%- for header_name, header_value in (route.response_headers | default({})).items() %}
+  http-response set-header {{ header_name }} "{{ header_value }}" if { var(txn.route) -m str {{ route.name }} }
+{%- endfor -%}
+{%- endmacro %}
+
 {% set haproxy_route_prefix_lengths = namespace(values=[]) %}
 {% for route in haproxy_alb_routes %}
 {% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
@@ -158,6 +167,22 @@ frontend web
   http-request redirect scheme https code 301 if !{ ssl_fc } !is_acme {{ route_match(route) }}
 {% endif %}
 {% endfor %}
+{% for prefix_length in haproxy_route_prefix_lengths.values | sort(reverse=true) %}
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
+{% for route_prefix in route_prefixes | sort %}
+{% if route_prefix | length == prefix_length %}
+  http-request set-var(txn.route) str({{ route.name }}) if !{ var(txn.route) -m found } {{ route_match(route, [route_prefix]) }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
+{% if route_prefixes | length == 0 %}
+  http-request set-var(txn.route) str({{ route.name }}) if !{ var(txn.route) -m found } {{ route_match(route) }}
+{% endif %}
+{% endfor %}
 {% for prefix_length in haproxy_throttle_prefix_lengths.values | sort(reverse=true) %}
 {% for throttle_rule in haproxy_alb_throttles | default([]) %}
 {% set throttle_prefix = throttle_rule.prefix | string | trim %}
@@ -191,6 +216,9 @@ frontend web
 
   # ALB Header
   http-response set-header X-ALB %[hostname]
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{{ route_response_header_updates(route) }}
+{% endfor %}
 
 {% if haproxy_alb_crowdsec_enabled | bool %}
   # CrowdSec

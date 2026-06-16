@@ -7,4 +7,4 @@
     value: '{{ item.value }}'
     state: present
     reload: true
-  loop: '{{ base_hardening_sysctl_config }}'
+  loop: '{{ base_hardening_sysctl_config + base_hardening_extra_sysctl_config }}'

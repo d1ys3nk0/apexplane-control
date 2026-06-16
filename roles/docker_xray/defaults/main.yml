@@ -1,0 +1,39 @@
+---
+
+docker_xray_image_name: teddysun/xray
+docker_xray_image_tag: 26.6.1
+docker_xray_image_full: '{{ docker_xray_image_name }}:{{ docker_xray_image_tag }}'
+
+docker_xray_enabled: true
+docker_xray_container_name: xray
+docker_xray_config_dir: /opt/xray
+docker_xray_config_filename: /etc/xray/config.json
+docker_xray_host_config_file: '{{ docker_xray_config_dir }}/config.json'
+docker_xray_network_mode: host
+docker_xray_loglevel: warning
+docker_xray_inbounds: []
+docker_xray_outbounds: []
+docker_xray_routing: {}
+docker_xray_sniffing: {}
+docker_xray_mem_res: 128M
+docker_xray_mem_lim: 1G
+
+docker_xray_tproxy_enabled: false
+docker_xray_tproxy_service_name: xray-tproxy
+docker_xray_tproxy_script_file: /opt/xray/tproxy.sh
+docker_xray_tproxy_route_table: 100
+docker_xray_tproxy_fwmark: 1
+docker_xray_tproxy_outbound_mark: 2
+docker_xray_tproxy_chain: XRAY_TPROXY
+docker_xray_tproxy_port: 10081
+docker_xray_tproxy_source_cidrs: []
+docker_xray_tproxy_bypass_cidrs:
+  - 0.0.0.0/8
+  - 10.0.0.0/8
+  - 100.64.0.0/10
+  - 127.0.0.0/8
+  - 169.254.0.0/16
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+  - 224.0.0.0/4
+  - 240.0.0.0/4

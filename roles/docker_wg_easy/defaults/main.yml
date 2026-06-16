@@ -1,0 +1,31 @@
+---
+
+docker_wg_easy_image_name: ghcr.io/wg-easy/wg-easy
+docker_wg_easy_image_tag: 15.3.0
+docker_wg_easy_image_full: '{{ docker_wg_easy_image_name }}:{{ docker_wg_easy_image_tag }}'
+
+docker_wg_easy_container_name: wg-easy
+docker_wg_easy_data_dir: /opt/wg-easy/wireguard
+docker_wg_easy_modules_dir: /lib/modules
+docker_wg_easy_network_name: wg-easy
+docker_wg_easy_network_driver: bridge
+docker_wg_easy_network_subnet: 10.42.42.0/24
+docker_wg_easy_network_gateway: 10.42.42.1
+docker_wg_easy_network_ipv4_address: 10.42.42.42
+docker_wg_easy_wireguard_port: 51820
+docker_wg_easy_web_port: 51821
+docker_wg_easy_web_host: 0.0.0.0
+docker_wg_easy_web_publish_host: 127.0.0.1
+docker_wg_easy_insecure: true
+docker_wg_easy_disable_ipv6: true
+docker_wg_easy_init_username: ~
+docker_wg_easy_init_password: ~
+docker_wg_easy_init_host: ~
+docker_wg_easy_init_port: '{{ docker_wg_easy_wireguard_port }}'
+docker_wg_easy_init_dns: []
+docker_wg_easy_init_ipv4_cidr: 10.8.0.0/24
+docker_wg_easy_init_ipv6_cidr: fdcc:ad94:bacf:61a3::/64
+docker_wg_easy_init_allowed_ips: []
+docker_wg_easy_mem_res: 128M
+docker_wg_easy_mem_lim: 256M
+docker_wg_easy_mem_swp: 512M

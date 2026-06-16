@@ -1,0 +1,94 @@
+---
+
+- name: Create wg-easy directories
+  become: true
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - '{{ docker_wg_easy_data_dir }}'
+
+- name: Create wg-easy Docker network
+  become: true
+  community.docker.docker_network:
+    name: '{{ docker_wg_easy_network_name }}'
+    driver: '{{ docker_wg_easy_network_driver }}'
+    ipam_config:
+      - subnet: '{{ docker_wg_easy_network_subnet }}'
+        gateway: '{{ docker_wg_easy_network_gateway }}'
+
+- name: Check wg-easy database
+  become: true
+  ansible.builtin.stat:
+    path: '{{ docker_wg_easy_db_path }}'
+  register: docker_wg_easy_db_stat
+
+- name: Bootstrap wg-easy container
+  become: true
+  community.docker.docker_container:
+    hostname: '{{ docker_wg_easy_container_name }}.{{ inventory_hostname }}'
+    name: '{{ docker_wg_easy_container_name }}'
+    image: '{{ docker_wg_easy_image_full }}'
+    env: '{{ docker_wg_easy_bootstrap_env }}'
+    restart_policy: unless-stopped
+    memory_reservation: '{{ docker_wg_easy_mem_res }}'
+    memory: '{{ docker_wg_easy_mem_lim }}'
+    memory_swap: '{{ docker_wg_easy_mem_swp }}'
+    networks:
+      - name: '{{ docker_wg_easy_network_name }}'
+        ipv4_address: '{{ docker_wg_easy_network_ipv4_address }}'
+    ports: '{{ docker_wg_easy_ports }}'
+    capabilities:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls: '{{ docker_wg_easy_sysctls }}'
+    volumes:
+      - '{{ docker_wg_easy_data_dir }}:/etc/wireguard'
+      - '{{ docker_wg_easy_modules_dir }}:/lib/modules:ro'
+  no_log: '{{ docker_wg_easy_nolog }}'
+  when:
+    - not ansible_check_mode
+    - not docker_wg_easy_db_stat.stat.exists
+
+- name: Wait for wg-easy database to be created
+  become: true
+  ansible.builtin.stat:
+    path: '{{ docker_wg_easy_db_path }}'
+  register: docker_wg_easy_bootstrap_db_stat
+  until: docker_wg_easy_bootstrap_db_stat.stat.exists
+  retries: 20
+  delay: 3
+  when:
+    - not ansible_check_mode
+    - not docker_wg_easy_db_stat.stat.exists
+
+- name: Start wg-easy container without bootstrap credentials
+  become: true
+  community.docker.docker_container:
+    hostname: '{{ docker_wg_easy_container_name }}.{{ inventory_hostname }}'
+    name: '{{ docker_wg_easy_container_name }}'
+    image: '{{ docker_wg_easy_image_full }}'
+    env: '{{ docker_wg_easy_base_env }}'
+    restart_policy: unless-stopped
+    recreate: '{{ not docker_wg_easy_db_stat.stat.exists }}'
+    memory_reservation: '{{ docker_wg_easy_mem_res }}'
+    memory: '{{ docker_wg_easy_mem_lim }}'
+    memory_swap: '{{ docker_wg_easy_mem_swp }}'
+    networks:
+      - name: '{{ docker_wg_easy_network_name }}'
+        ipv4_address: '{{ docker_wg_easy_network_ipv4_address }}'
+    ports: '{{ docker_wg_easy_ports }}'
+    capabilities:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls: '{{ docker_wg_easy_sysctls }}'
+    volumes:
+      - '{{ docker_wg_easy_data_dir }}:/etc/wireguard'
+      - '{{ docker_wg_easy_modules_dir }}:/lib/modules:ro'
+    comparisons:
+      env: strict
+      networks: strict
+  when: not ansible_check_mode or docker_wg_easy_db_stat.stat.exists

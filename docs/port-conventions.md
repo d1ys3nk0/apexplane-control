@@ -75,12 +75,15 @@ These ports are the default observability convention for this collection.
 | Docker daemon | TCP API | 2375 | `docker_tcp_socket_port` |
 | Dockhand | Web UI listen | 3000 | `docker_swarm_dockhand_http_listen_port` |
 | Dockhand | Web UI expose | 9999 | `docker_swarm_dockhand_http_expose_port` |
+| Xray | Local TPROXY inbound | 10081 | `docker_xray_tproxy_port` |
 | GitLab | Node exporter | 9100 | `gitlab_node_exporter_port` |
 | Mailpit | SMTP | 1025 | `docker_mailpit_smtp_port` |
 | Mailpit | Web UI | 8025 | `docker_mailpit_web_port` |
 | Mattermost | HTTP listen address | project-defined | `mattermost_listen_address` |
 | Nexus | HTTP | 8081 | `docker_nexus_http_port` |
 | SonarQube | HTTP | 9000 | `docker_sonarqube_port` |
+| wg-easy | WireGuard UDP | 51820 | `docker_wg_easy_wireguard_port` |
+| wg-easy | Web UI | 51821 | `docker_wg_easy_web_port` |
 
 ## Maintenance Rules
 

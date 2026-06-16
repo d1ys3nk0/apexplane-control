@@ -1,0 +1,175 @@
+---
+
+docker_xray_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+docker_xray_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+docker_xray_nolog: '{{ (docker_xray_ci_mode | bool) and not (docker_xray_debug_mode | bool) }}'
+docker_xray_supported_inbound_types:
+  - tunnel
+  - vless
+docker_xray_supported_inbound_networks:
+  - raw
+  - ws
+docker_xray_supported_inbound_security:
+  - none
+  - reality
+docker_xray_supported_outbound_types:
+  - vless
+docker_xray_inbound_tag_values: >-
+  {%- set _xray_tags = [] -%}
+  {%- for _xray_inbound in docker_xray_inbounds -%}
+    {%- set _xray_type = _xray_inbound.type | default('') -%}
+    {%- set _ = _xray_tags.append(_xray_inbound.tag | default(_xray_type ~ '-in-' ~ loop.index)) -%}
+  {%- endfor -%}
+  {{ _xray_tags }}
+docker_xray_outbound_tag_values: >-
+  {%- set _xray_tags = [] -%}
+  {%- for _xray_outbound in docker_xray_outbounds -%}
+    {%- set _xray_type = _xray_outbound.type | default('') -%}
+    {%- set _ = _xray_tags.append(_xray_outbound.tag | default(_xray_type ~ '-out-' ~ loop.index)) -%}
+  {%- endfor -%}
+  {{ _xray_tags }}
+docker_xray_tag_values: '{{ docker_xray_inbound_tag_values + docker_xray_outbound_tag_values }}'
+docker_xray_inbound_ports: "{{ docker_xray_inbounds | map(attribute='port') | map('int') | list }}"
+docker_xray_tunnel_inbound_ports: >-
+  {{
+    docker_xray_inbounds
+    | selectattr('type', 'defined')
+    | selectattr('type', 'equalto', 'tunnel')
+    | selectattr('port', 'defined')
+    | map(attribute='port')
+    | map('int')
+    | list
+  }}
+docker_xray_default_sniffing:
+  enabled: true
+  destOverride:
+    - http
+    - tls
+    - quic
+docker_xray_inbound_items: >-
+  {%- set _xray_items = [] -%}
+  {%- for _xray_inbound in docker_xray_inbounds -%}
+    {%- set _xray_type = _xray_inbound.type -%}
+    {%- set _xray_tag = _xray_inbound.tag | default(_xray_type ~ '-in-' ~ loop.index) -%}
+    {%- if _xray_type == 'tunnel' -%}
+      {%- set _xray_tproxy_sockopt = {'tproxy': 'tproxy'} -%}
+      {%- set _xray_tproxy_stream_settings = {'sockopt': _xray_tproxy_sockopt} -%}
+      {%- set _xray_settings = {
+        'network': _xray_inbound.network | default('tcp,udp'),
+        'followRedirect': _xray_inbound.follow_redirect | default(true) | bool,
+      } -%}
+      {%- if _xray_inbound.address is defined -%}
+        {%- set _xray_settings = _xray_settings | combine({'address': _xray_inbound.address}) -%}
+      {%- endif -%}
+      {%- set _xray_item = {
+        'tag': _xray_tag,
+        'listen': _xray_inbound.listen | default('127.0.0.1'),
+        'port': _xray_inbound.port | int,
+        'protocol': 'dokodemo-door',
+        'settings': _xray_settings,
+        'sniffing': _xray_inbound.sniffing | default(docker_xray_default_sniffing),
+        'streamSettings': _xray_tproxy_stream_settings,
+      } -%}
+      {%- set _ = _xray_items.append(_xray_item) -%}
+    {%- elif _xray_type == 'vless' -%}
+      {%- set _xray_network = _xray_inbound.network | default('raw') -%}
+      {%- set _xray_default_security = 'reality' if _xray_inbound.reality is defined else 'none' -%}
+      {%- set _xray_security = _xray_inbound.security | default(_xray_default_security) -%}
+      {%- set _xray_users = [] -%}
+      {%- for _xray_user in _xray_inbound.users -%}
+        {%- set _xray_user_item = {'id': _xray_user.id} -%}
+        {%- if _xray_user.flow is defined or _xray_security == 'reality' -%}
+          {%- set _xray_user_item = _xray_user_item | combine({'flow': _xray_user.flow | default('xtls-rprx-vision')}) -%}
+        {%- endif -%}
+        {%- if _xray_user.email is defined -%}
+          {%- set _xray_user_item = _xray_user_item | combine({'email': _xray_user.email}) -%}
+        {%- endif -%}
+        {%- if _xray_user.level is defined -%}
+          {%- set _xray_user_item = _xray_user_item | combine({'level': _xray_user.level | int}) -%}
+        {%- endif -%}
+        {%- set _ = _xray_users.append(_xray_user_item) -%}
+      {%- endfor -%}
+      {%- set _xray_stream_settings = {'network': _xray_network, 'security': _xray_security} -%}
+      {%- if _xray_network == 'ws' -%}
+        {%- set _xray_ws_settings = {'path': _xray_inbound.ws.path} -%}
+        {%- if _xray_inbound.ws.headers is defined -%}
+          {%- set _xray_ws_settings = _xray_ws_settings | combine({'headers': _xray_inbound.ws.headers}) -%}
+        {%- endif -%}
+        {%- set _xray_stream_settings = _xray_stream_settings | combine({'wsSettings': _xray_ws_settings}) -%}
+      {%- endif -%}
+      {%- set _xray_item = {
+        'tag': _xray_tag,
+        'listen': _xray_inbound.listen | default('127.0.0.1'),
+        'port': _xray_inbound.port | int,
+        'protocol': 'vless',
+        'settings': {
+          'users': _xray_users,
+          'decryption': _xray_inbound.decryption | default('none'),
+        },
+        'streamSettings': _xray_stream_settings,
+      } -%}
+      {%- if _xray_inbound.sniffing is defined -%}
+        {%- set _xray_item = _xray_item | combine({'sniffing': _xray_inbound.sniffing}) -%}
+      {%- endif -%}
+      {%- set _ = _xray_items.append(_xray_item) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{ _xray_items }}
+docker_xray_outbound_items: >-
+  {%- set _xray_items = [] -%}
+  {%- for _xray_outbound in docker_xray_outbounds -%}
+    {%- set _xray_type = _xray_outbound.type -%}
+    {%- set _xray_tag = _xray_outbound.tag | default(_xray_type ~ '-out-' ~ loop.index) -%}
+    {%- if _xray_type == 'vless' -%}
+      {%- set _xray_user = {
+        'id': _xray_outbound.id,
+        'encryption': _xray_outbound.encryption | default('none'),
+        'flow': _xray_outbound.flow | default('xtls-rprx-vision'),
+      } -%}
+      {%- if _xray_outbound.email is defined -%}
+        {%- set _xray_user = _xray_user | combine({'email': _xray_outbound.email}) -%}
+      {%- endif -%}
+      {%- if _xray_outbound.level is defined -%}
+        {%- set _xray_user = _xray_user | combine({'level': _xray_outbound.level | int}) -%}
+      {%- endif -%}
+      {%- set _xray_reality_settings = {
+        'serverName': _xray_outbound.reality.server_name,
+        'fingerprint': _xray_outbound.reality.fingerprint | default('chrome'),
+        'password': _xray_outbound.reality.password,
+        'shortId': _xray_outbound.reality.short_id,
+        'spiderX': _xray_outbound.reality.spider_x | default('/'),
+      } -%}
+      {%- if _xray_outbound.reality.mldsa65_verify is defined -%}
+        {%- set _xray_reality_settings = _xray_reality_settings | combine({'mldsa65Verify': _xray_outbound.reality.mldsa65_verify}) -%}
+      {%- endif -%}
+      {%- set _xray_sockopt = {'mark': _xray_outbound.mark | default(docker_xray_tproxy_outbound_mark) | int} -%}
+      {%- set _xray_item = {
+        'tag': _xray_tag,
+        'protocol': 'vless',
+        'settings': {
+          'vnext': [
+            {
+              'address': _xray_outbound.address,
+              'port': _xray_outbound.port | int,
+              'users': [_xray_user],
+            },
+          ],
+        },
+        'streamSettings': {
+          'network': 'raw',
+          'security': 'reality',
+          'realitySettings': _xray_reality_settings,
+          'sockopt': _xray_sockopt,
+        },
+      } -%}
+      {%- set _ = _xray_items.append(_xray_item) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{ _xray_items }}
+docker_xray_config:
+  log:
+    loglevel: '{{ docker_xray_loglevel }}'
+  inbounds: '{{ docker_xray_inbound_items }}'
+  outbounds: '{{ docker_xray_outbound_items }}'
+  routing: '{{ docker_xray_routing }}'
+docker_xray_config_data: "{{ docker_xray_config | to_nice_json }}\n"

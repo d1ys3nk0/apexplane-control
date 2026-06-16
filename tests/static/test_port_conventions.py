@@ -33,6 +33,11 @@ EXPECTED_EDGE_PORTS = {
     "haproxy_alb_stats_port": 8404,
     "haproxy_alb_prometheus_exporter_port": 8405,
 }
+EXPECTED_APPLICATION_PORTS = {
+    "docker_xray_tproxy_port": 10081,
+    "docker_wg_easy_wireguard_port": 51820,
+    "docker_wg_easy_web_port": 51821,
+}
 
 
 def _defaults(role: str) -> dict[str, object]:
@@ -70,4 +75,14 @@ def test_edge_port_defaults_match_shared_conventions() -> None:
     defaults = _defaults("haproxy_alb")
 
     for port_name, expected_port in EXPECTED_EDGE_PORTS.items():
+        assert defaults[port_name] == expected_port
+
+
+def test_application_port_defaults_match_shared_conventions() -> None:
+    defaults = {
+        **_defaults("docker_wg_easy"),
+        **_defaults("docker_xray"),
+    }
+
+    for port_name, expected_port in EXPECTED_APPLICATION_PORTS.items():
         assert defaults[port_name] == expected_port

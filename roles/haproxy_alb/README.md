@@ -13,6 +13,7 @@ This role configures HAProxy as an application load balancer. HAProxy reads exis
 - Update HAProxy throttle backend fragments.
 - Upload HAProxy whitelist files.
 - Update HAProxy frontend config.
+- Set or delete route-specific response headers.
 - Route ACME HTTP-01 challenge requests to the configured local challenge backend.
 - Additional focused setup tasks for the same role-owned desired state.
 
@@ -45,6 +46,8 @@ Set this required input before applying the role: `haproxy_alb_self_signed_cert_
 | `haproxy_alb_default_target_group` | `''` |
 | `haproxy_alb_default_target_host` | `''` |
 | `haproxy_alb_default_target_port` | `80` |
+
+Routes may set `response_headers` as a mapping of header name to value and `response_header_deletes` as a list of header names to delete from responses selected for that route.
 
 ## Usage
 ```yaml

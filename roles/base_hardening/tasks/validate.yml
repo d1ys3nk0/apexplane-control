@@ -7,6 +7,8 @@
       - base_hardening_ssh_port | string | length > 0
       - base_hardening_ssh_users is iterable
       - base_hardening_ssh_users is not string
+      - base_hardening_extra_sysctl_config is iterable
+      - base_hardening_extra_sysctl_config is not string
       - base_hardening_sysctl_config is iterable
       - base_hardening_sysctl_config is not string
     fail_msg: Define base_hardening_* variables before running role base_hardening.

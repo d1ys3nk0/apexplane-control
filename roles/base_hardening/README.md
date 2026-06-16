@@ -23,6 +23,7 @@ This role applies baseline SSH, auditd, and sysctl hardening.
 | `base_hardening_user_process_persistence_enabled` | `false` |
 | `base_hardening_ssh_port` | `22` |
 | `base_hardening_ssh_users` | `[]` |
+| `base_hardening_extra_sysctl_config` | `[]` |
 | `base_hardening_sysctl_config` | `<complex>` |
 
 ## Usage

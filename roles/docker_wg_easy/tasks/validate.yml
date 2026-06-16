@@ -1,0 +1,54 @@
+---
+
+- name: Assert wg-easy required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_wg_easy_image_name | string | length > 0
+      - docker_wg_easy_image_tag | string | length > 0
+      - docker_wg_easy_container_name | string | length > 0
+      - docker_wg_easy_data_dir | string | length > 0
+      - docker_wg_easy_data_dir is match('^/')
+      - docker_wg_easy_modules_dir | string | length > 0
+      - docker_wg_easy_modules_dir is match('^/')
+      - docker_wg_easy_network_name | string | length > 0
+      - docker_wg_easy_network_driver | string | length > 0
+      - docker_wg_easy_network_subnet | string | length > 0
+      - docker_wg_easy_network_gateway | string | length > 0
+      - docker_wg_easy_network_ipv4_address | string | length > 0
+      - docker_wg_easy_wireguard_port | int >= 1
+      - docker_wg_easy_wireguard_port | int <= 65535
+      - docker_wg_easy_web_port | int >= 1
+      - docker_wg_easy_web_port | int <= 65535
+      - docker_wg_easy_web_host | string | length > 0
+      - docker_wg_easy_web_publish_host | string | length > 0
+      - docker_wg_easy_insecure | type_debug == 'bool'
+      - docker_wg_easy_disable_ipv6 | type_debug == 'bool'
+      - docker_wg_easy_init_username is not none
+      - docker_wg_easy_init_username | string | length > 0
+      - docker_wg_easy_init_password is not none
+      - docker_wg_easy_init_password | string | length > 0
+      - docker_wg_easy_init_host is not none
+      - docker_wg_easy_init_host | string | length > 0
+      - docker_wg_easy_init_port | int >= 1
+      - docker_wg_easy_init_port | int <= 65535
+      - docker_wg_easy_init_dns is sequence
+      - docker_wg_easy_init_dns is not string
+      - docker_wg_easy_init_ipv4_cidr | string | length > 0
+      - docker_wg_easy_init_ipv6_cidr | string | length > 0
+      - docker_wg_easy_init_allowed_ips is sequence
+      - docker_wg_easy_init_allowed_ips is not string
+      - docker_wg_easy_mem_res | string | length > 0
+      - docker_wg_easy_mem_lim | string | length > 0
+      - docker_wg_easy_mem_swp | string | length > 0
+    fail_msg: Define valid wg-easy image, storage, network, ports, first-run admin credentials, first-run endpoint, and memory limits before running role docker_wg_easy.
+  no_log: '{{ docker_wg_easy_nolog }}'
+
+- name: Assert wg-easy CIDR inputs are valid
+  ansible.builtin.assert:
+    that:
+      - item | string | length > 0
+      - item is match('^\\S+/[0-9]{1,3}$')
+    fail_msg: wg-easy CIDR inputs must be non-empty CIDR strings.
+  loop: "{{ [docker_wg_easy_network_subnet, docker_wg_easy_init_ipv4_cidr, docker_wg_easy_init_ipv6_cidr] + docker_wg_easy_init_allowed_ips }}"
+  loop_control:
+    label: '{{ item }}'

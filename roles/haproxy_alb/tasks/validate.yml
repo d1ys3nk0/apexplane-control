@@ -239,6 +239,63 @@
       - haproxy_alb_route_domain_prefix_keys | length == haproxy_alb_route_domain_prefix_keys | unique | length
     fail_msg: haproxy_alb_routes contains duplicate (domain, prefix) combinations
 
+- name: Assert route response header deletes are valid when set
+  ansible.builtin.assert:
+    that:
+      - item.response_header_deletes is iterable
+      - item.response_header_deletes is not string
+      - item.response_header_deletes | length > 0
+      - item.response_header_deletes | map('string') | map('trim') | unique | list | length == item.response_header_deletes | length
+      - >-
+        item.response_header_deletes
+        | map('string')
+        | map('trim')
+        | select('match', "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+        | list
+        | length == item.response_header_deletes | length
+    fail_msg: 'Route {{ item.name }}: response_header_deletes must be a non-empty unique list of HTTP header names'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.response_header_deletes is defined
+
+- name: Assert route response headers are valid when set
+  ansible.builtin.assert:
+    that:
+      - item.response_headers is mapping
+      - item.response_headers | length > 0
+      - >-
+        item.response_headers
+        | dict2items
+        | map(attribute='key')
+        | map('string')
+        | map('trim')
+        | select('match', "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+        | list
+        | length == item.response_headers | length
+      - >-
+        item.response_headers
+        | dict2items
+        | map(attribute='value')
+        | map('string')
+        | map('trim')
+        | select
+        | list
+        | length == item.response_headers | length
+      - >-
+        item.response_headers
+        | dict2items
+        | map(attribute='value')
+        | map('string')
+        | select('match', '^[^"]+$')
+        | list
+        | length == item.response_headers | length
+    fail_msg: 'Route {{ item.name }}: response_headers must be a non-empty mapping of HTTP header names to non-empty values without double quotes'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.response_headers is defined
+
 - name: Assert each auth rule has required fields
   ansible.builtin.assert:
     that:

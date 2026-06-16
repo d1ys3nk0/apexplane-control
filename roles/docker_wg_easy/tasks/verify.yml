@@ -1,0 +1,22 @@
+---
+
+- name: Verify wg-easy container is running
+  become: true
+  community.docker.docker_container_info:
+    name: '{{ docker_wg_easy_container_name }}'
+  register: docker_wg_easy_container_info
+  until:
+    - docker_wg_easy_container_info.exists
+    - docker_wg_easy_container_info.container.State.Running | bool
+  retries: 20
+  delay: 3
+  when: not ansible_check_mode
+
+- name: Wait for wg-easy web UI port to be ready
+  ansible.builtin.wait_for:
+    host: '{{ docker_wg_easy_web_publish_host }}'
+    port: '{{ docker_wg_easy_web_port }}'
+    sleep: 3
+    timeout: 60
+    state: started
+  when: not ansible_check_mode

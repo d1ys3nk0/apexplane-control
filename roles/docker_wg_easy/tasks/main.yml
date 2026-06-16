@@ -1,0 +1,10 @@
+---
+
+- name: Validate wg-easy variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Set up wg-easy
+  ansible.builtin.include_tasks: setup.yml
+
+- name: Verify wg-easy
+  ansible.builtin.include_tasks: verify.yml
