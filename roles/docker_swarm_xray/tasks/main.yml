@@ -57,7 +57,7 @@
     - name: Ensure Xray docker config created
       community.docker.docker_config:
         name: '{{ docker_swarm_xray_config_name }}'
-        data: '{{ docker_swarm_xray_config_data }}'
+        data_src: '{{ docker_swarm_xray_temp_config.path }}'
         state: present
       no_log: '{{ docker_swarm_xray_nolog }}'
       when: not ansible_check_mode
