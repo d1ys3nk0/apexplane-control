@@ -1,11 +1,7 @@
-{% for route in haproxy_alb_routes | sort(attribute='name') %}
-{% if route.target_group is defined and route.target_group | string | length > 0 and route.target_group == haproxy_alb_backend_group %}
-backend {{ route.name }}
+{%- for route in haproxy_alb_routes | sort(attribute='name') %}{% if route.target_group is defined and route.target_group | string | length > 0 and route.target_group == haproxy_alb_backend_group %}backend {{ route.name }}
   mode http
   balance leastconn
-{% for inv_name, host in haproxy_alb_target_groups[route.target_group] | dictsort %}
-  server {{ inv_name }}:{{ route.target_port }} {{ host }}:{{ route.target_port }} check inter 5s fall 2 rise 1{% if route.backend_proto | default('http', true) == 'h2' %} proto h2{% endif %}{{ "\n" }}
+{% for inv_name, host in haproxy_alb_target_groups[route.target_group] | dictsort %}  server {{ inv_name }}:{{ route.target_port }} {{ host }}:{{ route.target_port }} check inter 5s fall 2 rise 1{{ ' proto h2' if route.backend_proto | default('http', true) == 'h2' else '' }}
 {% endfor %}
 
-{% endif %}
-{% endfor %}
+{% endif %}{% endfor %}
