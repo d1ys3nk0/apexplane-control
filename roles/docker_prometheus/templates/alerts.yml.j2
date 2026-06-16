@@ -438,7 +438,7 @@ groups:
           description: 'Container {{ $labels.name }} restarted more than 2 times in 5 minutes (restarts: {{ $value }}).'
 
       - alert: ContainerMemoryUsage
-        expr: (sum by(instance, name, cluster, realm, platform, world) (container_memory_working_set_bytes{name!=''}) / sum by(instance, name, cluster, realm, platform, world) (container_spec_memory_limit_bytes{name!='', container_spec_memory_limit_bytes!='0'}) * 100) > 90
+        expr: (sum by(instance, name, cluster, realm, platform, world) (container_memory_working_set_bytes{name!=''}) / sum by(instance, name, cluster, realm, platform, world) (container_spec_memory_limit_bytes{name!=''} > 0) * 100) > 90
         for: 5m
         labels:
           sev: warning
@@ -448,10 +448,10 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High memory usage in container on {{ $labels.instance }}
-          description: 'Container {{ $labels.name }} memory usage exceeds 90% (current: {{ $value }}%).'
+          description: 'Container {{ $labels.name }} memory usage exceeds 90% of the configured limit (current: {{ $value }}%).'
 
       - alert: ContainerCpuUsage
-        expr: (sum by(instance, name, cluster, realm, platform, world) (rate(container_cpu_usage_seconds_total{name!=''}[3m])) * 100) > 90
+        expr: (sum by(instance, name, cluster, realm, platform, world) (rate(container_cpu_usage_seconds_total{name!=''}[3m])) / (sum by(instance, name, cluster, realm, platform, world) (container_spec_cpu_quota{name!=''} > 0) / sum by(instance, name, cluster, realm, platform, world) (container_spec_cpu_period{name!=''} > 0)) * 100) > 90
         for: 5m
         labels:
           sev: warning
@@ -461,7 +461,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High CPU usage in container on {{ $labels.instance }}
-          description: 'Container {{ $labels.name }} CPU usage exceeds 90% (current: {{ $value }}%).'
+          description: 'Container {{ $labels.name }} CPU usage exceeds 90% of the configured limit (current: {{ $value }}%).'
 
       - alert: ContainerUnhealthy
         expr: container_health_status{name!=''} == 0
