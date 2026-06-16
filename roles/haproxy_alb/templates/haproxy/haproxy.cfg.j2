@@ -36,6 +36,7 @@ defaults
   timeout connect 5000
   timeout client 60000
   timeout server 60000
+  timeout tunnel {{ haproxy_alb_tunnel_timeout }}
   errorfile 400 /etc/haproxy/errors/400.http
   errorfile 403 /etc/haproxy/errors/403.http
   errorfile 408 /etc/haproxy/errors/408.http

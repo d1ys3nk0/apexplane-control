@@ -5,6 +5,7 @@ haproxy_alb_crowdsec_body_limit: 51200
 haproxy_alb_crowdsec_spoa_port: 9000
 haproxy_alb_stats_port: 8404
 haproxy_alb_prometheus_exporter_port: 8405
+haproxy_alb_tunnel_timeout: 1h
 haproxy_alb_acme_enabled: true
 haproxy_alb_acme_port: 40404
 haproxy_alb_redirect_all_http: false

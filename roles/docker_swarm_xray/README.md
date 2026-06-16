@@ -4,7 +4,7 @@ This role runs Xray as a Docker Swarm service.
 
 ## Features
 - Render a structured Xray `config.json` from role variables.
-- Support HTTP proxy, VLESS REALITY inbound, VLESS REALITY outbound, and freedom outbound entries.
+- Support HTTP proxy, VLESS REALITY inbound, VLESS WebSocket inbound, VLESS REALITY outbound, and freedom outbound entries.
 - Publish inbound ports through Swarm ingress.
 - Validate the rendered Xray config with the pinned container image before updating the service.
 - Store the rendered config as an immutable hash-named Docker config.
@@ -100,6 +100,39 @@ Public VLESS REALITY server to direct internet:
       docker_swarm_xray_fallback_redirect_host: www.microsoft.com
 ```
 
+VLESS WebSocket entry behind an HTTP reverse proxy:
+
+```yaml
+---
+
+- hosts: all
+  roles:
+    - role: apexplane.control.docker_swarm_xray
+      docker_swarm_xray_inbounds:
+        - type: vless
+          tag: vless-ws-in
+          port: 10080
+          network: ws
+          security: none
+          users:
+            - id: REPLACE_WITH_VAULT_XRAY_USER_ID
+          ws:
+            path: /api/live/ws/REPLACE_WITH_SECRET_PATH_SUFFIX
+      docker_swarm_xray_outbounds:
+        - type: vless
+          tag: vless-reality-out
+          address: xray-next.example.net
+          port: 443
+          id: REPLACE_WITH_VAULT_XRAY_EXIT_USER_ID
+          reality:
+            server_name: www.microsoft.com
+            password: REPLACE_WITH_VAULT_XRAY_EXIT_PUBLIC_KEY
+            short_id: REPLACE_WITH_VAULT_XRAY_EXIT_SHORT_ID
+            spider_x: /
+```
+
 For `http` inbounds, `port` is the Swarm-published port and `xray_port` defaults to `1080`. For `vless` inbounds, `port` is also the Swarm-published port and `xray_port` defaults to the same value. Set `tag` explicitly when routing rules need stable names. Swarm ingress publishing does not support role-level host bind addresses, so every inbound is published through the Swarm routing mesh.
+
+For `vless` inbounds, omitted transport settings keep the original VLESS REALITY behavior: `network: raw`, `security: reality`, and a required `reality` mapping. Set `network: ws`, `security: none`, and `ws.path` for VLESS WebSocket inbounds behind an HTTP reverse proxy. WebSocket users do not receive a default `flow`; define one explicitly only when the selected transport supports it.
 
 When `docker_swarm_xray_fallback_enabled` is true, the role also publishes `docker_swarm_xray_fallback_port` through Swarm ingress and serves a redirect to `https://{{ docker_swarm_xray_fallback_redirect_host }}`. The redirect host must be a hostname without a scheme or path.

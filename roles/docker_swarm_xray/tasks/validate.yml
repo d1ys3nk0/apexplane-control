@@ -50,7 +50,9 @@
       - item.host is not defined
       - item.listen is not defined or item.listen | string | length > 0
       - item.tag is not defined or item.tag | string | length > 0
-    fail_msg: Each Xray inbound must define a supported type and a valid published port; host bind addresses are not supported for Swarm ingress publishing.
+      - item.network is not defined or item.network in docker_swarm_xray_supported_inbound_networks
+      - item.security is not defined or item.security in docker_swarm_xray_supported_inbound_security
+    fail_msg: Each Xray inbound must define a supported type, valid published port, optional supported network and security, and no host bind address; host bind addresses are not supported for Swarm ingress publishing.
   loop: '{{ docker_swarm_xray_inbounds }}'
   loop_control:
     label: "{{ item.tag | default(item.type | default('unknown')) }}"
@@ -76,22 +78,30 @@
       - item.users is iterable
       - item.users is not string
       - item.users | length > 0
-      - item.reality is defined
-      - item.reality is mapping
-      - item.reality.target is defined
-      - item.reality.target | string | length > 0
-      - item.reality.server_names is defined
-      - item.reality.server_names is iterable
-      - item.reality.server_names is not string
-      - item.reality.server_names | length > 0
-      - item.reality.private_key is defined
-      - item.reality.private_key | string | length > 0
-      - item.reality.short_ids is defined
-      - item.reality.short_ids is iterable
-      - item.reality.short_ids is not string
-      - item.reality.short_ids | length > 0
+      - item.network | default('raw') in docker_swarm_xray_supported_inbound_networks
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) in docker_swarm_xray_supported_inbound_security
+      - item.network | default('raw') != 'ws' or item.security | default('none') == 'none'
+      - item.network | default('raw') != 'ws' or item.ws is defined
+      - item.network | default('raw') != 'ws' or item.ws is mapping
+      - item.network | default('raw') != 'ws' or item.ws.path is defined
+      - item.network | default('raw') != 'ws' or item.ws.path | string | trim is match('^/')
+      - item.network | default('raw') != 'ws' or item.ws.headers is not defined or item.ws.headers is mapping
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality is defined
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality is mapping
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.target is defined
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.target | string | length > 0
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.server_names is defined
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.server_names is iterable
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.server_names is not string
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.server_names | length > 0
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.private_key is defined
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.private_key | string | length > 0
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.short_ids is defined
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.short_ids is iterable
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.short_ids is not string
+      - item.security | default((item.reality is defined) | ternary('reality', 'none')) != 'reality' or item.reality.short_ids | length > 0
       - item.decryption is not defined or item.decryption | string | length > 0
-    fail_msg: VLESS inbounds must define users and REALITY target, server_names, private_key, and short_ids.
+    fail_msg: VLESS inbounds must define users; REALITY inbounds must define target, server_names, private_key, and short_ids; WebSocket inbounds must use security none and define ws.path.
   loop: "{{ docker_swarm_xray_inbounds | selectattr('type', 'defined') | selectattr('type', 'equalto', 'vless') | list }}"
   loop_control:
     label: "{{ item.tag | default('vless') }}"

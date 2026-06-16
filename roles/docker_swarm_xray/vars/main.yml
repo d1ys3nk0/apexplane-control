@@ -7,6 +7,12 @@ docker_swarm_xray_config_name_prefix: xray-config
 docker_swarm_xray_supported_inbound_types:
   - http
   - vless
+docker_swarm_xray_supported_inbound_networks:
+  - raw
+  - ws
+docker_swarm_xray_supported_inbound_security:
+  - none
+  - reality
 docker_swarm_xray_supported_outbound_types:
   - freedom
   - vless
@@ -90,9 +96,15 @@ docker_swarm_xray_inbound_items: >-
       } -%}
       {%- set _ = _xray_items.append(_xray_item) -%}
     {%- elif _xray_type == 'vless' -%}
+      {%- set _xray_network = _xray_inbound.network | default('raw') -%}
+      {%- set _xray_default_security = 'reality' if _xray_inbound.reality is defined else 'none' -%}
+      {%- set _xray_security = _xray_inbound.security | default(_xray_default_security) -%}
       {%- set _xray_users = [] -%}
       {%- for _xray_user in _xray_inbound.users -%}
-        {%- set _xray_user_item = {'id': _xray_user.id, 'flow': _xray_user.flow | default('xtls-rprx-vision')} -%}
+        {%- set _xray_user_item = {'id': _xray_user.id} -%}
+        {%- if _xray_user.flow is defined or _xray_security == 'reality' -%}
+          {%- set _xray_user_item = _xray_user_item | combine({'flow': _xray_user.flow | default('xtls-rprx-vision')}) -%}
+        {%- endif -%}
         {%- if _xray_user.email is defined -%}
           {%- set _xray_user_item = _xray_user_item | combine({'email': _xray_user.email}) -%}
         {%- endif -%}
@@ -104,31 +116,42 @@ docker_swarm_xray_inbound_items: >-
         {%- endif -%}
         {%- set _ = _xray_users.append(_xray_user_item) -%}
       {%- endfor -%}
-      {%- set _xray_reality_settings = {
-        'show': _xray_inbound.reality.show | default(false) | bool,
-        'target': _xray_inbound.reality.target,
-        'xver': _xray_inbound.reality.xver | default(0) | int,
-        'serverNames': _xray_inbound.reality.server_names,
-        'privateKey': _xray_inbound.reality.private_key,
-        'shortIds': _xray_inbound.reality.short_ids,
-      } -%}
-      {%- if _xray_inbound.reality.min_client_ver is defined -%}
-        {%- set _xray_reality_settings = _xray_reality_settings | combine({'minClientVer': _xray_inbound.reality.min_client_ver}) -%}
+      {%- set _xray_stream_settings = {'network': _xray_network, 'security': _xray_security} -%}
+      {%- if _xray_security == 'reality' -%}
+        {%- set _xray_reality_settings = {
+          'show': _xray_inbound.reality.show | default(false) | bool,
+          'target': _xray_inbound.reality.target,
+          'xver': _xray_inbound.reality.xver | default(0) | int,
+          'serverNames': _xray_inbound.reality.server_names,
+          'privateKey': _xray_inbound.reality.private_key,
+          'shortIds': _xray_inbound.reality.short_ids,
+        } -%}
+        {%- if _xray_inbound.reality.min_client_ver is defined -%}
+          {%- set _xray_reality_settings = _xray_reality_settings | combine({'minClientVer': _xray_inbound.reality.min_client_ver}) -%}
+        {%- endif -%}
+        {%- if _xray_inbound.reality.max_client_ver is defined -%}
+          {%- set _xray_reality_settings = _xray_reality_settings | combine({'maxClientVer': _xray_inbound.reality.max_client_ver}) -%}
+        {%- endif -%}
+        {%- if _xray_inbound.reality.max_time_diff is defined -%}
+          {%- set _xray_reality_settings = _xray_reality_settings | combine({'maxTimeDiff': _xray_inbound.reality.max_time_diff | int}) -%}
+        {%- endif -%}
+        {%- if _xray_inbound.reality.mldsa65_seed is defined -%}
+          {%- set _xray_reality_settings = _xray_reality_settings | combine({'mldsa65Seed': _xray_inbound.reality.mldsa65_seed}) -%}
+        {%- endif -%}
+        {%- if _xray_inbound.reality.limit_fallback_upload is defined -%}
+          {%- set _xray_reality_settings = _xray_reality_settings | combine({'limitFallbackUpload': _xray_inbound.reality.limit_fallback_upload}) -%}
+        {%- endif -%}
+        {%- if _xray_inbound.reality.limit_fallback_download is defined -%}
+          {%- set _xray_reality_settings = _xray_reality_settings | combine({'limitFallbackDownload': _xray_inbound.reality.limit_fallback_download}) -%}
+        {%- endif -%}
+        {%- set _xray_stream_settings = _xray_stream_settings | combine({'realitySettings': _xray_reality_settings}) -%}
       {%- endif -%}
-      {%- if _xray_inbound.reality.max_client_ver is defined -%}
-        {%- set _xray_reality_settings = _xray_reality_settings | combine({'maxClientVer': _xray_inbound.reality.max_client_ver}) -%}
-      {%- endif -%}
-      {%- if _xray_inbound.reality.max_time_diff is defined -%}
-        {%- set _xray_reality_settings = _xray_reality_settings | combine({'maxTimeDiff': _xray_inbound.reality.max_time_diff | int}) -%}
-      {%- endif -%}
-      {%- if _xray_inbound.reality.mldsa65_seed is defined -%}
-        {%- set _xray_reality_settings = _xray_reality_settings | combine({'mldsa65Seed': _xray_inbound.reality.mldsa65_seed}) -%}
-      {%- endif -%}
-      {%- if _xray_inbound.reality.limit_fallback_upload is defined -%}
-        {%- set _xray_reality_settings = _xray_reality_settings | combine({'limitFallbackUpload': _xray_inbound.reality.limit_fallback_upload}) -%}
-      {%- endif -%}
-      {%- if _xray_inbound.reality.limit_fallback_download is defined -%}
-        {%- set _xray_reality_settings = _xray_reality_settings | combine({'limitFallbackDownload': _xray_inbound.reality.limit_fallback_download}) -%}
+      {%- if _xray_network == 'ws' -%}
+        {%- set _xray_ws_settings = {'path': _xray_inbound.ws.path} -%}
+        {%- if _xray_inbound.ws.headers is defined -%}
+          {%- set _xray_ws_settings = _xray_ws_settings | combine({'headers': _xray_inbound.ws.headers}) -%}
+        {%- endif -%}
+        {%- set _xray_stream_settings = _xray_stream_settings | combine({'wsSettings': _xray_ws_settings}) -%}
       {%- endif -%}
       {%- set _xray_item = {
         'tag': _xray_tag,
@@ -139,11 +162,7 @@ docker_swarm_xray_inbound_items: >-
           'users': _xray_users,
           'decryption': _xray_inbound.decryption | default('none'),
         },
-        'streamSettings': {
-          'network': 'raw',
-          'security': 'reality',
-          'realitySettings': _xray_reality_settings,
-        },
+        'streamSettings': _xray_stream_settings,
       } -%}
       {%- set _ = _xray_items.append(_xray_item) -%}
     {%- endif -%}
