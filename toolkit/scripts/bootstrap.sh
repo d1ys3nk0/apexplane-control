@@ -244,7 +244,7 @@ restart_ssh() {
 
 if { [ "$OLD_USER" != "$NEW_USER" ] || [ "$OLD_PORT" != "$NEW_PORT" ]; } && [ "$(id -u)" -ne 0 ] && ! sudo -n true 2>/dev/null; then
     echo "ERROR: SSH user $(id -un) must have passwordless sudo before bootstrap can continue." >&2
-    echo "Fix on remote: echo '$(id -un) ALL=(ALL:ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/$(id -un) && sudo chmod 440 /etc/sudoers.d/$(id -un)" >&2
+    echo "Fix on remote: echo '$(id -un) ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/$(id -un) && sudo chmod 440 /etc/sudoers.d/$(id -un)" >&2
     exit 1
 fi
 
@@ -258,7 +258,7 @@ if [ "$OLD_USER" != "$NEW_USER" ]; then
     as_root chmod 700 "/home/$NEW_USER/.ssh"
     as_root chmod 600 "/home/$NEW_USER/.ssh/authorized_keys"
 
-    echo "$NEW_USER ALL=(ALL:ALL) NOPASSWD:ALL" | as_root tee "/etc/sudoers.d/$NEW_USER" >/dev/null
+    echo "$NEW_USER ALL=(ALL) NOPASSWD:ALL" | as_root tee "/etc/sudoers.d/$NEW_USER" >/dev/null
     as_root chmod 440 "/etc/sudoers.d/$NEW_USER"
 else
     echo "SSH user is unchanged (${OLD_USER}); skipping user creation."

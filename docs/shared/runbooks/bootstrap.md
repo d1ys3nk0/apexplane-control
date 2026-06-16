@@ -8,7 +8,7 @@ Run this only when a host does not already have the operator user with passwordl
 sudo -s
 
 id iac || useradd -s /bin/bash -m iac
-echo 'iac ALL=(ALL:ALL) NOPASSWD:ALL' | tee /etc/sudoers.d/iac
+echo 'iac ALL=(ALL) NOPASSWD:ALL' | tee /etc/sudoers.d/iac
 chmod 440 /etc/sudoers.d/iac
 
 mkdir -p /home/iac/.ssh

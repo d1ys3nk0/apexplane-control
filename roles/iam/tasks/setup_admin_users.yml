@@ -8,7 +8,7 @@
 - name: Grant sudo access without password to the group
   become: true
   ansible.builtin.copy:
-    content: "%{{ iam_admin_group }} ALL=(ALL:ALL) NOPASSWD:ALL\n"
+    content: "%{{ iam_admin_group }} ALL=(ALL) NOPASSWD:ALL\n"
     dest: '/etc/sudoers.d/{{ iam_admin_group }}'
     owner: root
     group: root
