@@ -17,11 +17,12 @@ Set these required inputs before applying the role: `docker_sonarqube_postgres_p
 | `docker_sonarqube_debug_mode` | `<derived>` |
 | `docker_sonarqube_nolog` | `<derived>` |
 | `docker_sonarqube_image_name` | `sonarqube` |
-| `docker_sonarqube_image_tag` | `25.10.0.114319-community` |
+| `docker_sonarqube_image_tag` | `26.6.0.123539-community` |
 | `docker_sonarqube_image_full` | `<derived>` |
 | `docker_sonarqube_postgres_image_name` | `postgres` |
 | `docker_sonarqube_postgres_image_tag` | `17-alpine` |
 | `docker_sonarqube_postgres_image_full` | `<derived>` |
+| `docker_sonarqube_web_host` | `127.0.0.1` |
 | `docker_sonarqube_port` | `9000` |
 | `docker_sonarqube_postgres_user` | `sonar` |
 | `docker_sonarqube_postgres_pass` | `~` |

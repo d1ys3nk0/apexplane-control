@@ -13,6 +13,7 @@ docker_sonarqube_data_volume: sonarqube-data
 docker_sonarqube_logs_volume: sonarqube-logs
 docker_sonarqube_extensions_volume: sonarqube-extensions
 docker_sonarqube_postgres_data_volume: sonarqube-pg-data
+docker_sonarqube_web_host: 127.0.0.1
 docker_sonarqube_port: 9000
 docker_sonarqube_postgres_user: sonar
 docker_sonarqube_postgres_pass: ~

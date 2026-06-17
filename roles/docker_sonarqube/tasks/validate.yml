@@ -7,5 +7,8 @@
       - docker_sonarqube_postgres_pass is not none
       - docker_sonarqube_postgres_pass | string | length > 0
       - docker_sonarqube_postgres_database | string | length > 0
-    fail_msg: Define docker_sonarqube_postgres_pass before running role docker_sonarqube.
+      - docker_sonarqube_web_host in ['127.0.0.1', '0.0.0.0']
+      - docker_sonarqube_port | int >= 1
+      - docker_sonarqube_port | int <= 65535
+    fail_msg: Define valid SonarQube database credentials, web listener, and port before running role docker_sonarqube.
   no_log: '{{ docker_sonarqube_nolog }}'

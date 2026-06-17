@@ -135,7 +135,7 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum(count_over_time({realm=~\"$realm\",cluster=~\"$cluster\",instance=~\"$instance\",job=~\"$job\"} |= \"$search\" [$__interval]))",
+          "expr": "sum(count_over_time({realm=~\"$realm\",cluster=~\"$cluster\",instance=~\"$instance\",job=~\"$job\"} |~ \"$search\" [$__interval]))",
           "legendFormat": "",
           "queryType": "range",
           "refId": "A"
@@ -181,7 +181,7 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "{realm=~\"$realm\",cluster=~\"$cluster\",instance=~\"$instance\",job=~\"$job\"} |= \"$search\" | logfmt",
+          "expr": "{realm=~\"$realm\",cluster=~\"$cluster\",instance=~\"$instance\",job=~\"$job\"} |~ \"$search\" | logfmt",
           "hide": false,
           "legendFormat": "",
           "queryType": "range",
@@ -303,19 +303,19 @@
       },
       {
         "current": {
-          "text": "",
-          "value": ""
+          "text": ".*",
+          "value": ".*"
         },
-        "label": "String Match",
+        "label": "Regex Match",
         "name": "search",
         "options": [
           {
             "selected": true,
-            "text": "",
-            "value": ""
+            "text": ".*",
+            "value": ".*"
           }
         ],
-        "query": "",
+        "query": ".*",
         "type": "textbox"
       }
     ]
