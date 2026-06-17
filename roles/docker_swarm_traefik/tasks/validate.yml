@@ -10,9 +10,14 @@
 - name: Validate Traefik role variables
   ansible.builtin.assert:
     that:
-      - docker_swarm_traefik_domain is not none
+      - docker_swarm_traefik_domains is not none
+      - docker_swarm_traefik_domains | string | length > 0
+      - docker_swarm_traefik_domains is iterable
+      - docker_swarm_traefik_domains is not string
+      - docker_swarm_traefik_domains | length > 0
+      - docker_swarm_traefik_domains | select('string') | list | length == docker_swarm_traefik_domains | length
+      - docker_swarm_traefik_domains | map('trim') | select('length') | list | length == docker_swarm_traefik_domains | length
       - docker_swarm_traefik_network | string | length > 0
-      - docker_swarm_traefik_domain | string | length > 0
       - docker_swarm_traefik_http_expose_port | int > 0
       - docker_swarm_traefik_https_expose_port | int > 0
       - docker_swarm_traefik_ping_path | string | regex_search('^/.+')
