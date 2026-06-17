@@ -10,11 +10,13 @@ This role runs Grafana in a standalone Docker container with provisioned datasou
 - Create docker volumes.
 - Start grafana container.
 
+Dashboard definitions are stored as YAML under `files/dashboards/` for maintainability and deployed as JSON files for Grafana provisioning.
+
 ## Configuration
 | Variable | Default |
 | --- | --- |
 | `docker_grafana_image_name` | `grafana/grafana-oss` |
-| `docker_grafana_image_tag` | `13.0.1` |
+| `docker_grafana_image_tag` | `13.0.2` |
 | `docker_grafana_image_full` | `<derived>` |
 | `docker_grafana_http_listen_port` | `3000` |
 | `docker_grafana_loki_port` | `3100` |

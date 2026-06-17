@@ -38,3 +38,16 @@
       echo "haproxy.service owns public listeners on ports 80 and 443."
   register: haproxy_alb_public_listener_ownership
   changed_when: false
+
+- name: Verify HAProxy ALB Prometheus metrics endpoint
+  ansible.builtin.uri:
+    url: http://127.0.0.1:{{ haproxy_alb_prometheus_exporter_port }}/metrics
+    method: GET
+    return_content: true
+    status_code: 200
+  register: haproxy_alb_prometheus_metrics_check
+  until:
+    - haproxy_alb_prometheus_metrics_check.status == 200
+    - "'haproxy_backend_' in haproxy_alb_prometheus_metrics_check.content"
+  retries: 20
+  delay: 3

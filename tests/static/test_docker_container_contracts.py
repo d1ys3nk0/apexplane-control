@@ -188,7 +188,7 @@ def test_docker_swarm_hostname_constraints_are_limited_to_host_binds() -> None:
 
 
 def test_single_replica_swarm_service_roles_expose_placement_constraints() -> None:
-    for role_name in ("docker_swarm_pghero", "docker_swarm_postgres_exporter"):
+    for role_name in ("docker_swarm_alloy", "docker_swarm_pghero", "docker_swarm_postgres_exporter"):
         role_dir = REPO_ROOT / "roles" / role_name
         constraint_var = f"{role_name}_placement_constraints"
         defaults = role_defaults(role_dir)
@@ -212,6 +212,9 @@ def test_traefik_swarm_service_uses_manager_placement_and_rolling_updates() -> N
     defaults = role_defaults(role_dir)
     services = list(swarm_service_modules(role_dir))
 
+    assert "docker_swarm_traefik_ping_enabled" not in defaults
+    assert isinstance(defaults["docker_swarm_traefik_health_allowed_cidrs"], list)
+    assert defaults["docker_swarm_traefik_health_allowed_cidrs"]
     assert defaults["docker_swarm_traefik_placement_constraints"] == ["node.role == manager"]
     assert defaults["docker_swarm_traefik_update_order"] == "stop-first"
     assert defaults["docker_swarm_traefik_update_parallelism"] == 1
@@ -222,6 +225,13 @@ def test_traefik_swarm_service_uses_manager_placement_and_rolling_updates() -> N
             "order": "{{ docker_swarm_traefik_update_order }}",
             "parallelism": "{{ docker_swarm_traefik_update_parallelism }}",
         }
+        for service in services
+    )
+    assert any(
+        isinstance(labels := service.get("labels"), str)
+        and "'traefik.http.routers.health.service': 'ping@internal'" in labels
+        and "'traefik.http.routers.health.middlewares': 'health-ip-allowlist'" in labels
+        and "docker_swarm_traefik_health_allowed_cidrs | join(',')" in labels
         for service in services
     )
 

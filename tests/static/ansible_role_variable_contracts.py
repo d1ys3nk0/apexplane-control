@@ -22,6 +22,7 @@ FALLBACK_VAR_RE = re.compile(r"(?<![.\w])(?P<name>[A-Za-z_][A-Za-z0-9_]*)\b")
 YAML_ALIAS_RE = re.compile(r"(?<![A-Za-z0-9_])\*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\b")
 FORBIDDEN_PREFIXES = ("gv_", "iv_", "vv_", "c_")
 YAML_SUFFIXES = {".yml", ".yaml"}
+NON_ANSIBLE_ROLE_YAML_DIRS = {("docker_grafana", "files", "dashboards")}
 PROMETHEUS_ALERT_TOPOLOGY_LABELS = {"cluster", "platform", "realm", "world"}
 EXPRESSION_KEYS = {
     "changed_when",
@@ -110,6 +111,7 @@ IGNORED_JINJA_NAMES = {
     "float",
     "for",
     "from_json",
+    "from_yaml",
     "hash",
     "hashtype",
     "if",
@@ -384,7 +386,9 @@ def _collect_local_variables(value: object) -> set[str]:
 
 def _iter_role_files(role_dir: Path) -> Iterator[Path]:
     for path in sorted(role_dir.rglob("*")):
-        if path.is_file() and "__pycache__" not in path.parts:
+        relative_parts = path.relative_to(role_dir).parts
+        role_yaml_dir = (role_dir.name, *relative_parts[:-1])
+        if path.is_file() and "__pycache__" not in path.parts and role_yaml_dir not in NON_ANSIBLE_ROLE_YAML_DIRS:
             yield path
 
 

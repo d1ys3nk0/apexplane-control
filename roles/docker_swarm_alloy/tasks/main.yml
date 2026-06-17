@@ -1,0 +1,127 @@
+---
+
+- name: Validate Docker Swarm Alloy variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Deploy Docker Swarm Alloy service
+  become: true
+  run_once: true
+  when: docker_swarm_alloy_enabled | bool
+  block:
+    - name: Ensure Docker Swarm Alloy overlay networks exist
+      community.docker.docker_network:
+        name: '{{ item }}'
+        driver: overlay
+        attachable: true
+        state: present
+      loop: '{{ docker_swarm_alloy_networks }}'
+
+    - name: Create temporary Docker Swarm Alloy config file
+      ansible.builtin.tempfile:
+        state: file
+        suffix: .alloy
+      register: docker_swarm_alloy_temp_config
+      check_mode: false
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Render temporary Docker Swarm Alloy config file
+      ansible.builtin.copy:
+        content: '{{ docker_swarm_alloy_config_data }}'
+        dest: '{{ docker_swarm_alloy_temp_config.path }}'
+        mode: '0600'
+        owner: root
+        group: root
+      check_mode: false
+      changed_when: false
+      no_log: '{{ docker_swarm_alloy_nolog }}'
+      when: not ansible_check_mode
+
+    - name: Remove stale Docker Swarm Alloy config check container
+      community.docker.docker_container:
+        name: docker-swarm-alloy-config-check
+        state: absent
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Validate rendered Docker Swarm Alloy config
+      community.docker.docker_container:
+        name: docker-swarm-alloy-config-check
+        image: '{{ docker_swarm_alloy_image_full }}'
+        entrypoint: alloy
+        command:
+          - validate
+          - '{{ docker_swarm_alloy_config_filename }}'
+        detach: false
+        cleanup: true
+        volumes:
+          - '{{ docker_swarm_alloy_temp_config.path }}:{{ docker_swarm_alloy_config_filename }}:ro'
+      changed_when: false
+      no_log: '{{ docker_swarm_alloy_nolog }}'
+      when: not ansible_check_mode
+
+    - name: Ensure Docker Swarm Alloy config secret exists
+      community.docker.docker_secret:
+        name: '{{ docker_swarm_alloy_config_secret_name }}'
+        data: '{{ docker_swarm_alloy_config_data }}'
+        state: present
+      no_log: '{{ docker_swarm_alloy_nolog }}'
+      when: not ansible_check_mode
+
+    - name: Ensure Docker Swarm Alloy service is started
+      community.docker.docker_swarm_service:
+        name: '{{ docker_swarm_alloy_service_name }}'
+        image: '{{ docker_swarm_alloy_image_full }}'
+        args:
+          - run
+          - --server.http.listen-addr=0.0.0.0:{{ docker_swarm_alloy_http_listen_port }}
+          - --storage.path={{ docker_swarm_alloy_storage_path }}
+          - '{{ docker_swarm_alloy_config_filename }}'
+        secrets:
+          - '{{ docker_swarm_alloy_config_secret_mount }}'
+        mounts:
+          - source: '{{ docker_swarm_alloy_data_volume }}'
+            target: '{{ docker_swarm_alloy_storage_path }}'
+            type: volume
+        networks: "{{ docker_swarm_alloy_networks if docker_swarm_alloy_networks | length > 0 else omit }}"
+        mode: replicated
+        replicas: 1
+        endpoint_mode: vip
+        placement:
+          constraints: '{{ docker_swarm_alloy_placement_constraints }}'
+        restart_config:
+          condition: any
+          delay: 5s
+        reservations:
+          cpus: 0.05
+          memory: '{{ docker_swarm_alloy_mem_res }}'
+        limits:
+          cpus: 0.25
+          memory: '{{ docker_swarm_alloy_mem_lim }}'
+      no_log: '{{ docker_swarm_alloy_nolog }}'
+      when: not ansible_check_mode
+
+    - name: Verify Docker Swarm Alloy service has a running task
+      ansible.builtin.command:
+        argv:
+          - docker
+          - service
+          - ps
+          - --filter
+          - desired-state=running
+          - --format
+          - "{% raw %}{{.CurrentState}}{% endraw %}"
+          - '{{ docker_swarm_alloy_service_name }}'
+      register: docker_swarm_alloy_service_tasks
+      until: docker_swarm_alloy_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
+      retries: 30
+      delay: 2
+      changed_when: false
+      when: not ansible_check_mode
+  always:
+    - name: Remove temporary Docker Swarm Alloy config file
+      ansible.builtin.file:
+        path: '{{ docker_swarm_alloy_temp_config.path }}'
+        state: absent
+      changed_when: false
+      when: docker_swarm_alloy_temp_config.path is defined

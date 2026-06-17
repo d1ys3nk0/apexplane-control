@@ -10,5 +10,6 @@
       - docker_sonarqube_web_host in ['127.0.0.1', '0.0.0.0']
       - docker_sonarqube_port | int >= 1
       - docker_sonarqube_port | int <= 65535
-    fail_msg: Define valid SonarQube database credentials, web listener, and port before running role docker_sonarqube.
+      - docker_sonarqube_cpus | float > 0
+    fail_msg: Define valid SonarQube database credentials, web listener, port, and resource limits before running role docker_sonarqube.
   no_log: '{{ docker_sonarqube_nolog }}'

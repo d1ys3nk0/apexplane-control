@@ -107,6 +107,17 @@
         }
         | combine(
           {
+            'traefik.http.routers.health.service': 'ping@internal',
+            'traefik.http.routers.health.rule': 'Path(`' ~ docker_swarm_traefik_ping_path ~ '`)',
+            'traefik.http.routers.health.entrypoints': 'web',
+            'traefik.http.routers.health.middlewares': 'health-ip-allowlist',
+            'traefik.http.middlewares.health-ip-allowlist.ipallowlist.sourcerange': (
+              docker_swarm_traefik_health_allowed_cidrs | join(',')
+            ),
+          }
+        )
+        | combine(
+          {
             'traefik.http.routers.dashboard.tls.certresolver': docker_swarm_traefik_letsencrypt_resolver,
           }
           if docker_swarm_traefik_letsencrypt_enabled | bool

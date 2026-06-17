@@ -1,0 +1,52 @@
+{% set metrics_user_set = docker_swarm_alloy_metrics_user | default('', true) | string | length > 0 %}
+{% set metrics_pass_set = docker_swarm_alloy_metrics_pass | default('', true) | string | length > 0 %}
+{% set docker_swarm_alloy_metrics_basic_auth_enabled = metrics_user_set or metrics_pass_set %}
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = {{ docker_swarm_alloy_metrics_url | string | tojson }}
+{% if docker_swarm_alloy_metrics_basic_auth_enabled %}
+
+    basic_auth {
+      username = {{ docker_swarm_alloy_metrics_user | string | tojson }}
+      password = {{ docker_swarm_alloy_metrics_pass | string | tojson }}
+    }
+{% endif %}
+  }
+}
+
+{% for target_group in docker_swarm_alloy_metrics_targets %}
+// Metrics: {{ target_group.job_name }}
+
+prometheus.scrape "target_{{ loop.index0 }}" {
+  targets = [
+{% for target in target_group.targets %}
+    {
+      __address__      = {{ target.address | string | tojson }},
+      __metrics_path__ = {{ target_group.metrics_path | default('/metrics', true) | string | tojson }},
+      __scheme__       = {{ target_group.scheme | default('http', true) | string | tojson }},
+      cluster          = {{ docker_swarm_alloy_cluster_name | string | tojson }},
+      instance         = {{ target.instance | default(target.address, true) | string | tojson }},
+      job              = {{ target_group.job_name | string | tojson }},
+      platform         = {{ docker_swarm_alloy_cluster_platform | string | tojson }},
+      realm            = {{ docker_swarm_alloy_cluster_realm | string | tojson }},
+      world            = {{ docker_swarm_alloy_cluster_world | string | tojson }},
+{% for label_key, label_value in target_group.labels | default({}) | dictsort %}
+      {{ label_key }} = {{ label_value | string | tojson }},
+{% endfor %}
+{% for label_key, label_value in target.labels | default({}) | dictsort %}
+      {{ label_key }} = {{ label_value | string | tojson }},
+{% endfor %}
+    },
+{% endfor %}
+  ]
+  forward_to      = [prometheus.remote_write.default.receiver]
+  scrape_interval = {{ target_group.scrape_interval | default('15s', true) | string | tojson }}
+  scrape_timeout  = {{ target_group.scrape_timeout | default('5s', true) | string | tojson }}
+}
+
+{% endfor %}

@@ -10,6 +10,7 @@ MIN_ROLE_PAYLOAD_PARTS = 4
 JINJA_EXPR_RE = re.compile(r"{{\s*(.*?)\s*}}", re.DOTALL)
 JINJA_BLOCK_RE = re.compile(r"(?<!\$){[%#]")
 GO_TEMPLATE_PREFIXES = ("if ", "else", "end", "with ", "range ", "json ", "printf ", "index ")
+GRAFANA_DASHBOARD_DATA = Path("roles/docker_grafana/files/dashboards")
 
 
 def _tracked_files(repo_root: Path) -> list[Path]:
@@ -41,6 +42,10 @@ def role_payload_dir(path: Path, dirname: str) -> bool:
     return len(path.parts) >= MIN_ROLE_PAYLOAD_PARTS and path.parts[0] == "roles" and dirname in path.parts
 
 
+def grafana_dashboard_data(path: Path) -> bool:
+    return path.parent == GRAFANA_DASHBOARD_DATA and path.suffix in {".json", ".yaml", ".yml"}
+
+
 def file_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
@@ -67,7 +72,7 @@ def check_file(*, repo_root: Path, path: Path) -> list[str]:
         return []
 
     text = file_text(full_path)
-    jinja = False if in_files and path.suffix == ".json" else has_jinja(text)
+    jinja = False if in_files and grafana_dashboard_data(path) else has_jinja(text)
     shebang = text.startswith("#!/")
     errors: list[str] = []
 

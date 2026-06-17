@@ -10,6 +10,7 @@ docker_swarm_postgres_exporter_image_full: '{{ docker_swarm_postgres_exporter_im
 docker_swarm_postgres_exporter_mem_res: 100M
 docker_swarm_postgres_exporter_mem_lim: 150M
 docker_swarm_postgres_exporter_placement_constraints: []
+docker_swarm_postgres_exporter_networks: []
 docker_swarm_postgres_exporter_pg_base: ~
 docker_swarm_postgres_exporter_pg_user: ~
 docker_swarm_postgres_exporter_pg_pass: ~

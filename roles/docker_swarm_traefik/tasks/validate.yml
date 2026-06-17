@@ -15,6 +15,10 @@
       - docker_swarm_traefik_domain | string | length > 0
       - docker_swarm_traefik_http_expose_port | int > 0
       - docker_swarm_traefik_https_expose_port | int > 0
+      - docker_swarm_traefik_ping_path | string | regex_search('^/.+')
+      - docker_swarm_traefik_health_allowed_cidrs is iterable
+      - docker_swarm_traefik_health_allowed_cidrs is not string
+      - docker_swarm_traefik_health_allowed_cidrs | length > 0
       - docker_swarm_traefik_placement_constraints is iterable
       - docker_swarm_traefik_update_order in ['stop-first', 'start-first']
       - docker_swarm_traefik_update_parallelism | int > 0

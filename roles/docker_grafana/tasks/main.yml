@@ -41,16 +41,30 @@
 - name: Update preinstalled dashboards
   become: true
   ansible.builtin.copy:
-    src: dashboards/{{ item }}
-    dest: /opt/grafana/dashboards/{{ item }}
+    content: "{{ lookup('ansible.builtin.file', role_path ~ '/files/dashboards/' ~ item.src) | from_yaml | to_nice_json }}\n"
+    dest: /opt/grafana/dashboards/{{ item.dest }}
     mode: '0644'
   loop:
-    - host_metrics.json
-    - host_logs.json
-    - container_metrics.json
-    - container_logs.json
-    - service_metrics.json
-    - service_logs.json
+    - src: host_metrics.yaml
+      dest: host_metrics.json
+
+    - src: host_logs.yaml
+      dest: host_logs.json
+
+    - src: container_metrics.yaml
+      dest: container_metrics.json
+
+    - src: container_logs.yaml
+      dest: container_logs.json
+
+    - src: haproxy_metrics.yaml
+      dest: haproxy_metrics.json
+
+    - src: service_metrics.yaml
+      dest: service_metrics.json
+
+    - src: service_logs.yaml
+      dest: service_logs.json
 
 - name: Create docker volumes
   become: true

@@ -1,0 +1,27 @@
+---
+
+docker_swarm_alloy_service_name: alloy-scraper
+docker_swarm_alloy_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+docker_swarm_alloy_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+docker_swarm_alloy_nolog: '{{ (docker_swarm_alloy_ci_mode | bool) and not (docker_swarm_alloy_debug_mode | bool) }}'
+docker_swarm_alloy_enabled: true
+docker_swarm_alloy_image_name: grafana/alloy
+docker_swarm_alloy_image_tag: v1.17.0
+docker_swarm_alloy_image_full: '{{ docker_swarm_alloy_image_name }}:{{ docker_swarm_alloy_image_tag }}'
+docker_swarm_alloy_config_secret_name_prefix: alloy-scraper-config
+docker_swarm_alloy_config_filename: /etc/alloy/config.alloy
+docker_swarm_alloy_data_volume: '{{ docker_swarm_alloy_service_name }}-data'
+docker_swarm_alloy_storage_path: /var/lib/alloy/data
+docker_swarm_alloy_http_listen_port: 12345
+docker_swarm_alloy_metrics_url: ~
+docker_swarm_alloy_metrics_user: ''
+docker_swarm_alloy_metrics_pass: ''
+docker_swarm_alloy_metrics_targets: []
+docker_swarm_alloy_cluster_name: ~
+docker_swarm_alloy_cluster_platform: ~
+docker_swarm_alloy_cluster_realm: ~
+docker_swarm_alloy_cluster_world: ~
+docker_swarm_alloy_networks: []
+docker_swarm_alloy_placement_constraints: []
+docker_swarm_alloy_mem_res: 150M
+docker_swarm_alloy_mem_lim: 250M

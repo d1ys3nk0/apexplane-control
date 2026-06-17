@@ -1,0 +1,150 @@
+---
+
+- name: Assert Docker Swarm Alloy enabled flag is valid
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_alloy_enabled is boolean
+    fail_msg: docker_swarm_alloy_enabled must be boolean.
+
+- name: Assert Docker Swarm Alloy required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_alloy_service_name | string | length > 0
+      - docker_swarm_alloy_image_full | string | length > 0
+      - docker_swarm_alloy_config_secret_name_prefix | string | length > 0
+      - docker_swarm_alloy_config_filename | string | length > 0
+      - docker_swarm_alloy_config_filename is match('^/')
+      - docker_swarm_alloy_data_volume | string | length > 0
+      - docker_swarm_alloy_storage_path | string | length > 0
+      - docker_swarm_alloy_storage_path is match('^/')
+      - docker_swarm_alloy_http_listen_port | int > 0
+      - docker_swarm_alloy_metrics_url is not none
+      - docker_swarm_alloy_metrics_url | string | length > 0
+      - docker_swarm_alloy_metrics_targets is sequence
+      - docker_swarm_alloy_metrics_targets is not string
+      - docker_swarm_alloy_metrics_targets | length > 0
+      - docker_swarm_alloy_cluster_name is not none
+      - docker_swarm_alloy_cluster_name | string | length > 0
+      - docker_swarm_alloy_cluster_platform is not none
+      - docker_swarm_alloy_cluster_platform | string | length > 0
+      - docker_swarm_alloy_cluster_realm is not none
+      - docker_swarm_alloy_cluster_realm | string | length > 0
+      - docker_swarm_alloy_cluster_world is not none
+      - docker_swarm_alloy_cluster_world | string | length > 0
+      - docker_swarm_alloy_networks is sequence
+      - docker_swarm_alloy_networks is not string
+      - docker_swarm_alloy_placement_constraints is sequence
+      - docker_swarm_alloy_placement_constraints is not string
+    fail_msg: Define valid Docker Swarm Alloy service, config, metrics endpoint, targets, and topology labels.
+  no_log: '{{ docker_swarm_alloy_nolog }}'
+  when: docker_swarm_alloy_enabled | bool
+
+- name: Assert Docker Swarm Alloy basic auth credentials are complete
+  ansible.builtin.assert:
+    that:
+      - >-
+        (docker_swarm_alloy_metrics_user | default('', true) | string | length > 0)
+        == (docker_swarm_alloy_metrics_pass | default('', true) | string | length > 0)
+    fail_msg: Docker Swarm Alloy metrics basic auth must define both user and password.
+  no_log: '{{ docker_swarm_alloy_nolog }}'
+  when: docker_swarm_alloy_enabled | bool
+
+- name: Assert Docker Swarm Alloy networks are valid
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item | length > 0
+    fail_msg: Docker Swarm Alloy networks must be non-empty strings.
+  loop: '{{ docker_swarm_alloy_networks }}'
+  when: docker_swarm_alloy_enabled | bool
+
+- name: Assert Docker Swarm Alloy placement constraints are valid
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item | length > 0
+    fail_msg: Docker Swarm Alloy placement constraints must be non-empty strings.
+  loop: '{{ docker_swarm_alloy_placement_constraints }}'
+  when: docker_swarm_alloy_enabled | bool
+
+- name: Assert Docker Swarm Alloy target groups are valid
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.job_name is defined
+      - item.job_name | string | length > 0
+      - item.scheme is not defined or item.scheme in ['http', 'https']
+      - item.metrics_path is not defined or item.metrics_path | string is match('^/.+')
+      - item.scrape_interval is not defined or item.scrape_interval | string | length > 0
+      - item.scrape_timeout is not defined or item.scrape_timeout | string | length > 0
+      - item.labels is not defined or item.labels is mapping
+      - >-
+        item.labels is not defined
+        or (
+          item.labels.keys()
+          | select('match', docker_swarm_alloy_label_name_pattern)
+          | list
+          | length == item.labels | length
+        )
+      - >-
+        item.labels is not defined
+        or (item.labels.keys() | list | intersect(docker_swarm_alloy_reserved_label_names) | length == 0)
+      - item.targets is defined
+      - item.targets is sequence
+      - item.targets is not string
+      - item.targets | length > 0
+    fail_msg: >-
+      Docker Swarm Alloy target groups must define job_name, optional scrape settings and labels, and non-empty targets.
+  loop: '{{ docker_swarm_alloy_metrics_targets }}'
+  loop_control:
+    label: '{{ item.job_name | default("?") }}'
+  vars:
+    docker_swarm_alloy_reserved_label_names:
+      - __address__
+      - __metrics_path__
+      - __scheme__
+      - cluster
+      - instance
+      - job
+      - platform
+      - realm
+      - world
+    docker_swarm_alloy_label_name_pattern: '^[A-Za-z_][A-Za-z0-9_]*$'
+  when: docker_swarm_alloy_enabled | bool
+
+- name: Assert Docker Swarm Alloy targets are valid
+  ansible.builtin.assert:
+    that:
+      - item.1 is mapping
+      - item.1.address is defined
+      - item.1.address | string | length > 0
+      - item.1.instance is not defined or item.1.instance | string | length > 0
+      - item.1.labels is not defined or item.1.labels is mapping
+      - >-
+        item.1.labels is not defined
+        or (
+          item.1.labels.keys()
+          | select('match', docker_swarm_alloy_label_name_pattern)
+          | list
+          | length == item.1.labels | length
+        )
+      - >-
+        item.1.labels is not defined
+        or (item.1.labels.keys() | list | intersect(docker_swarm_alloy_reserved_label_names) | length == 0)
+    fail_msg: Docker Swarm Alloy targets must be mappings with address and optional instance and labels.
+  loop: "{{ docker_swarm_alloy_metrics_targets | subelements('targets') }}"
+  loop_control:
+    label: '{{ item.0.job_name | default("?") }}:{{ item.1.address | default("?") }}'
+  vars:
+    docker_swarm_alloy_reserved_label_names:
+      - __address__
+      - __metrics_path__
+      - __scheme__
+      - cluster
+      - instance
+      - job
+      - platform
+      - realm
+      - world
+    docker_swarm_alloy_label_name_pattern: '^[A-Za-z_][A-Za-z0-9_]*$'
+  when: docker_swarm_alloy_enabled | bool

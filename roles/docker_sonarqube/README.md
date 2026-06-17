@@ -30,6 +30,7 @@ Set these required inputs before applying the role: `docker_sonarqube_postgres_p
 | `docker_sonarqube_postgres_mem_res` | `500M` |
 | `docker_sonarqube_postgres_mem_lim` | `750M` |
 | `docker_sonarqube_postgres_mem_swp` | `1000M` |
+| `docker_sonarqube_cpus` | `2.0` |
 | `docker_sonarqube_mem_res` | `1000M` |
 | `docker_sonarqube_mem_lim` | `1500M` |
 | `docker_sonarqube_mem_swp` | `2000M` |

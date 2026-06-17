@@ -1,0 +1,263 @@
+---
+
+annotations:
+  list:
+    - $$hashKey: object:75
+      builtIn: 1
+      datasource:
+        type: datasource
+        uid: grafana
+      enable: true
+      hide: true
+      iconColor: rgba(0, 211, 255, 1)
+      name: Annotations & Alerts
+      type: dashboard
+description: Logs from Linux hosts
+editable: true
+fiscalYearStartMonth: 0
+graphTooltip: 0
+id: 38
+links:
+  - $$hashKey: object:59
+    icon: bolt
+    includeVars: true
+    keepTime: true
+    tags: []
+    targetBlank: true
+    title: View In Explore
+    type: link
+    url: /explore?orgId=1&left=["now-1h","now","Loki",{"expr":"{job=\"$app\"}"},{"ui":[true,true,true,"none"]}]
+  - $$hashKey: object:61
+    icon: external link
+    tags: []
+    targetBlank: true
+    title: Learn LogQL
+    type: link
+    url: https://grafana.com/docs/loki/latest/logql/
+panels:
+  - datasource:
+      type: loki
+      uid: P8E80F9AEF21F6940
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          axisBorderShow: false
+          axisCenteredZero: false
+          axisColorMode: text
+          axisLabel: ''
+          axisPlacement: hidden
+          barAlignment: 0
+          barWidthFactor: 0.6
+          drawStyle: bars
+          fillOpacity: 100
+          gradientMode: none
+          hideFrom:
+            legend: false
+            tooltip: false
+            viz: false
+          insertNulls: false
+          lineInterpolation: linear
+          lineWidth: 1
+          pointSize: 5
+          scaleDistribution:
+            type: linear
+          showPoints: never
+          spanNulls: false
+          stacking:
+            group: A
+            mode: none
+          thresholdsStyle:
+            mode: 'off'
+        links: []
+        mappings: []
+        thresholds:
+          mode: absolute
+          steps:
+            - color: green
+              value: 0
+            - color: red
+              value: 80
+        unit: short
+      overrides: []
+    gridPos:
+      h: 3
+      w: 24
+      x: 0
+      y: 0
+    id: 6
+    options:
+      legend:
+        calcs: []
+        displayMode: list
+        placement: bottom
+        showLegend: false
+      tooltip:
+        hideZeros: false
+        mode: multi
+        sort: none
+    pluginVersion: 12.1.1
+    targets:
+      - datasource:
+          type: loki
+          uid: P8E80F9AEF21F6940
+        direction: backward
+        editorMode: code
+        expr: sum(count_over_time({realm=~"$realm",cluster=~"$cluster",instance=~"$instance",job=~"$job"} |~ "$search" [$__interval]))
+        legendFormat: ''
+        queryType: range
+        refId: A
+    title: ''
+    type: timeseries
+  - datasource:
+      type: loki
+      uid: P8E80F9AEF21F6940
+    fieldConfig:
+      defaults: {}
+      overrides: []
+    gridPos:
+      h: 25
+      w: 24
+      x: 0
+      y: 3
+    id: 2
+    maxDataPoints: ''
+    options:
+      dedupStrategy: none
+      enableInfiniteScrolling: false
+      enableLogDetails: true
+      prettifyLogMessage: false
+      showCommonLabels: false
+      showLabels: false
+      showTime: true
+      sortOrder: Descending
+      wrapLogMessage: false
+    pluginVersion: 12.1.1
+    targets:
+      - datasource:
+          type: loki
+          uid: P8E80F9AEF21F6940
+        direction: backward
+        editorMode: code
+        expr: '{realm=~"$realm",cluster=~"$cluster",instance=~"$instance",job=~"$job"} |~ "$search" | logfmt'
+        hide: false
+        legendFormat: ''
+        queryType: range
+        refId: A
+    title: ''
+    transparent: true
+    type: logs
+preload: false
+refresh: auto
+schemaVersion: 41
+tags:
+  - preinstalled
+templating:
+  list:
+    - allowCustomValue: false
+      current:
+        text: All
+        value: $__all
+      datasource:
+        type: loki
+        uid: P8E80F9AEF21F6940
+      definition: ''
+      includeAll: true
+      label: Realm
+      name: realm
+      options: []
+      query:
+        label: realm
+        refId: LokiVariableQueryEditor-VariableQuery
+        stream: ''
+        type: 1
+      refresh: 2
+      regex: ''
+      type: query
+    - allowCustomValue: false
+      current:
+        text: All
+        value: $__all
+      datasource:
+        type: loki
+        uid: P8E80F9AEF21F6940
+      definition: ''
+      includeAll: true
+      label: Cluster
+      name: cluster
+      options: []
+      query:
+        label: cluster
+        refId: LokiVariableQueryEditor-VariableQuery
+        stream: '{realm=~"$realm"}'
+        type: 1
+      refresh: 2
+      regex: ''
+      type: query
+    - allowCustomValue: false
+      current:
+        text: All
+        value: $__all
+      datasource:
+        type: loki
+        uid: P8E80F9AEF21F6940
+      definition: ''
+      includeAll: true
+      label: Instance
+      name: instance
+      options: []
+      query:
+        label: instance
+        refId: LokiVariableQueryEditor-VariableQuery
+        stream: '{realm=~"$realm",cluster=~"$cluster"}'
+        type: 1
+      refresh: 2
+      regex: ''
+      type: query
+    - allowCustomValue: false
+      current:
+        text: All
+        value: $__all
+      datasource:
+        type: loki
+        uid: P8E80F9AEF21F6940
+      definition: ''
+      includeAll: true
+      label: Job
+      name: job
+      options: []
+      query:
+        label: job
+        refId: LokiVariableQueryEditor-VariableQuery
+        stream: '{realm=~"$realm",cluster=~"$cluster",instance=~"$instance"}'
+        type: 1
+      refresh: 2
+      regex: ''
+      type: query
+    - current:
+        text: .*
+        value: .*
+      label: Regex Match
+      name: search
+      options:
+        - selected: true
+          text: .*
+          value: .*
+      query: .*
+      type: textbox
+time:
+  from: now-5m
+  to: now
+timepicker:
+  refresh_intervals:
+    - 5s
+    - 15s
+    - 30s
+    - 1m
+    - 5m
+    - 1h
+timezone: ''
+title: Host Logs
+uid: host-logs
+version: 1

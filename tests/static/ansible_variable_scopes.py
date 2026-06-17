@@ -11,6 +11,7 @@ import yaml
 
 CONVENTION_YAML_DIRS = ("inventories", "playbooks", "roles", "variables")
 REFERENCE_DIRS = ("bin", "inventories", "playbooks", "roles", "scripts", "templates", "tests", "variables")
+NON_ANSIBLE_YAML_DIRS = {Path("roles/docker_grafana/files/dashboards")}
 HOST_GROUP_RE = re.compile(r"^(?P<realm>[a-z][a-z0-9]*)_(?P<platform>[a-z][a-z0-9]*)_(?P<cluster>[a-z][a-z0-9]*)$")
 HOST_NAME_RE = re.compile(
     r"^(?P<realm>[a-z][a-z0-9]*)-(?P<platform>[a-z][a-z0-9]*)-(?P<cluster>[a-z][a-z0-9]*)[0-9]{2}$"
@@ -179,7 +180,13 @@ def _iter_convention_yaml_files(repo_root: Path) -> list[Path]:
         directory = repo_root / dirname
         if not directory.is_dir():
             continue
-        files.extend(path for path in sorted(directory.rglob("*")) if path.is_file() and path.suffix in YAML_SUFFIXES)
+        files.extend(
+            path
+            for path in sorted(directory.rglob("*"))
+            if path.is_file()
+            and path.suffix in YAML_SUFFIXES
+            and not any(path.relative_to(repo_root).is_relative_to(ignored) for ignored in NON_ANSIBLE_YAML_DIRS)
+        )
     return files
 
 

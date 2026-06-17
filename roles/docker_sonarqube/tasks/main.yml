@@ -85,6 +85,7 @@
       SONAR_JDBC_PASSWORD: '{{ docker_sonarqube_postgres_pass }}'
     restart_policy: unless-stopped
     stop_timeout: 300
+    cpus: '{{ docker_sonarqube_cpus }}'
     memory_reservation: '{{ docker_sonarqube_mem_res }}'
     memory: '{{ docker_sonarqube_mem_lim }}'
     memory_swap: '{{ docker_sonarqube_mem_swp }}'

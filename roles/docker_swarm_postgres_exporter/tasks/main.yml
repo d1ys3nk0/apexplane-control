@@ -19,7 +19,10 @@
         name: '{{ docker_swarm_postgres_exporter_service_name }}'
         image: '{{ docker_swarm_postgres_exporter_image_full }}'
         env:
-          DATA_SOURCE_NAME: postgresql://{{ docker_swarm_postgres_exporter_pg_user }}:{{ docker_swarm_postgres_exporter_pg_pass }}@{{ docker_swarm_postgres_exporter_pg_host }}:{{ docker_swarm_postgres_exporter_pg_port }}/{{ docker_swarm_postgres_exporter_pg_base }}?sslmode={{ docker_swarm_postgres_exporter_pg_ssl }}
+          DATA_SOURCE_NAME: >-
+            postgresql://{{ docker_swarm_postgres_exporter_pg_user }}:{{ docker_swarm_postgres_exporter_pg_pass }}@
+            {{- docker_swarm_postgres_exporter_pg_host }}:{{ docker_swarm_postgres_exporter_pg_port }}/
+            {{- docker_swarm_postgres_exporter_pg_base }}?sslmode={{ docker_swarm_postgres_exporter_pg_ssl }}
         healthcheck:
           test: ['CMD-SHELL', 'wget -qO- http://localhost:9187 >/dev/null || exit 1']
           timeout: 2s
@@ -35,6 +38,12 @@
             mode: ingress
         placement:
           constraints: '{{ docker_swarm_postgres_exporter_placement_constraints }}'
+        networks: >-
+          {{
+            docker_swarm_postgres_exporter_networks
+            if docker_swarm_postgres_exporter_networks | length > 0
+            else omit
+          }}
         restart_config:
           condition: any
           delay: 5s

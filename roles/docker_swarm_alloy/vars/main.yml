@@ -1,0 +1,13 @@
+---
+
+docker_swarm_alloy_config_data: "{{ lookup('ansible.builtin.template', role_path ~ '/templates/config.alloy.j2') }}"
+docker_swarm_alloy_config_secret_name: >-
+  {{ docker_swarm_alloy_config_secret_name_prefix }}-{{ docker_swarm_alloy_config_data | hash("md5") }}
+docker_swarm_alloy_config_secret_mount: >-
+  {{
+    {
+      'secret_name': docker_swarm_alloy_config_secret_name,
+      'filename': docker_swarm_alloy_config_filename,
+      'mode': '0444',
+    }
+  }}
