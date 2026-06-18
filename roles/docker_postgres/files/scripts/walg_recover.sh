@@ -344,6 +344,64 @@ validate_recover_path_access() {
     error "Local WAL-G repository path ${WALG_RECOVER_STORAGE_PATH} is not mounted into PostgreSQL container ${PG_CONTAINER}"
 }
 
+disable_new_postgres_client_connections() {
+    local database_count
+
+    database_count=$(docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT count(*) FROM pg_catalog.pg_database WHERE datallowconn AND NOT datistemplate AND datname <> 'postgres';" | tr -d '[:space:]')
+    if [ "${database_count}" = "0" ]; then
+        info "No PostgreSQL application databases need connection blocking"
+        return
+    fi
+
+    info "Disabling new PostgreSQL client connections to ${database_count} database(s)"
+    docker exec -i "${PG_CONTAINER}" psql -v ON_ERROR_STOP=1 -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -qAt <<'SQL' >/dev/null
+SELECT format('ALTER DATABASE %I WITH ALLOW_CONNECTIONS false;', datname)
+FROM pg_catalog.pg_database
+WHERE datallowconn
+  AND NOT datistemplate
+  AND datname <> 'postgres'
+ORDER BY datname
+\gexec
+SQL
+}
+
+terminate_postgres_client_connections() {
+    local connection_count
+
+    connection_count=$(docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE pid <> pg_backend_pid() AND backend_type = 'client backend';" | tr -d '[:space:]')
+    if [ "${connection_count}" = "0" ]; then
+        info "No current PostgreSQL client connections need termination"
+        return
+    fi
+
+    info "Terminating ${connection_count} current PostgreSQL client connection(s)"
+    docker exec "${PG_CONTAINER}" psql -v ON_ERROR_STOP=1 -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -Atq -c "SELECT pg_terminate_backend(pid) FROM pg_catalog.pg_stat_activity WHERE pid <> pg_backend_pid() AND backend_type = 'client backend';" >/dev/null
+}
+
+quiesce_postgres_clients() {
+    local container_state
+    local recovery_state
+
+    container_state=$(docker inspect "${PG_CONTAINER}" --format '{{.State.Status}}' 2>/dev/null || true)
+    if [ "${container_state}" != "running" ]; then
+        warn "PostgreSQL container ${PG_CONTAINER} is ${container_state:-missing}; no client connections can be drained"
+        return
+    fi
+
+    if ! postgres_ready; then
+        warn "PostgreSQL is not ready; skipping client connection drain before offline recovery"
+        return
+    fi
+
+    recovery_state=$(postgres_recovery_state)
+    if [ "${recovery_state}" = "t" ]; then
+        warn "PostgreSQL is currently in recovery; skipping writable database connection blocking before offline recovery"
+    else
+        disable_new_postgres_client_connections
+    fi
+    terminate_postgres_client_connections
+}
+
 print_recovery_volume_diagnostics() {
     warn "PostgreSQL container mounts:"
     docker inspect "${PG_CONTAINER}" --format '{{range .Mounts}}{{printf "%s name=%s source=%s destination=%s\n" .Type .Name .Source .Destination}}{{end}}' >&2 || true
@@ -828,6 +886,40 @@ cleanup_recover_config() {
     fi
 }
 
+run_post_recovery_checks() {
+    local expected_recovery_state
+    local recovery_state
+
+    if ! is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || ! is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT; then
+        return
+    fi
+
+    expected_recovery_state=f
+    if is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY; then
+        expected_recovery_state=t
+    fi
+
+    info "Running post-recovery PostgreSQL checks"
+    if [ "$(docker inspect "${PG_CONTAINER}" --format '{{.State.Status}}' 2>/dev/null || true)" != "running" ]; then
+        print_diagnostics
+        error "PostgreSQL container ${PG_CONTAINER} is not running after recovery"
+    fi
+
+    docker exec "${PG_CONTAINER}" pg_isready -d postgres -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}"
+    recovery_state=$(postgres_recovery_state)
+    if [ "${recovery_state}" != "${expected_recovery_state}" ]; then
+        print_diagnostics
+        error "PostgreSQL recovery state is ${recovery_state:-unknown}, expected ${expected_recovery_state}"
+    fi
+
+    if is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY; then
+        docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "SELECT pg_is_in_recovery(), pg_last_wal_receive_lsn() AS receive_lsn, pg_last_wal_replay_lsn() AS replay_lsn;"
+    else
+        docker exec "${PG_CONTAINER}" psql -p "${PG_PORT}" -U "${WALG_RECOVER_PGUSER}" -d postgres -c "SELECT pg_is_in_recovery(), pg_current_wal_lsn();"
+    fi
+    info "Post-recovery PostgreSQL checks passed"
+}
+
 finish() {
     info "Finished in $((SECONDS - SCRIPT_START_SECONDS))s"
 }
@@ -840,6 +932,7 @@ main() {
     validate_postgres_container
     validate_recover_path_access
     wait_before_recovery
+    quiesce_postgres_clients
     stop_postgres_container
     clear_data
     fetch_backup
@@ -855,6 +948,7 @@ main() {
     fi
     wait_for_postgres_health
     cleanup_recover_config
+    run_post_recovery_checks
     finish
 }
 
