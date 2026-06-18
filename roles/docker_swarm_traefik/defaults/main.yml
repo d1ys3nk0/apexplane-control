@@ -10,6 +10,8 @@ docker_swarm_traefik_domains: ~
 docker_swarm_traefik_http_expose_port: 1080
 docker_swarm_traefik_https_expose_port: 1443
 docker_swarm_traefik_ping_path: /_traefik/health
+docker_swarm_traefik_ping_alias_paths:
+  - /_health
 docker_swarm_traefik_placement_constraints:
   - node.role == manager
 docker_swarm_traefik_update_order: stop-first

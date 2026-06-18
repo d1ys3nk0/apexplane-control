@@ -108,7 +108,7 @@
         | combine(
           {
             'traefik.http.routers.health.service': 'ping@internal',
-            'traefik.http.routers.health.rule': 'Path(`' ~ docker_swarm_traefik_ping_path ~ '`)',
+            'traefik.http.routers.health.rule': docker_swarm_traefik_ping_rule,
             'traefik.http.routers.health.entrypoints': 'web',
           }
         )

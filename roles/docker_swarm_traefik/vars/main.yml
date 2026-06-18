@@ -8,6 +8,15 @@ docker_swarm_traefik_dashboard_rule: >-
     ~ (docker_swarm_traefik_domains | map('regex_replace', '^(.*)$', 'Host(`\1`)') | join(' || '))
     ~ ') && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))'
   }}
+docker_swarm_traefik_ping_paths: >-
+  {{
+    ([docker_swarm_traefik_ping_path] + docker_swarm_traefik_ping_alias_paths)
+    | map('string')
+    | map('trim')
+    | unique
+    | list
+  }}
+docker_swarm_traefik_ping_rule: "{{ docker_swarm_traefik_ping_paths | map('regex_replace', '^(.*)$', 'Path(`\\1`)') | join(' || ') }}"
 docker_swarm_traefik_published_ports: >-
   {{
     [
