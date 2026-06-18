@@ -29,6 +29,17 @@
       - docker_postgres_replica_port | int >= 1
       - docker_postgres_replica_port | int <= 65535
       - docker_postgres_replica_ssl in ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full']
+      - docker_postgres_replica_sync_delay | string is match('^[1-9][0-9]*$')
+      - docker_postgres_replica_sync_retries | string is match('^[1-9][0-9]*$')
+
+- name: Validate Docker PostgreSQL replica settings
+  ansible.builtin.assert:
+    that:
+      - docker_postgres_replica_host | string | length > 0
+      - docker_postgres_replica_user | string | length > 0
+      - docker_postgres_replica_pass | string | length > 0
+    fail_msg: Set docker_postgres_replica_host, docker_postgres_replica_user, and docker_postgres_replica_pass for follower mode or replica restore actions.
+  when: docker_postgres_mode == 'follower' or docker_postgres_replica_restore | bool or docker_postgres_replica_walg_restore | bool
 
 - name: Validate Docker PostgreSQL source whitelist
   ansible.builtin.assert:
@@ -96,3 +107,11 @@
       Define docker_postgres_walg_recover_path as s3:<key>, s3://<bucket>/<key>, or an absolute local path, and provide
       matching S3 settings when the recovery path is S3.
   when: docker_postgres_walg_recover_requested | bool
+
+- name: Validate Docker PostgreSQL WAL-G replica restore settings
+  ansible.builtin.assert:
+    that:
+      - docker_postgres_walg_enabled | bool
+      - docker_postgres_walg_recover_enabled | bool
+    fail_msg: Set docker_postgres_walg_binary_url and complete docker_postgres_walg_recover_* settings before docker_postgres_dr_action=restore_walg.
+  when: docker_postgres_replica_walg_restore | bool

@@ -8,7 +8,7 @@ This role runs PostgreSQL in a standalone Docker container with optional WAL-G a
 - Set up PostgreSQL with WAL-G when `docker_postgres_walg_binary_url` is set.
 - Install shared PostgreSQL directories, configs, dotenv, history, and Docker volume.
 - Install WAL-G executables and build the WAL-G image only when the expected local image tag is absent.
-- Restore PostgreSQL replica from active leader.
+- Restore PostgreSQL replica from active leader with `pg_basebackup` or WAL-G.
 - Start PostgreSQL container.
 - Promote PostgreSQL leader during DR.
 - Configure WAL-G.
@@ -46,8 +46,11 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_replica_host` | `''` |
 | `docker_postgres_replica_port` | `5432` |
 | `docker_postgres_replica_restore` | `<derived>` |
+| `docker_postgres_replica_walg_restore` | `<derived>` |
 | `docker_postgres_replica_ssl` | `prefer` |
 | `docker_postgres_replica_pass` | `''` |
+| `docker_postgres_replica_sync_delay` | `5` |
+| `docker_postgres_replica_sync_retries` | `60` |
 | `docker_postgres_replica_user` | `''` |
 | `docker_postgres_mode` | `~` |
 | `docker_postgres_utility_image_name` | `busybox` |
@@ -97,6 +100,10 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 ```
 
 ## Operations
+### DR Actions
+
+`docker_postgres_dr_action=wait_promotable` waits for a standby to replay all received WAL and passes immediately when the target is already primary. `docker_postgres_dr_action=promote` promotes a standby and is a no-op for an existing primary. `docker_postgres_dr_action=verify_replica_synced` requires the target to be a streaming standby with no receive/replay lag. `docker_postgres_dr_action=restore` rebuilds a standby with `pg_basebackup`; `docker_postgres_dr_action=restore_walg` rebuilds it from `docker_postgres_walg_recover_path` and leaves PostgreSQL in standby mode streaming from `docker_postgres_replica_host`.
+
 ### Tunneling
 
 ```sh

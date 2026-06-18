@@ -6,24 +6,28 @@
 - name: Validate PostgreSQL DR action
   ansible.builtin.assert:
     that:
-      - docker_postgres_dr_action in ['none', 'wait_synced', 'stop', 'promote', 'restore']
+      - docker_postgres_dr_action in ['none', 'wait_synced', 'wait_promotable', 'verify_replica_synced', 'stop', 'promote', 'restore', 'restore_walg']
       - docker_postgres_dr_action == 'none' or docker_postgres_failover_enabled | bool
     fail_msg: PostgreSQL DR actions require DR=1 and a valid docker_postgres_dr_action.
 
 - name: Run standalone PostgreSQL DR action
   ansible.builtin.include_tasks: dr.yml
-  when: docker_postgres_dr_action in ['wait_synced', 'stop']
+  when: docker_postgres_dr_action in ['wait_synced', 'wait_promotable', 'verify_replica_synced', 'stop']
 
 - name: Stop PostgreSQL role after standalone DR action
   ansible.builtin.meta: end_host
-  when: docker_postgres_dr_action in ['wait_synced', 'stop']
+  when: docker_postgres_dr_action in ['wait_synced', 'wait_promotable', 'verify_replica_synced', 'stop']
 
 - name: Prepare common PostgreSQL setup
   ansible.builtin.include_tasks: setup_common.yml
 
+- name: Prepare PostgreSQL WAL-G tools before replica restore
+  ansible.builtin.include_tasks: setup_walg_tools.yml
+  when: docker_postgres_replica_walg_restore | bool
+
 - name: Restore PostgreSQL replica from active leader
   ansible.builtin.include_tasks: dr.yml
-  when: docker_postgres_replica_restore | bool
+  when: docker_postgres_replica_restore | bool or docker_postgres_replica_walg_restore | bool
 
 - name: Set up vanilla PostgreSQL
   ansible.builtin.include_tasks: setup_vanilla.yml

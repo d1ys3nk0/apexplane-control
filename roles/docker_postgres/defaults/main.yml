@@ -32,8 +32,11 @@ docker_postgres_mode: ~
 docker_postgres_replica_host: ''
 docker_postgres_replica_port: 5432
 docker_postgres_replica_restore: "{{ docker_postgres_dr_action == 'restore' }}"
+docker_postgres_replica_walg_restore: "{{ docker_postgres_dr_action == 'restore_walg' }}"
 docker_postgres_replica_ssl: prefer
 docker_postgres_replica_pass: ''
+docker_postgres_replica_sync_delay: 5
+docker_postgres_replica_sync_retries: 60
 docker_postgres_replica_user: ''
 docker_postgres_utility_image_name: busybox
 docker_postgres_utility_image_tag: 1.37.0

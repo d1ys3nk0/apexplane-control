@@ -79,6 +79,12 @@ Optional environment:
   WALG_RECOVER_TIME=<timestamp>
   WALG_RECOVER_PGUSER=admin
   WALG_RECOVER_START=true|false
+  WALG_RECOVER_STANDBY=true|false
+  WALG_RECOVER_STANDBY_HOST=<leader-host>
+  WALG_RECOVER_STANDBY_PORT=5432
+  WALG_RECOVER_STANDBY_USER=<replication-user>
+  WALG_RECOVER_STANDBY_PASSWORD=<replication-password>
+  WALG_RECOVER_STANDBY_SSL=prefer
   WALG_RECOVER_WAIT=true|false
   WALG_RECOVER_STOP_WAIT_SECONDS=120
   WALG_RECOVER_WAIT_SECONDS=3600
@@ -192,6 +198,12 @@ init_config() {
     WALG_RECOVER_BACKUP_NAME="${WALG_RECOVER_BACKUP_NAME:-LATEST}"
     WALG_RECOVER_PGUSER="${WALG_RECOVER_PGUSER:-admin}"
     WALG_RECOVER_START="${WALG_RECOVER_START:-true}"
+    WALG_RECOVER_STANDBY="${WALG_RECOVER_STANDBY:-false}"
+    WALG_RECOVER_STANDBY_HOST="${WALG_RECOVER_STANDBY_HOST:-}"
+    WALG_RECOVER_STANDBY_PORT="${WALG_RECOVER_STANDBY_PORT:-5432}"
+    WALG_RECOVER_STANDBY_USER="${WALG_RECOVER_STANDBY_USER:-}"
+    WALG_RECOVER_STANDBY_PASSWORD="${WALG_RECOVER_STANDBY_PASSWORD:-}"
+    WALG_RECOVER_STANDBY_SSL="${WALG_RECOVER_STANDBY_SSL:-prefer}"
     WALG_RECOVER_WAIT="${WALG_RECOVER_WAIT:-true}"
     WALG_RECOVER_STOP_WAIT_SECONDS="${WALG_RECOVER_STOP_WAIT_SECONDS:-120}"
     WALG_RECOVER_WAIT_SECONDS="${WALG_RECOVER_WAIT_SECONDS:-3600}"
@@ -210,13 +222,26 @@ init_config() {
     require_positive_integer "${WALG_RECOVER_HEALTH_WAIT_SECONDS}" WALG_RECOVER_HEALTH_WAIT_SECONDS
     require_positive_integer "${WALG_RECOVER_LOG_TAIL_LINES}" WALG_RECOVER_LOG_TAIL_LINES
     require_positive_integer "${PG_PORT}" PG_PORT
+    require_positive_integer "${WALG_RECOVER_STANDBY_PORT}" WALG_RECOVER_STANDBY_PORT
     is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || true
+    is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY || true
     is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT || true
     case "${WALG_RECOVER_TIME}" in
     *$'\n'* | *$'\r'*)
         usage_error "WALG_RECOVER_TIME must be a single-line PostgreSQL timestamp"
         ;;
     esac
+    case "${WALG_RECOVER_STANDBY_HOST}${WALG_RECOVER_STANDBY_USER}${WALG_RECOVER_STANDBY_PASSWORD}${WALG_RECOVER_STANDBY_SSL}" in
+    *$'\n'* | *$'\r'*)
+        usage_error "WALG_RECOVER_STANDBY_* values must be single-line strings"
+        ;;
+    esac
+    if is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY; then
+        require_vars "WALG_RECOVER_STANDBY_HOST" "WALG_RECOVER_STANDBY_USER" "WALG_RECOVER_STANDBY_PASSWORD" "WALG_RECOVER_STANDBY_SSL"
+        if [ -n "${WALG_RECOVER_TIME}" ]; then
+            usage_error "WALG_RECOVER_TIME cannot be used with WALG_RECOVER_STANDBY=true"
+        fi
+    fi
     resolve_recover_path
 
     RESTORE_SCRIPT="${WALG_DATA_ROOT}/walg_restore_command.sh"
@@ -257,6 +282,9 @@ wait_before_recovery() {
     local seconds_left
 
     info "WAL-G recovery will replace Docker volume ${WALG_DATA_VOLUME} from ${WALG_RECOVER_STORAGE_PATH}."
+    if is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY; then
+        info "PostgreSQL will remain in standby mode and stream from ${WALG_RECOVER_STANDBY_HOST}:${WALG_RECOVER_STANDBY_PORT}."
+    fi
     if [ -n "${WALG_RECOVER_TIME}" ]; then
         info "PostgreSQL will stop recovery at ${WALG_RECOVER_TIME} and promote."
     fi
@@ -344,10 +372,17 @@ validate_recovered_data_files() {
 }
 
 validate_recovery_config_files() {
+    local signal_file
+
+    signal_file=recovery.signal
+    if is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY; then
+        signal_file=standby.signal
+    fi
+
     if docker run --rm \
         --volumes-from "${PG_CONTAINER}:ro" \
         "${WALG_UTILITY_IMAGE}" \
-        sh -c 'test -f "$1/postgresql.auto.conf" && test -f "$1/recovery.signal" && test -f "$1/walg_restore.log"' sh "${WALG_DATA_DIR}"; then
+        sh -c 'test -f "$1/postgresql.auto.conf" && test -f "$1/$2" && test -f "$1/walg_restore.log"' sh "${WALG_DATA_DIR}" "${signal_file}"; then
         return
     fi
 
@@ -488,6 +523,12 @@ enable_recovery() {
         --volumes-from "${PG_CONTAINER}" \
         -e "RESTORE_COMMAND=restore_command = '${RESTORE_SCRIPT} wal-fetch \"%f\" \"%p\" >> ${WALG_DATA_DIR}/walg_restore.log 2>&1'" \
         -e "WALG_RECOVER_TIME=${WALG_RECOVER_TIME}" \
+        -e "WALG_RECOVER_STANDBY=${WALG_RECOVER_STANDBY}" \
+        -e "WALG_RECOVER_STANDBY_HOST=${WALG_RECOVER_STANDBY_HOST}" \
+        -e "WALG_RECOVER_STANDBY_PORT=${WALG_RECOVER_STANDBY_PORT}" \
+        -e "WALG_RECOVER_STANDBY_USER=${WALG_RECOVER_STANDBY_USER}" \
+        -e "WALG_RECOVER_STANDBY_PASSWORD=${WALG_RECOVER_STANDBY_PASSWORD}" \
+        -e "WALG_RECOVER_STANDBY_SSL=${WALG_RECOVER_STANDBY_SSL}" \
         "${WALG_UTILITY_IMAGE}" \
         sh -c '
             sq=$(printf "\047")
@@ -497,12 +538,27 @@ enable_recovery() {
 
             {
                 printf "%s\n" "${RESTORE_COMMAND}"
+                if [ "${WALG_RECOVER_STANDBY}" = "1" ] || [ "${WALG_RECOVER_STANDBY}" = "true" ] || [ "${WALG_RECOVER_STANDBY}" = "True" ] || [ "${WALG_RECOVER_STANDBY}" = "TRUE" ]; then
+                    printf "primary_conninfo = %shost=%s port=%s user=%s password=%s sslmode=%s%s\n" \
+                        "${sq}" \
+                        "$(quote_conf "${WALG_RECOVER_STANDBY_HOST}")" \
+                        "$(quote_conf "${WALG_RECOVER_STANDBY_PORT}")" \
+                        "$(quote_conf "${WALG_RECOVER_STANDBY_USER}")" \
+                        "$(quote_conf "${WALG_RECOVER_STANDBY_PASSWORD}")" \
+                        "$(quote_conf "${WALG_RECOVER_STANDBY_SSL}")" \
+                        "${sq}"
+                fi
                 if [ -n "${WALG_RECOVER_TIME}" ]; then
                     printf "recovery_target_time = %s%s%s\n" "${sq}" "$(quote_conf "${WALG_RECOVER_TIME}")" "${sq}"
                     printf "recovery_target_action = %spromote%s\n" "${sq}" "${sq}"
                 fi
             } >> "$1/postgresql.auto.conf"
-            touch "$1/recovery.signal"
+            rm -f "$1/recovery.signal" "$1/standby.signal"
+            if [ "${WALG_RECOVER_STANDBY}" = "1" ] || [ "${WALG_RECOVER_STANDBY}" = "true" ] || [ "${WALG_RECOVER_STANDBY}" = "True" ] || [ "${WALG_RECOVER_STANDBY}" = "TRUE" ]; then
+                touch "$1/standby.signal"
+            else
+                touch "$1/recovery.signal"
+            fi
             : > "$1/walg_restore.log"
         ' sh "${WALG_DATA_DIR}"
     RESTORE_CONFIG_INSTALLED=true
@@ -644,8 +700,66 @@ wait_for_recovery() {
     error "PostgreSQL did not finish recovery within ${WALG_RECOVER_WAIT_SECONDS}s"
 }
 
+wait_for_standby() {
+    local container_state
+    local database_metrics
+    local deadline
+    local elapsed
+    local next_progress
+    local ready_state
+    local recovery_state
+    local recovery_started
+    local remaining
+
+    if ! is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || ! is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT; then
+        return
+    fi
+
+    info "Waiting up to ${WALG_RECOVER_WAIT_SECONDS}s for PostgreSQL to start as standby"
+    recovery_started=${SECONDS}
+    deadline=$((SECONDS + WALG_RECOVER_WAIT_SECONDS))
+    next_progress=${SECONDS}
+    while [ "${SECONDS}" -lt "${deadline}" ]; do
+        container_state=$(docker inspect "${PG_CONTAINER}" --format '{{.State.Status}}' 2>/dev/null || true)
+        if [ "${container_state}" != "running" ]; then
+            print_diagnostics
+            error "PostgreSQL container ${PG_CONTAINER} is ${container_state:-missing}"
+        fi
+
+        ready_state=not-ready
+        database_metrics="replay_lsn=unknown"
+        recovery_state=unknown
+        if postgres_ready; then
+            ready_state=ready
+            recovery_state=$(postgres_recovery_state)
+            database_metrics=$(postgres_replay_metrics)
+            if [ "${recovery_state}" = "t" ]; then
+                RECOVERY_COMPLETED=true
+                info "PostgreSQL standby started in $((SECONDS - recovery_started))s"
+                return
+            fi
+        fi
+
+        if [ "${SECONDS}" -ge "${next_progress}" ]; then
+            elapsed=$((SECONDS - recovery_started))
+            remaining=$((deadline - SECONDS))
+            if [ "${remaining}" -lt 0 ]; then
+                remaining=0
+            fi
+            info "Standby startup in progress after ${elapsed}s; ${remaining}s until timeout; $(container_metrics); postgres=${ready_state}; pg_is_in_recovery=${recovery_state}; $(recovery_volume_metrics); ${database_metrics:-replay_lsn=unknown}"
+            next_progress=$((SECONDS + WALG_RECOVER_PROGRESS_SECONDS))
+        fi
+
+        sleep 5
+    done
+
+    print_diagnostics
+    error "PostgreSQL did not start as standby within ${WALG_RECOVER_WAIT_SECONDS}s"
+}
+
 wait_for_postgres_health() {
     local deadline
+    local expected_recovery_state
     local health_state
     local recovery_state
     local health_started
@@ -657,13 +771,17 @@ wait_for_postgres_health() {
     info "Waiting up to ${WALG_RECOVER_HEALTH_WAIT_SECONDS}s for PostgreSQL to become healthy"
     health_started=${SECONDS}
     deadline=$((SECONDS + WALG_RECOVER_HEALTH_WAIT_SECONDS))
+    expected_recovery_state=f
+    if is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY; then
+        expected_recovery_state=t
+    fi
     while [ "${SECONDS}" -lt "${deadline}" ]; do
         health_state=$(docker inspect "${PG_CONTAINER}" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' 2>/dev/null || true)
         if [ "$(docker inspect "${PG_CONTAINER}" --format '{{.State.Status}}' 2>/dev/null || true)" = "running" ] &&
             [ "${health_state}" = "healthy" ] &&
             postgres_ready; then
             recovery_state=$(postgres_recovery_state)
-            if [ "${recovery_state}" = "f" ]; then
+            if [ "${recovery_state}" = "${expected_recovery_state}" ]; then
                 POSTGRES_HEALTH_CONFIRMED=true
                 info "PostgreSQL is healthy after restore in $((SECONDS - health_started))s; $(container_metrics); pg_is_in_recovery=${recovery_state}"
                 return
@@ -678,6 +796,11 @@ wait_for_postgres_health() {
 
 cleanup_recover_config() {
     if ! is_true "${WALG_RECOVER_START}" WALG_RECOVER_START; then
+        return
+    fi
+
+    if is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY; then
+        info "Leaving WAL-G restore command in place for standby archive recovery"
         return
     fi
 
@@ -725,7 +848,11 @@ main() {
     enable_recovery
     validate_recovery_config_files
     start_postgres_container
-    wait_for_recovery
+    if is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY; then
+        wait_for_standby
+    else
+        wait_for_recovery
+    fi
     wait_for_postgres_health
     cleanup_recover_config
     finish

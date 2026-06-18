@@ -1,0 +1,73 @@
+---
+
+- name: Install PostgreSQL WAL-G executables
+  become: true
+  ansible.builtin.copy:
+    src: scripts/{{ item }}.sh
+    dest: /opt/postgres/bin/{{ item }}
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - snap_dump
+    - snap_restore
+    - walg_backup
+    - walg_recover
+
+- name: Create PostgreSQL WAL-G image build directory
+  become: true
+  ansible.builtin.file:
+    path: /opt/postgres/walg
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Install PostgreSQL WAL-G Dockerfile
+  become: true
+  ansible.builtin.copy:
+    src: docker/Dockerfile
+    dest: /opt/postgres/walg/Dockerfile
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Inspect PostgreSQL WAL-G image
+  become: true
+  community.docker.docker_image_info:
+    name: '{{ docker_postgres_image_runtime }}'
+  register: docker_postgres_walg_image_info
+
+- name: Build custom PostgreSQL image with WAL-G support
+  become: true
+  community.docker.docker_image:
+    name: '{{ docker_postgres_image_name }}-walg'
+    tag: '{{ docker_postgres_image_tag }}'
+    source: build
+    build:
+      path: /opt/postgres/walg
+      dockerfile: Dockerfile
+      args:
+        POSTGRES_IMAGE: '{{ docker_postgres_image_full }}'
+        WALG_BINARY_URL: '{{ docker_postgres_walg_binary_url }}'
+  when:
+    - docker_postgres_walg_image_info.images | length == 0
+    - not ansible_check_mode
+
+- name: Inspect local WAL-G repository paths
+  become: true
+  ansible.builtin.stat:
+    path: '{{ item }}'
+  loop: '{{ docker_postgres_walg_local_paths }}'
+  register: docker_postgres_walg_local_path_stats
+  when: docker_postgres_walg_local_paths | length > 0
+
+- name: Validate local WAL-G repository paths
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isdir
+    fail_msg: >-
+      Local WAL-G repository path {{ item.item }} must exist as a directory before applying docker_postgres; mount NFS
+      before running the role.
+  loop: '{{ docker_postgres_walg_local_path_stats.results | default([]) }}'

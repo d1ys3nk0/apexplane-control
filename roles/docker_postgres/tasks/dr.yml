@@ -2,25 +2,76 @@
 
 - name: Check if PostgreSQL is in recovery mode
   become: true
-  ansible.builtin.command: docker exec {{ docker_postgres_container }} psql -p {{ docker_postgres_port }} -U {{ docker_postgres_pg_admin_user }} -tAc "SELECT pg_is_in_recovery()"
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - '{{ docker_postgres_container }}'
+      - psql
+      - -p
+      - '{{ docker_postgres_port | string }}'
+      - -U
+      - '{{ docker_postgres_pg_admin_user }}'
+      - -tAc
+      - SELECT pg_is_in_recovery()
   register: docker_postgres_recovery_status
   changed_when: false
   failed_when: false
   check_mode: false
-  when: docker_postgres_dr_action in ['wait_synced', 'promote']
+  when: docker_postgres_dr_action in ['wait_synced', 'wait_promotable', 'verify_replica_synced', 'promote']
 
-- name: Wait until PostgreSQL replica is fully synced
+- name: Wait until PostgreSQL is promotable
   become: true
-  ansible.builtin.command: docker exec {{ docker_postgres_container }} psql -p {{ docker_postgres_port }} -U {{ docker_postgres_pg_admin_user }} -tAc "SELECT pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() AS synced"
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - '{{ docker_postgres_container }}'
+      - psql
+      - -p
+      - '{{ docker_postgres_port | string }}'
+      - -U
+      - '{{ docker_postgres_pg_admin_user }}'
+      - -tAc
+      - SELECT pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn()
   register: docker_postgres_sync_status
-  retries: 10
-  delay: 1
+  retries: '{{ docker_postgres_replica_sync_retries }}'
+  delay: '{{ docker_postgres_replica_sync_delay }}'
   until: docker_postgres_sync_status.stdout | trim == "t"
   changed_when: false
   check_mode: false
   when:
-    - docker_postgres_dr_action == 'wait_synced'
+    - docker_postgres_dr_action in ['wait_synced', 'wait_promotable']
     - docker_postgres_recovery_status.stdout | default('') | trim == 't'
+
+- name: Assert PostgreSQL is a replica
+  ansible.builtin.assert:
+    that:
+      - docker_postgres_recovery_status.stdout | default('') | trim == 't'
+    fail_msg: PostgreSQL is not running as a replica.
+  when: docker_postgres_dr_action == 'verify_replica_synced'
+
+- name: Verify PostgreSQL replica is streaming and synced
+  become: true
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - '{{ docker_postgres_container }}'
+      - psql
+      - -p
+      - '{{ docker_postgres_port | string }}'
+      - -U
+      - '{{ docker_postgres_pg_admin_user }}'
+      - -tAc
+      - SELECT COALESCE((SELECT status = 'streaming' AND pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() FROM pg_stat_wal_receiver LIMIT 1), false)
+  register: docker_postgres_replica_sync_status
+  retries: '{{ docker_postgres_replica_sync_retries }}'
+  delay: '{{ docker_postgres_replica_sync_delay }}'
+  until: docker_postgres_replica_sync_status.stdout | trim == "t"
+  changed_when: false
+  check_mode: false
+  when: docker_postgres_dr_action == 'verify_replica_synced'
 
 - name: Stop PostgreSQL container during DR
   become: true
@@ -31,7 +82,22 @@
 
 - name: Promote PostgreSQL to leader
   become: true
-  ansible.builtin.command: docker run --rm -v {{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }} -u postgres {{ docker_postgres_image_runtime }} pg_ctl promote -t 300 -D {{ docker_postgres_data_dir }}
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - -v
+      - '{{ docker_postgres_data_volume }}:{{ docker_postgres_data_root }}'
+      - -u
+      - postgres
+      - '{{ docker_postgres_image_runtime }}'
+      - pg_ctl
+      - promote
+      - -t
+      - '300'
+      - -D
+      - '{{ docker_postgres_data_dir }}'
   changed_when: true
   when:
     - docker_postgres_dr_action == 'promote'
@@ -107,4 +173,24 @@
   no_log: '{{ docker_postgres_nolog }}'
   when:
     - docker_postgres_replica_restore | bool
+    - not ansible_check_mode
+
+- name: Restore PostgreSQL replica from WAL-G backup
+  become: true
+  ansible.builtin.command:
+    argv:
+      - /opt/toolbox/bin/dotenv
+      - /opt/postgres/env
+      - WALG_RECOVER_STANDBY=1
+      - WALG_RECOVER_STANDBY_HOST={{ docker_postgres_replica_host }}
+      - WALG_RECOVER_STANDBY_PORT={{ docker_postgres_replica_port }}
+      - WALG_RECOVER_STANDBY_USER={{ docker_postgres_replica_user }}
+      - WALG_RECOVER_STANDBY_PASSWORD={{ docker_postgres_replica_pass }}
+      - WALG_RECOVER_STANDBY_SSL={{ docker_postgres_replica_ssl }}
+      - /opt/postgres/bin/walg_recover
+      - '{{ docker_postgres_walg_recover_path }}'
+  changed_when: true
+  no_log: '{{ docker_postgres_nolog }}'
+  when:
+    - docker_postgres_replica_walg_restore | bool
     - not ansible_check_mode
