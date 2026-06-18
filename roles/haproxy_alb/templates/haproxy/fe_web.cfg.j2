@@ -55,6 +55,10 @@ host_{{ route.name }}
 {{ "  " }}http-request auth realm infra if !is_acme {{ route_match(auth_rule) }}{{ auth_more_specific_exclusions(auth_rule) }}{{ auth_requirements(auth_rule, auth_rule_id) }}
 {%- endmacro %}
 
+{%- macro route_allowed_cidr_deny_line(route) -%}
+{{ "  " }}http-request deny deny_status 403 if !is_acme {{ route_match(route) }} !{ src -m ip {{ route.allowed_cidrs | join(' ') }} }
+{%- endmacro %}
+
 {%- macro auth_frame_acl_lines(auth_rule, auth_rule_id) %}
 {%- set exact_origins = [] -%}
 {%- set wildcard_suffixes = [] -%}
@@ -130,7 +134,7 @@ frontend web
   bind :80
   bind :443 ssl crt /etc/ssl/haproxy alpn h2,http/1.1
   maxconn 1000
-  monitor-uri /_health
+  monitor-uri /_haproxy/health
   unique-id-format %[uuid()]
   unique-id-header X-Unique-ID
   http-request set-log-level info
@@ -162,6 +166,10 @@ frontend web
 {% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
   http-request set-src hdr_ip(X-Forwarded-For,-1) if from_trusted_proxy { hdr_ip(X-Forwarded-For,-1) -m found }
 {% endif %}
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{% if route.allowed_cidrs is defined %}{{ route_allowed_cidr_deny_line(route) }}
+{% endif %}
+{% endfor %}
 {% if haproxy_alb_crowdsec_enabled | bool %}
   # CrowdSec
   http-request send-spoe-group crowdsec crowdsec-http-body if !is_acme !has_request_body

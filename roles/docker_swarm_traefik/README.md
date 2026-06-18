@@ -27,7 +27,6 @@ Set these required inputs before applying the role: `docker_swarm_traefik_domain
 | `docker_swarm_traefik_http_expose_port` | `1080` |
 | `docker_swarm_traefik_https_expose_port` | `1443` |
 | `docker_swarm_traefik_ping_path` | `/_traefik/health` |
-| `docker_swarm_traefik_health_allowed_cidrs` | `<complex>` |
 | `docker_swarm_traefik_placement_constraints` | `[node.role == manager]` |
 | `docker_swarm_traefik_update_order` | `stop-first` |
 | `docker_swarm_traefik_update_parallelism` | `1` |

@@ -90,6 +90,8 @@ def test_fe_web_renders_header_updates_and_rewrites_on_separate_lines() -> None:
     assert lines[0] == "frontend web"
     assert "\\n" not in rendered
     assert max_consecutive_blank_lines(rendered) <= 1
+    assert "  monitor-uri /_haproxy/health" in lines
+    assert "  monitor-uri /_health" not in lines
     assert not any(line.count("http-response ") > 1 for line in lines)
     assert not any(line.count("http-request replace-header ") > 1 for line in lines)
     assert "  http-response del-header X-Frame-Options if { var(txn.route) -m str docs }" in lines
@@ -133,6 +135,26 @@ def test_fe_web_renders_frame_parent_auth_bypass() -> None:
         "  http-request auth realm infra if !is_acme { hdr(host) -i docs.example.test } "
         "!{ http_auth(docs_users) } !{ var(txn.auth_frame_bypass_0) -m str true }"
     ) in lines
+
+
+def test_fe_web_renders_route_allowed_cidr_deny_after_source_rewrite() -> None:
+    variables = base_haproxy_alb_variables()
+    variables["haproxy_alb_trusted_proxy_cidrs"] = ["10.0.0.0/8"]
+    variables["haproxy_alb_routes"][0]["allowed_cidrs"] = ["10.1.0.0/16", "192.0.2.0/24"]
+
+    rendered = render_template("fe_web.cfg.j2", variables)
+    lines = rendered.splitlines()
+    deny_line = "  http-request deny deny_status 403 if !is_acme host_alpha !{ src -m ip 10.1.0.0/16 192.0.2.0/24 }"
+
+    assert deny_line in lines
+    assert not any("host_docs !{ src -m ip" in line for line in lines)
+    assert not any("host_edge !{ src -m ip" in line for line in lines)
+    source_rewrite_line = (
+        "  http-request set-src hdr_ip(X-Forwarded-For,-1) if from_trusted_proxy "
+        "{ hdr_ip(X-Forwarded-For,-1) -m found }"
+    )
+    assert lines.index(source_rewrite_line) < lines.index(deny_line)
+    assert lines.index(deny_line) < lines.index("  use_backend alpha if host_alpha")
 
 
 def test_be_local_renders_each_backend_and_server_on_separate_lines() -> None:

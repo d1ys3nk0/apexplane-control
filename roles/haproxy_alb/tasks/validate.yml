@@ -233,6 +233,25 @@
   loop_control:
     label: '{{ item.name }}'
 
+- name: Assert route allowed CIDRs are valid when set
+  ansible.builtin.assert:
+    that:
+      - item.allowed_cidrs is iterable
+      - item.allowed_cidrs is not string
+      - item.allowed_cidrs | length > 0
+      - >-
+        item.allowed_cidrs
+        | map('string')
+        | map('trim')
+        | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
+        | list
+        | length == item.allowed_cidrs | length
+    fail_msg: 'Route {{ item.name }}: allowed_cidrs must be a non-empty list of IPv4 CIDR strings when set'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.allowed_cidrs is defined
+
 - name: Assert route (domain, prefix) pairs are unique
   ansible.builtin.assert:
     that:
