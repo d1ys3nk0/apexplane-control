@@ -101,6 +101,40 @@ def test_fe_web_renders_header_updates_and_rewrites_on_separate_lines() -> None:
     assert "  http-request replace-header X-Service-Name ^.*$ docs if host_docs" in lines
 
 
+def test_fe_web_renders_frame_parent_auth_bypass() -> None:
+    variables = base_haproxy_alb_variables()
+    variables["haproxy_alb_auth"] = [
+        {
+            "domain": "docs.example.test",
+            "frame_parent_whitelist": ["https://app.example.test", "https://*.parent.example.test"],
+            "userlist": "docs_users",
+        }
+    ]
+
+    rendered = render_template("fe_web.cfg.j2", variables)
+    lines = rendered.splitlines()
+
+    assert "  acl auth_frame_iframe_0 req.hdr(Sec-Fetch-Dest) -i iframe" in lines
+    assert "  acl auth_frame_subresource_0 req.hdr(Sec-Fetch-Site) -i same-origin" in lines
+    assert "  acl auth_frame_subresource_dest_0 req.hdr(Sec-Fetch-Dest) -i empty script style image font" in lines
+    assert "  acl auth_frame_parent_0 req.hdr(Referer) -m beg https://app.example.test/" in lines
+    assert (
+        "  acl auth_frame_parent_0 req.hdr(Referer) -m reg ^https://[^/][^/]*[.]parent[.]example[.]test(/|$)"
+    ) in lines
+    assert (
+        "  http-request set-var(txn.auth_frame_bypass_0) str(true) if { hdr(host) -i docs.example.test } "
+        "auth_frame_iframe_0 auth_frame_parent_0"
+    ) in lines
+    assert (
+        "  http-request set-var(txn.auth_frame_bypass_0) str(true) if { hdr(host) -i docs.example.test } "
+        "auth_frame_subresource_0 auth_frame_subresource_dest_0"
+    ) in lines
+    assert (
+        "  http-request auth realm infra if !is_acme { hdr(host) -i docs.example.test } "
+        "!{ http_auth(docs_users) } !{ var(txn.auth_frame_bypass_0) -m str true }"
+    ) in lines
+
+
 def test_be_local_renders_each_backend_and_server_on_separate_lines() -> None:
     rendered = render_template("be_local.cfg.j2", base_haproxy_alb_variables())
     lines = rendered.splitlines()

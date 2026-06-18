@@ -335,6 +335,33 @@
           | length == (item.prefix_whitelist | length)
         )
       - >-
+        item.frame_parent_whitelist is not defined
+        or (
+          item.frame_parent_whitelist is iterable
+          and item.frame_parent_whitelist is not string
+          and item.frame_parent_whitelist | length > 0
+        )
+      - >-
+        item.frame_parent_whitelist is not defined
+        or (
+          item.frame_parent_whitelist
+          | map('string')
+          | map('trim')
+          | select('match', '^https://([*][.])?[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$')
+          | list
+          | length == (item.frame_parent_whitelist | length)
+        )
+      - >-
+        item.frame_parent_whitelist is not defined
+        or (
+          item.frame_parent_whitelist
+          | map('string')
+          | map('trim')
+          | unique
+          | list
+          | length == (item.frame_parent_whitelist | length)
+        )
+      - >-
         item.cidr_whitelist is not defined
         or (
           item.cidr_whitelist
@@ -347,7 +374,8 @@
     fail_msg: >-
       Invalid auth rule {{ item }}: need domain as a string or non-empty unique string list, known userlist,
       optional prefix starting with /, optional non-empty cidr_whitelist list of IPv4 CIDR strings,
-      and optional non-empty prefix_whitelist list with values starting with /
+      optional non-empty prefix_whitelist list with values starting with /, and optional non-empty
+      frame_parent_whitelist list of unique HTTPS origins
   loop: '{{ haproxy_alb_auth | default([]) }}'
   loop_control:
     label: '{{ item.domain | default("?") }}'
