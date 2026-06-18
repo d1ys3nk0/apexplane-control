@@ -25,7 +25,7 @@
   ansible.builtin.include_tasks: setup_walg_tools.yml
   when: docker_postgres_replica_walg_restore | bool
 
-- name: Restore PostgreSQL replica from active leader
+- name: Restore PostgreSQL replica from active primary
   ansible.builtin.include_tasks: dr.yml
   when: docker_postgres_replica_restore | bool or docker_postgres_replica_walg_restore | bool
 
@@ -40,6 +40,6 @@
 - name: Verify PostgreSQL setup
   ansible.builtin.include_tasks: verify.yml
 
-- name: Promote PostgreSQL leader during DR
+- name: Promote PostgreSQL standby during DR
   ansible.builtin.include_tasks: dr.yml
   when: docker_postgres_dr_action == 'promote'

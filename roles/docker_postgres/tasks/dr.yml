@@ -80,7 +80,7 @@
     state: stopped
   when: docker_postgres_dr_action == 'stop'
 
-- name: Promote PostgreSQL to leader
+- name: Promote PostgreSQL to primary
   become: true
   ansible.builtin.command:
     argv:
@@ -156,7 +156,7 @@
     - docker_postgres_replica_restore | bool
     - not ansible_check_mode
 
-- name: Restore PostgreSQL replica from active leader
+- name: Restore PostgreSQL replica from active primary
   become: true
   community.docker.docker_container:
     name: pg-basebackup
@@ -182,11 +182,11 @@
       - /opt/toolbox/bin/dotenv
       - /opt/postgres/env
       - WALG_RECOVER_STANDBY=1
-      - WALG_RECOVER_STANDBY_HOST={{ docker_postgres_replica_host }}
-      - WALG_RECOVER_STANDBY_PORT={{ docker_postgres_replica_port }}
-      - WALG_RECOVER_STANDBY_USER={{ docker_postgres_replica_user }}
-      - WALG_RECOVER_STANDBY_PASSWORD={{ docker_postgres_replica_pass }}
-      - WALG_RECOVER_STANDBY_SSL={{ docker_postgres_replica_ssl }}
+      - WALG_RECOVER_PRIMARY_HOST={{ docker_postgres_replica_host }}
+      - WALG_RECOVER_PRIMARY_PORT={{ docker_postgres_replica_port }}
+      - WALG_RECOVER_PRIMARY_USER={{ docker_postgres_replica_user }}
+      - WALG_RECOVER_PRIMARY_PASSWORD={{ docker_postgres_replica_pass }}
+      - WALG_RECOVER_PRIMARY_SSL={{ docker_postgres_replica_ssl }}
       - /opt/postgres/bin/walg_recover
       - '{{ docker_postgres_walg_recover_path }}'
   changed_when: true

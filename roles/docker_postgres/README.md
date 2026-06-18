@@ -8,9 +8,9 @@ This role runs PostgreSQL in a standalone Docker container with optional WAL-G a
 - Set up PostgreSQL with WAL-G when `docker_postgres_walg_binary_url` is set.
 - Install shared PostgreSQL directories, configs, dotenv, history, and Docker volume.
 - Install WAL-G executables and build the WAL-G image only when the expected local image tag is absent.
-- Restore PostgreSQL replica from active leader with `pg_basebackup` or WAL-G.
+- Restore PostgreSQL replica from active primary with `pg_basebackup` or WAL-G.
 - Start PostgreSQL container.
-- Promote PostgreSQL leader during DR.
+- Promote PostgreSQL standby during DR.
 - Configure WAL-G.
 
 ## Configuration
@@ -230,6 +230,6 @@ Replace placeholders before running.
 ```sh
 sudo docker stop <container>
 sudo docker run --rm -v <data-volume>:<data-root> <utility-image> find <data-dir> -mindepth 1 -delete
-sudo docker run --rm -e PGPASSWORD='<REPLICATOR_PASSWORD>' -v <data-volume>:<data-root> <postgres-image> pg_basebackup -vPR -X stream -c fast -h <leader-host> -p <leader-port> -U replicator -D <data-dir> -C -S <slot-name>
+sudo docker run --rm -e PGPASSWORD='<REPLICATOR_PASSWORD>' -v <data-volume>:<data-root> <postgres-image> pg_basebackup -vPR -X stream -c fast -h <primary-host> -p <primary-port> -U replicator -D <data-dir> -C -S <slot-name>
 sudo docker start <container>
 ```

@@ -80,11 +80,11 @@ Optional environment:
   WALG_RECOVER_PGUSER=admin
   WALG_RECOVER_START=true|false
   WALG_RECOVER_STANDBY=true|false
-  WALG_RECOVER_STANDBY_HOST=<leader-host>
-  WALG_RECOVER_STANDBY_PORT=5432
-  WALG_RECOVER_STANDBY_USER=<replication-user>
-  WALG_RECOVER_STANDBY_PASSWORD=<replication-password>
-  WALG_RECOVER_STANDBY_SSL=prefer
+  WALG_RECOVER_PRIMARY_HOST=<primary-host>
+  WALG_RECOVER_PRIMARY_PORT=5432
+  WALG_RECOVER_PRIMARY_USER=<replication-user>
+  WALG_RECOVER_PRIMARY_PASSWORD=<replication-password>
+  WALG_RECOVER_PRIMARY_SSL=prefer
   WALG_RECOVER_WAIT=true|false
   WALG_RECOVER_STOP_WAIT_SECONDS=120
   WALG_RECOVER_WAIT_SECONDS=3600
@@ -199,11 +199,11 @@ init_config() {
     WALG_RECOVER_PGUSER="${WALG_RECOVER_PGUSER:-admin}"
     WALG_RECOVER_START="${WALG_RECOVER_START:-true}"
     WALG_RECOVER_STANDBY="${WALG_RECOVER_STANDBY:-false}"
-    WALG_RECOVER_STANDBY_HOST="${WALG_RECOVER_STANDBY_HOST:-}"
-    WALG_RECOVER_STANDBY_PORT="${WALG_RECOVER_STANDBY_PORT:-5432}"
-    WALG_RECOVER_STANDBY_USER="${WALG_RECOVER_STANDBY_USER:-}"
-    WALG_RECOVER_STANDBY_PASSWORD="${WALG_RECOVER_STANDBY_PASSWORD:-}"
-    WALG_RECOVER_STANDBY_SSL="${WALG_RECOVER_STANDBY_SSL:-prefer}"
+    WALG_RECOVER_PRIMARY_HOST="${WALG_RECOVER_PRIMARY_HOST:-}"
+    WALG_RECOVER_PRIMARY_PORT="${WALG_RECOVER_PRIMARY_PORT:-5432}"
+    WALG_RECOVER_PRIMARY_USER="${WALG_RECOVER_PRIMARY_USER:-}"
+    WALG_RECOVER_PRIMARY_PASSWORD="${WALG_RECOVER_PRIMARY_PASSWORD:-}"
+    WALG_RECOVER_PRIMARY_SSL="${WALG_RECOVER_PRIMARY_SSL:-prefer}"
     WALG_RECOVER_WAIT="${WALG_RECOVER_WAIT:-true}"
     WALG_RECOVER_STOP_WAIT_SECONDS="${WALG_RECOVER_STOP_WAIT_SECONDS:-120}"
     WALG_RECOVER_WAIT_SECONDS="${WALG_RECOVER_WAIT_SECONDS:-3600}"
@@ -222,7 +222,7 @@ init_config() {
     require_positive_integer "${WALG_RECOVER_HEALTH_WAIT_SECONDS}" WALG_RECOVER_HEALTH_WAIT_SECONDS
     require_positive_integer "${WALG_RECOVER_LOG_TAIL_LINES}" WALG_RECOVER_LOG_TAIL_LINES
     require_positive_integer "${PG_PORT}" PG_PORT
-    require_positive_integer "${WALG_RECOVER_STANDBY_PORT}" WALG_RECOVER_STANDBY_PORT
+    require_positive_integer "${WALG_RECOVER_PRIMARY_PORT}" WALG_RECOVER_PRIMARY_PORT
     is_true "${WALG_RECOVER_START}" WALG_RECOVER_START || true
     is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY || true
     is_true "${WALG_RECOVER_WAIT}" WALG_RECOVER_WAIT || true
@@ -231,13 +231,13 @@ init_config() {
         usage_error "WALG_RECOVER_TIME must be a single-line PostgreSQL timestamp"
         ;;
     esac
-    case "${WALG_RECOVER_STANDBY_HOST}${WALG_RECOVER_STANDBY_USER}${WALG_RECOVER_STANDBY_PASSWORD}${WALG_RECOVER_STANDBY_SSL}" in
+    case "${WALG_RECOVER_PRIMARY_HOST}${WALG_RECOVER_PRIMARY_USER}${WALG_RECOVER_PRIMARY_PASSWORD}${WALG_RECOVER_PRIMARY_SSL}" in
     *$'\n'* | *$'\r'*)
-        usage_error "WALG_RECOVER_STANDBY_* values must be single-line strings"
+        usage_error "WALG_RECOVER_PRIMARY_* values must be single-line strings"
         ;;
     esac
     if is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY; then
-        require_vars "WALG_RECOVER_STANDBY_HOST" "WALG_RECOVER_STANDBY_USER" "WALG_RECOVER_STANDBY_PASSWORD" "WALG_RECOVER_STANDBY_SSL"
+        require_vars "WALG_RECOVER_PRIMARY_HOST" "WALG_RECOVER_PRIMARY_USER" "WALG_RECOVER_PRIMARY_PASSWORD" "WALG_RECOVER_PRIMARY_SSL"
         if [ -n "${WALG_RECOVER_TIME}" ]; then
             usage_error "WALG_RECOVER_TIME cannot be used with WALG_RECOVER_STANDBY=true"
         fi
@@ -283,7 +283,7 @@ wait_before_recovery() {
 
     info "WAL-G recovery will replace Docker volume ${WALG_DATA_VOLUME} from ${WALG_RECOVER_STORAGE_PATH}."
     if is_true "${WALG_RECOVER_STANDBY}" WALG_RECOVER_STANDBY; then
-        info "PostgreSQL will remain in standby mode and stream from ${WALG_RECOVER_STANDBY_HOST}:${WALG_RECOVER_STANDBY_PORT}."
+        info "PostgreSQL will remain in standby mode and stream from primary ${WALG_RECOVER_PRIMARY_HOST}:${WALG_RECOVER_PRIMARY_PORT}."
     fi
     if [ -n "${WALG_RECOVER_TIME}" ]; then
         info "PostgreSQL will stop recovery at ${WALG_RECOVER_TIME} and promote."
@@ -524,11 +524,11 @@ enable_recovery() {
         -e "RESTORE_COMMAND=restore_command = '${RESTORE_SCRIPT} wal-fetch \"%f\" \"%p\" >> ${WALG_DATA_DIR}/walg_restore.log 2>&1'" \
         -e "WALG_RECOVER_TIME=${WALG_RECOVER_TIME}" \
         -e "WALG_RECOVER_STANDBY=${WALG_RECOVER_STANDBY}" \
-        -e "WALG_RECOVER_STANDBY_HOST=${WALG_RECOVER_STANDBY_HOST}" \
-        -e "WALG_RECOVER_STANDBY_PORT=${WALG_RECOVER_STANDBY_PORT}" \
-        -e "WALG_RECOVER_STANDBY_USER=${WALG_RECOVER_STANDBY_USER}" \
-        -e "WALG_RECOVER_STANDBY_PASSWORD=${WALG_RECOVER_STANDBY_PASSWORD}" \
-        -e "WALG_RECOVER_STANDBY_SSL=${WALG_RECOVER_STANDBY_SSL}" \
+        -e "WALG_RECOVER_PRIMARY_HOST=${WALG_RECOVER_PRIMARY_HOST}" \
+        -e "WALG_RECOVER_PRIMARY_PORT=${WALG_RECOVER_PRIMARY_PORT}" \
+        -e "WALG_RECOVER_PRIMARY_USER=${WALG_RECOVER_PRIMARY_USER}" \
+        -e "WALG_RECOVER_PRIMARY_PASSWORD=${WALG_RECOVER_PRIMARY_PASSWORD}" \
+        -e "WALG_RECOVER_PRIMARY_SSL=${WALG_RECOVER_PRIMARY_SSL}" \
         "${WALG_UTILITY_IMAGE}" \
         sh -c '
             sq=$(printf "\047")
@@ -541,11 +541,11 @@ enable_recovery() {
                 if [ "${WALG_RECOVER_STANDBY}" = "1" ] || [ "${WALG_RECOVER_STANDBY}" = "true" ] || [ "${WALG_RECOVER_STANDBY}" = "True" ] || [ "${WALG_RECOVER_STANDBY}" = "TRUE" ]; then
                     printf "primary_conninfo = %shost=%s port=%s user=%s password=%s sslmode=%s%s\n" \
                         "${sq}" \
-                        "$(quote_conf "${WALG_RECOVER_STANDBY_HOST}")" \
-                        "$(quote_conf "${WALG_RECOVER_STANDBY_PORT}")" \
-                        "$(quote_conf "${WALG_RECOVER_STANDBY_USER}")" \
-                        "$(quote_conf "${WALG_RECOVER_STANDBY_PASSWORD}")" \
-                        "$(quote_conf "${WALG_RECOVER_STANDBY_SSL}")" \
+                        "$(quote_conf "${WALG_RECOVER_PRIMARY_HOST}")" \
+                        "$(quote_conf "${WALG_RECOVER_PRIMARY_PORT}")" \
+                        "$(quote_conf "${WALG_RECOVER_PRIMARY_USER}")" \
+                        "$(quote_conf "${WALG_RECOVER_PRIMARY_PASSWORD}")" \
+                        "$(quote_conf "${WALG_RECOVER_PRIMARY_SSL}")" \
                         "${sq}"
                 fi
                 if [ -n "${WALG_RECOVER_TIME}" ]; then
