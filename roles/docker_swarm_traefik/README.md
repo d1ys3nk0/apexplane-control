@@ -13,7 +13,7 @@ This role deploys Traefik as a Docker Swarm service.
 - Verify the global Traefik service has running tasks on its expected active nodes.
 
 ## Configuration
-Set these required inputs before applying the role: `docker_swarm_traefik_domains`, `docker_swarm_traefik_letsencrypt_email`.
+Set this required input before applying the role: `docker_swarm_traefik_letsencrypt_email`.
 
 | Variable | Default |
 | --- | --- |
@@ -23,10 +23,10 @@ Set these required inputs before applying the role: `docker_swarm_traefik_domain
 | `docker_swarm_traefik_enabled` | `true` |
 | `docker_swarm_traefik_service_manage_enabled` | `true` |
 | `docker_swarm_traefik_network` | `traefik` |
-| `docker_swarm_traefik_domains` | `~` |
+| `docker_swarm_traefik_dashboard_rule` | <code>PathPrefix(`/api`) \|\| PathPrefix(`/dashboard`)</code> |
 | `docker_swarm_traefik_http_expose_port` | `1080` |
 | `docker_swarm_traefik_https_expose_port` | `1443` |
-| `docker_swarm_traefik_ping_path` | `/_traefik/health` |
+| `docker_swarm_traefik_health_rule` | <code>Path(`/_traefik/health`)</code> |
 | `docker_swarm_traefik_placement_constraints` | `[node.role == manager]` |
 | `docker_swarm_traefik_update_order` | `stop-first` |
 | `docker_swarm_traefik_update_parallelism` | `1` |
@@ -44,6 +44,5 @@ Set these required inputs before applying the role: `docker_swarm_traefik_domain
   roles:
     - role: apexplane.control.docker_swarm_traefik
       vars:
-        docker_swarm_traefik_domains: [<value>]
         docker_swarm_traefik_letsencrypt_email: <value>
 ```
