@@ -16,7 +16,7 @@
       - docker_swarm_traefik_domains is not string
       - docker_swarm_traefik_domains | length > 0
       - docker_swarm_traefik_domains | select('string') | list | length == docker_swarm_traefik_domains | length
-      - docker_swarm_traefik_domains | map('trim') | select('length') | list | length == docker_swarm_traefik_domains | length
+      - docker_swarm_traefik_domains | map('trim') | reject('equalto', '') | list | length == docker_swarm_traefik_domains | length
       - docker_swarm_traefik_network | string | length > 0
       - docker_swarm_traefik_http_expose_port | int > 0
       - docker_swarm_traefik_https_expose_port | int > 0
