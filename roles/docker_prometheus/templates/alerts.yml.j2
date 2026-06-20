@@ -371,7 +371,7 @@ groups:
           description: 'Average disk write latency exceeds 0.1 seconds (current: {{ $value }} s).'
 
       - alert: HostContextSwitching
-        expr: (rate(node_context_switches_total[5m])) / (count without(cpu, mode) (node_cpu_seconds_total{mode='idle'})) > 5000
+        expr: (rate(node_context_switches_total[5m])) / (count without(cpu, mode) (node_cpu_seconds_total{mode='idle'})) > 10000
         for: 5m
         labels:
           sev: warning
@@ -381,7 +381,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High context switching on {{ $labels.instance }}
-          description: 'Context switch rate exceeds 5000 (current: {{ $value }}).'
+          description: 'Context switch rate exceeds 10000 (current: {{ $value }}).'
 
       - alert: HostClockSkew
         expr: (node_timex_offset_seconds > 0.05 and deriv(node_timex_offset_seconds[5m]) >= 0) or (node_timex_offset_seconds < -0.05 and deriv(node_timex_offset_seconds[5m]) <= 0)
