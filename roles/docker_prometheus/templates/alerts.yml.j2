@@ -434,8 +434,10 @@ groups:
           platform: '{{ $labels.platform }}'
           world: '{{ $labels.world }}'
         annotations:
-          summary: High container restart count on {{ $labels.instance }}
-          description: 'Container {{ $labels.name }} restarted more than 2 times in 5 minutes (restarts: {{ $value }}).'
+          summary: High restart count in container {{ $labels.name }}
+          description: 'Container {{ $labels.name }} restarted more than 2 times in 5 minutes.'
+          current: '{{ $value }} restarts'
+          expected: '<= 2 restarts in 5 minutes'
 
       - alert: ContainerMemoryUsage
         expr: (sum by(instance, name, cluster, realm, platform, world) (container_memory_working_set_bytes{name!=''}) / sum by(instance, name, cluster, realm, platform, world) (container_spec_memory_limit_bytes{name!=''} > 0) * 100) > 90
@@ -447,8 +449,10 @@ groups:
           platform: '{{ $labels.platform }}'
           world: '{{ $labels.world }}'
         annotations:
-          summary: High memory usage in container on {{ $labels.instance }}
-          description: 'Container {{ $labels.name }} memory usage exceeds 90% of the configured limit (current: {{ $value }}%).'
+          summary: High memory usage in container {{ $labels.name }}
+          description: 'Container {{ $labels.name }} memory usage exceeds 90% of the configured limit.'
+          current: '{{ $value }}%'
+          expected: '<= 90%'
 
       - alert: ContainerCpuUsage
         expr: (sum by(instance, name, cluster, realm, platform, world) (rate(container_cpu_usage_seconds_total{name!=''}[3m])) / (sum by(instance, name, cluster, realm, platform, world) (container_spec_cpu_quota{name!=''} > 0) / sum by(instance, name, cluster, realm, platform, world) (container_spec_cpu_period{name!=''} > 0)) * 100) > 90
@@ -460,8 +464,10 @@ groups:
           platform: '{{ $labels.platform }}'
           world: '{{ $labels.world }}'
         annotations:
-          summary: High CPU usage in container on {{ $labels.instance }}
-          description: 'Container {{ $labels.name }} CPU usage exceeds 90% of the configured limit (current: {{ $value }}%).'
+          summary: High CPU usage in container {{ $labels.name }}
+          description: 'Container {{ $labels.name }} CPU usage exceeds 90% of the configured limit.'
+          current: '{{ $value }}%'
+          expected: '<= 90%'
 
       - alert: ContainerUnhealthy
         expr: container_health_status{name!=''} == 0
@@ -473,8 +479,10 @@ groups:
           platform: '{{ $labels.platform }}'
           world: '{{ $labels.world }}'
         annotations:
-          summary: Unhealthy container on {{ $labels.instance }}
-          description: 'Container {{ $labels.name }} is reporting an unhealthy status (value: {{ $value }}).'
+          summary: Unhealthy container {{ $labels.name }}
+          description: 'Container {{ $labels.name }} is reporting an unhealthy status.'
+          current: '{{ $value }}'
+          expected: 'healthy'
 
       - alert: DockerContainerDown
         expr: time() - container_last_seen{name!='', swarm_task='', swarm_service='', container_label_com_docker_swarm_service_name=''} > 60
@@ -487,7 +495,9 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Container {{ $labels.name }} is down on {{ $labels.instance }}
-          description: 'Container {{ $labels.name }} has not reported metrics recently (seconds since last seen: {{ $value }}).'
+          description: 'Container {{ $labels.name }} has not reported metrics recently.'
+          current: '{{ $value }} seconds since last seen'
+          expected: '<= 60 seconds since last seen'
 {% endraw %}
 {% if docker_prometheus_custom_alerts | trim | length > 0 %}
 
