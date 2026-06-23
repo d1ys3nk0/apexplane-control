@@ -24,6 +24,8 @@ FORBIDDEN_PREFIXES = ("gv_", "iv_", "vv_", "c_")
 YAML_SUFFIXES = {".yml", ".yaml"}
 NON_ANSIBLE_ROLE_YAML_DIRS = {("docker_grafana", "files", "dashboards")}
 PROMETHEUS_ALERT_TOPOLOGY_LABELS = {"cluster", "platform", "realm", "world"}
+PROMETHEUS_ALERT_REQUIRED_ANNOTATIONS = {"rule", "summary"}
+PROMETHEUS_ALERT_FORBIDDEN_ANNOTATIONS = {"current", "description", "expected"}
 EXPRESSION_KEYS = {
     "changed_when",
     "failed_when",
@@ -677,6 +679,75 @@ def _prometheus_alert_topology_label_errors(role_dir: Path, repo_root: Path) -> 
     return errors
 
 
+def _prometheus_alert_annotation_errors(role_dir: Path, repo_root: Path) -> list[str]:
+    if role_dir.name != "docker_prometheus":
+        return []
+
+    alerts_path = role_dir / "templates" / "alerts.yml.j2"
+    if not alerts_path.is_file():
+        return []
+
+    errors: list[str] = []
+    current_alert: str | None = None
+    current_line_number = 1
+    current_annotations: set[str] | None = None
+    annotations_indent = -1
+
+    def finish_alert() -> None:
+        if current_alert is None:
+            return
+        missing = PROMETHEUS_ALERT_REQUIRED_ANNOTATIONS - (current_annotations or set())
+        if missing:
+            errors.append(
+                f"{_rel_path(alerts_path, repo_root)}:{current_line_number}: alert {current_alert} annotations must "
+                f"include {', '.join(sorted(PROMETHEUS_ALERT_REQUIRED_ANNOTATIONS))}"
+            )
+
+    for line_number, line in enumerate(alerts_path.read_text(encoding="utf-8").splitlines(), start=1):
+        if re.match(r"^\s*{%\s*endraw\s*%}\s*$", line) is not None:
+            break
+
+        alert_match = re.match(r"^\s*-\s+alert:\s+(?P<name>[A-Za-z0-9_]+)\s*$", line)
+        if alert_match is not None:
+            finish_alert()
+            current_alert = alert_match.group("name")
+            current_line_number = line_number
+            current_annotations = None
+            annotations_indent = -1
+            continue
+
+        if current_alert is None:
+            continue
+
+        if re.match(r"^\s*annotations:\s*$", line) is not None:
+            current_annotations = set()
+            annotations_indent = len(line) - len(line.lstrip())
+            continue
+
+        if current_annotations is None or annotations_indent < 0:
+            continue
+
+        line_indent = len(line) - len(line.lstrip())
+        if line.strip() and line_indent <= annotations_indent:
+            annotations_indent = -1
+            continue
+
+        annotation_match = re.match(r"^\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*):", line)
+        if annotation_match is None:
+            continue
+
+        annotation_name = annotation_match.group("name")
+        current_annotations.add(annotation_name)
+        if annotation_name in PROMETHEUS_ALERT_FORBIDDEN_ANNOTATIONS:
+            errors.append(
+                f"{_rel_path(alerts_path, repo_root)}:{line_number}: alert {current_alert} annotations must use "
+                "summary and rule instead of description, current, or expected"
+            )
+
+    finish_alert()
+    return errors
+
+
 def _role_errors(role_dir: Path, repo_root: Path, env: Environment) -> list[str]:
     role_name = role_dir.name
     role_prefix = f"{role_name}_"
@@ -721,6 +792,7 @@ def _role_errors(role_dir: Path, repo_root: Path, env: Environment) -> list[str]
     errors.extend(_nolog_contract_errors(role_dir, repo_root, defaults))
     errors.extend(_task_accumulation_errors(role_dir, repo_root))
     errors.extend(_prometheus_alert_topology_label_errors(role_dir, repo_root))
+    errors.extend(_prometheus_alert_annotation_errors(role_dir, repo_root))
     return errors
 
 

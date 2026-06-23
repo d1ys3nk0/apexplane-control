@@ -15,7 +15,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: '{{ $labels.instance }}/{{ $labels.job }} is not reachable'
-          description: up == {{ $value }}
+          rule: 'up is {{ $value }}; alert fires when == 0 for 1m'
 
   - name: node
     rules:
@@ -30,7 +30,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: SystemD service crashed on {{ $labels.instance }}
-          description: Detected a failed SystemD service with value {{ $value }}.
+          rule: 'failed unit state is {{ $value }}; alert fires when == 1'
 
       - alert: HostOomKillDetected
         expr: increase(node_vmstat_oom_kill[1m]) > 0
@@ -43,7 +43,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: OOM kill detected on {{ $labels.instance }}
-          description: Detected an out-of-memory kill event with value {{ $value }}.
+          rule: 'OOM kill increase is {{ $value }}; alert fires when > 0'
 
       - alert: HostOutOfDiskSpace
         expr: node_filesystem_avail_bytes{mountpoint='/'} / node_filesystem_size_bytes{mountpoint='/'} * 100 < 10
@@ -56,7 +56,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Disk space critically low on {{ $labels.instance }}
-          description: Available disk space is below 10% (currently {{ $value }}%).
+          rule: 'root filesystem free space is {{ $value }}%; alert fires when < 10% for 1m'
 
       - alert: HostOutOfInodes
         expr: node_filesystem_files_free{mountpoint ='/'} / node_filesystem_files{mountpoint='/'} * 100 < 10
@@ -69,7 +69,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Inode shortage on {{ $labels.instance }}
-          description: 'Available inodes are below 10% (current value: {{ $value }}%).'
+          rule: 'root filesystem free inodes are {{ $value }}%; alert fires when < 10% for 1m'
 
       - alert: HostSwapIsFillingUp
         expr: (1 - (node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes)) * 100 > 70
@@ -82,7 +82,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Swap usage high on {{ $labels.instance }}
-          description: 'Swap utilization exceeds 70% (current: {{ $value }}%).'
+          rule: 'swap usage is {{ $value }}%; alert fires when > 70% for 1m'
 
       - alert: HostOutOfMemory
         expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100 < 10
@@ -95,7 +95,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Out of memory on {{ $labels.instance }}
-          description: Available memory is below 10% (currently {{ $value }}%).
+          rule: 'available memory is {{ $value }}%; alert fires when < 10% for 1m'
 
       - alert: HostMemoryUnderMemoryPressure
         expr: rate(node_vmstat_pgmajfault[1m]) > 1000
@@ -108,7 +108,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High memory pressure on {{ $labels.instance }}
-          description: Major page fault rate exceeds threshold (>1000 faults/min) with value {{ $value }}.
+          rule: 'major page fault rate is {{ $value }}/s; alert fires when > 1000/s for 1m'
 
       - alert: HostHighCpuLoad
         expr: 100 - (avg by(instance, cluster, realm, platform, world) (rate(node_cpu_seconds_total{mode='idle'}[2m])) * 100) > 90
@@ -121,7 +121,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High CPU load on {{ $labels.instance }}
-          description: 'CPU load exceeds 90% (current load: {{ $value }}%).'
+          rule: 'CPU usage is {{ $value }}%; alert fires when > 90% for 1m'
 
       - alert: HostCpuStealNoisyNeighbor
         expr: avg by(instance, cluster, realm, platform, world) (rate(node_cpu_seconds_total{mode='steal'}[5m])) * 100 > 10
@@ -134,7 +134,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High CPU steal on {{ $labels.instance }}
-          description: 'CPU steal exceeds 10%, suggesting resource contention (current: {{ $value }}%).'
+          rule: 'CPU steal is {{ $value }}%; alert fires when > 10% for 1m'
 
       - alert: HostFileDescriptorsUsage
         expr: node_filefd_allocated / node_filefd_maximum * 100 > 90
@@ -147,7 +147,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High file descriptor usage on {{ $labels.instance }}
-          description: 'Open file descriptors exceed 90% of the system limit (current: {{ $value }}%).'
+          rule: 'file descriptor usage is {{ $value }}%; alert fires when > 90% for 5m'
 
       - alert: HostPidExhaustion
         expr: node_processes_pids_count / node_processes_max_processes * 100 > 85
@@ -160,7 +160,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: PID exhaustion approaching on {{ $labels.instance }}
-          description: 'Allocated PIDs exceed 85% of the system limit (current: {{ $value }}%).'
+          rule: 'PID usage is {{ $value }}%; alert fires when > 85% for 5m'
 
       - alert: HostFilesystemReadOnly
         expr: node_filesystem_readonly{fstype!~'tmpfs|squashfs'} == 1
@@ -173,7 +173,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Read-only filesystem detected on {{ $labels.instance }}
-          description: Filesystem {{ $labels.mountpoint }} ({{ $labels.device }}) has been remounted read-only.
+          rule: 'read-only flag for {{ $labels.mountpoint }} is {{ $value }}; alert fires when == 1'
 
       - alert: HostZombieProcesses
         expr: node_processes_state{state='Z'} > 50
@@ -186,7 +186,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High zombie process count on {{ $labels.instance }}
-          description: 'More than 50 zombie processes detected (current: {{ $value }}). Parent process may be stuck.'
+          rule: 'zombie process count is {{ $value }}; alert fires when > 50 for 5m'
 
       - alert: HostBlockedProcesses
         expr: node_procs_blocked > 20
@@ -199,7 +199,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High blocked process count on {{ $labels.instance }}
-          description: 'More than 20 processes are in uninterruptible I/O sleep (current: {{ $value }}).'
+          rule: 'blocked process count is {{ $value }}; alert fires when > 20 for 5m'
 
       - alert: HostTcpSocketsExhaustion
         expr: node_sockstat_TCP_alloc > 50000
@@ -212,7 +212,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High TCP socket allocation on {{ $labels.instance }}
-          description: 'Allocated TCP sockets are unusually high (current: {{ $value }}).'
+          rule: 'allocated TCP sockets are {{ $value }}; alert fires when > 50000 for 5m'
 
       - alert: HostTcpTimeWaitExhaustion
         expr: node_sockstat_TCP_tw > 30000
@@ -225,7 +225,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High TIME_WAIT socket count on {{ $labels.instance }}
-          description: 'TCP TIME_WAIT sockets are unusually high (current: {{ $value }}).'
+          rule: 'TCP TIME_WAIT sockets are {{ $value }}; alert fires when > 30000 for 5m'
 
       - alert: HostNetworkReceiveErrors
         expr: rate(node_network_receive_errs_total{device!~'^(veth|br-|docker|tap).*'}[5m]) > 0
@@ -238,7 +238,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Network receive errors on {{ $labels.instance }}:{{ $labels.device }}
-          description: 'Persistent network receive errors detected (current rate: {{ $value }}/s).'
+          rule: 'receive error rate on {{ $labels.device }} is {{ $value }}/s; alert fires when > 0/s for 5m'
 
       - alert: HostNetworkTransmitErrors
         expr: rate(node_network_transmit_errs_total{device!~'^(veth|br-|docker|tap).*'}[5m]) > 0
@@ -251,7 +251,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Network transmit errors on {{ $labels.instance }}:{{ $labels.device }}
-          description: 'Persistent network transmit errors detected (current rate: {{ $value }}/s).'
+          rule: 'transmit error rate on {{ $labels.device }} is {{ $value }}/s; alert fires when > 0/s for 5m'
 
       - alert: HostEntropyPoolLow
         expr: node_entropy_available_bits < 100
@@ -264,7 +264,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Low entropy pool on {{ $labels.instance }}
-          description: 'Available entropy is critically low (current: {{ $value }} bits).'
+          rule: 'available entropy is {{ $value }} bits; alert fires when < 100 bits for 5m'
 
       - alert: HostConntrackLimit
         expr: node_nf_conntrack_entries / node_nf_conntrack_entries_limit > 0.8
@@ -277,7 +277,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High conntrack usage on {{ $labels.instance }}
-          description: 'Conntrack entries exceed 80% of the limit (current: {{ $value }}).'
+          rule: 'conntrack usage ratio is {{ $value }}; alert fires when > 0.8 for 1m'
 
       - alert: HostNetworkInterfaceSaturated
         expr: (rate(node_network_receive_bytes_total{device!~'^tap.*'}[1m]) + rate(node_network_transmit_bytes_total{device!~'^tap.*'}[1m])) / node_network_speed_bytes{device!~'^tap.*'} > 0.8
@@ -290,7 +290,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Network interface saturated on {{ $labels.instance }}:{{ $labels.device }}
-          description: 'Combined network throughput exceeds 80% of capacity (current: {{ $value }}).'
+          rule: 'interface saturation ratio on {{ $labels.device }} is {{ $value }}; alert fires when > 0.8 for 1m'
 
       - alert: HostUnusualNetworkThroughputIn
         expr: sum by (instance, cluster, realm, platform, world) (rate(node_network_receive_bytes_total[2m])) / 1024 / 1024 > 100
@@ -303,7 +303,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High inbound network throughput on {{ $labels.instance }}
-          description: 'Inbound network rate exceeds 100 MB/s (current: {{ $value }} MB/s).'
+          rule: 'inbound network throughput is {{ $value }} MB/s; alert fires when > 100 MB/s for 5m'
 
       - alert: HostUnusualNetworkThroughputOut
         expr: sum by (instance, cluster, realm, platform, world) (rate(node_network_transmit_bytes_total[2m])) / 1024 / 1024 > 100
@@ -316,7 +316,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High outbound network throughput on {{ $labels.instance }}
-          description: 'Outbound network rate exceeds 100 MB/s (current: {{ $value }} MB/s).'
+          rule: 'outbound network throughput is {{ $value }} MB/s; alert fires when > 100 MB/s for 5m'
 
       - alert: HostUnusualDiskReadRate
         expr: sum by (instance, cluster, realm, platform, world) (rate(node_disk_read_bytes_total[2m])) / 1024 / 1024 > 50
@@ -329,7 +329,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High disk read rate on {{ $labels.instance }}
-          description: 'Disk read throughput exceeds 50 MB/s (current: {{ $value }} MB/s).'
+          rule: 'disk read throughput is {{ $value }} MB/s; alert fires when > 50 MB/s for 5m'
 
       - alert: HostUnusualDiskWriteRate
         expr: sum by (instance, cluster, realm, platform, world) (rate(node_disk_written_bytes_total[2m])) / 1024 / 1024 > 50
@@ -342,7 +342,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High disk write rate on {{ $labels.instance }}
-          description: 'Disk write throughput exceeds 50 MB/s (current: {{ $value }} MB/s).'
+          rule: 'disk write throughput is {{ $value }} MB/s; alert fires when > 50 MB/s for 5m'
 
       - alert: HostUnusualDiskReadLatency
         expr: rate(node_disk_read_time_seconds_total[1m]) / rate(node_disk_reads_completed_total[1m]) > 0.1 and rate(node_disk_reads_completed_total[1m]) > 0
@@ -355,7 +355,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High disk read latency on {{ $labels.instance }}
-          description: 'Average disk read latency exceeds 0.1 seconds (current: {{ $value }} s).'
+          rule: 'average disk read latency is {{ $value }}s; alert fires when > 0.1s for 5m'
 
       - alert: HostUnusualDiskWriteLatency
         expr: rate(node_disk_write_time_seconds_total{device!~'mmcblk.+'}[1m]) / rate(node_disk_writes_completed_total{device!~'mmcblk.+'}[1m]) > 0.1 and rate(node_disk_writes_completed_total{device!~'mmcblk.+'}[1m]) > 0
@@ -368,7 +368,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High disk write latency on {{ $labels.instance }}
-          description: 'Average disk write latency exceeds 0.1 seconds (current: {{ $value }} s).'
+          rule: 'average disk write latency is {{ $value }}s; alert fires when > 0.1s for 5m'
 
       - alert: HostContextSwitching
         expr: (rate(node_context_switches_total[5m])) / (count without(cpu, mode) (node_cpu_seconds_total{mode='idle'})) > 10000
@@ -381,7 +381,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High context switching on {{ $labels.instance }}
-          description: 'Context switch rate exceeds 10000 (current: {{ $value }}).'
+          rule: 'context switch rate is {{ $value }}; alert fires when > 10000 for 5m'
 
       - alert: HostClockSkew
         expr: (node_timex_offset_seconds > 0.05 and deriv(node_timex_offset_seconds[5m]) >= 0) or (node_timex_offset_seconds < -0.05 and deriv(node_timex_offset_seconds[5m]) <= 0)
@@ -394,7 +394,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Clock skew detected on {{ $labels.instance }}
-          description: 'Clock offset is abnormal (current offset: {{ $value }} seconds).'
+          rule: 'clock offset is {{ $value }}s; alert fires when offset keeps drifting past +/-0.05s for 5m'
 
       - alert: HostClockNotSynchronising
         expr: min_over_time(node_timex_sync_status[1m]) == 0 and node_timex_maxerror_seconds >= 16
@@ -407,7 +407,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Clock synchronization failure on {{ $labels.instance }}
-          description: 'Clock is not synchronizing properly (max error: {{ $value }} seconds).'
+          rule: 'time sync status is {{ $value }}; alert fires when sync status == 0 and max error >= 16s for 5m'
 
       - alert: HostKernelVersionDeviations
         expr: count by (cluster, realm, platform, world) (sum by (cluster, realm, platform, world, kernel) (label_replace(node_uname_info, 'kernel', '$1', 'release', '([0-9]+.[0-9]+.[0-9]+).*'))) > 1
@@ -420,7 +420,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Kernel version deviation on {{ $labels.instance }}
-          description: 'Multiple kernel versions detected on the host (count: {{ $value }}).'
+          rule: 'kernel version count is {{ $value }}; alert fires when > 1 for 24h'
 
   - name: docker
     rules:
@@ -435,9 +435,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High restart count in container {{ $labels.name }}
-          description: 'Container {{ $labels.name }} restarted more than 2 times in 5 minutes.'
-          current: '{{ $value }} restarts'
-          expected: '<= 2 restarts in 5 minutes'
+          rule: 'restart count is {{ $value }} in 5m; alert fires when > 2'
 
       - alert: ContainerMemoryUsage
         expr: (sum by(instance, name, cluster, realm, platform, world) (container_memory_working_set_bytes{name!=''}) / sum by(instance, name, cluster, realm, platform, world) (container_spec_memory_limit_bytes{name!=''} > 0) * 100) > 90
@@ -450,9 +448,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High memory usage in container {{ $labels.name }}
-          description: 'Container {{ $labels.name }} memory usage exceeds 90% of the configured limit.'
-          current: '{{ $value }}%'
-          expected: '<= 90%'
+          rule: 'memory usage is {{ $value }}%; alert fires when > 90% for 5m'
 
       - alert: ContainerCpuUsage
         expr: (sum by(instance, name, cluster, realm, platform, world) (rate(container_cpu_usage_seconds_total{name!=''}[3m])) / (sum by(instance, name, cluster, realm, platform, world) (container_spec_cpu_quota{name!=''} > 0) / sum by(instance, name, cluster, realm, platform, world) (container_spec_cpu_period{name!=''} > 0)) * 100) > 90
@@ -465,9 +461,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: High CPU usage in container {{ $labels.name }}
-          description: 'Container {{ $labels.name }} CPU usage exceeds 90% of the configured limit.'
-          current: '{{ $value }}%'
-          expected: '<= 90%'
+          rule: 'CPU usage is {{ $value }}%; alert fires when > 90% for 5m'
 
       - alert: ContainerUnhealthy
         expr: container_health_status{name!=''} == 0
@@ -480,9 +474,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Unhealthy container {{ $labels.name }}
-          description: 'Container {{ $labels.name }} is reporting an unhealthy status.'
-          current: '{{ $value }}'
-          expected: 'healthy'
+          rule: 'health status is {{ $value }}; alert fires when == 0'
 
       - alert: DockerContainerDown
         expr: time() - container_last_seen{name!='', swarm_task='', swarm_service='', container_label_com_docker_swarm_service_name=''} > 60
@@ -495,9 +487,7 @@ groups:
           world: '{{ $labels.world }}'
         annotations:
           summary: Container {{ $labels.name }} is down on {{ $labels.instance }}
-          description: 'Container {{ $labels.name }} has not reported metrics recently.'
-          current: '{{ $value }} seconds since last seen'
-          expected: '<= 60 seconds since last seen'
+          rule: 'seconds since last seen is {{ $value }}s; alert fires when > 60s for 5m'
 {% endraw %}
 {% if docker_prometheus_custom_alerts | trim | length > 0 %}
 
