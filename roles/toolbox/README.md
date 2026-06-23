@@ -1,6 +1,6 @@
 # toolbox
 
-This role installs shared operator shell helpers and optional Docker, HAProxy, and PostgreSQL scripts.
+This role installs shared operator shell helpers and optional Docker, HAProxy, WireGuard, and PostgreSQL scripts.
 
 ## Features
 - Create directories.
@@ -12,6 +12,8 @@ This role installs shared operator shell helpers and optional Docker, HAProxy, a
 - Remove disabled Docker executables.
 - Install HAProxy executables from files.
 - Remove disabled HAProxy executables.
+- Install WireGuard executables from files.
+- Remove disabled WireGuard executables.
 - Install PostgreSQL executables from files.
 - Remove disabled PostgreSQL executables.
 
@@ -22,6 +24,7 @@ This role installs shared operator shell helpers and optional Docker, HAProxy, a
 | `toolbox_docker_enabled` | `false` |
 | `toolbox_haproxy_enabled` | `false` |
 | `toolbox_postgres_enabled` | `false` |
+| `toolbox_wireguard_enabled` | `false` |
 
 ## Usage
 ```yaml
@@ -96,6 +99,10 @@ HAProxy scripts are installed when `toolbox_haproxy_enabled` is true:
 
 - `/opt/toolbox/bin/haproxy_report`
 
+WireGuard scripts are installed when `toolbox_wireguard_enabled` is true:
+
+- `/opt/toolbox/bin/wg_debug`
+
 PostgreSQL scripts are installed when `toolbox_postgres_enabled` is true:
 
 - `/opt/toolbox/bin/pg_client`
@@ -119,6 +126,22 @@ Include rotated logs by passing files or quoted globs:
 ```sh
 sudo /opt/toolbox/bin/haproxy_report '/var/log/haproxy/traffic.log*'
 ```
+
+### WireGuard Debug
+
+Start a bounded server-side WireGuard debug capture before reproducing a connectivity issue:
+
+```sh
+sudo /opt/toolbox/bin/wg_debug start 300
+```
+
+Stop the active capture after reproducing the issue:
+
+```sh
+sudo /opt/toolbox/bin/wg_debug stop
+```
+
+The capture also stops automatically after the requested timeout. Logs are written to `/var/log/wg_debug/<YYMMDDHHMMSS>.log`. The script gathers read-only host networking, WireGuard, Docker, firewall, TPROXY, journal, container-log, and UDP `51820` packet metadata where the relevant tools and permissions are available. It does not collect WireGuard private configuration, private keys, preshared keys, full Docker environment, vault files, or wg-easy database content.
 
 ### Backup and Restore
 

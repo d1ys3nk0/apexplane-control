@@ -4,3 +4,4 @@ toolbox_install_dir: /opt/toolbox
 toolbox_docker_enabled: false
 toolbox_haproxy_enabled: false
 toolbox_postgres_enabled: false
+toolbox_wireguard_enabled: false

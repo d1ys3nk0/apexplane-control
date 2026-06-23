@@ -30,6 +30,10 @@ toolbox_haproxy_scripts:
   - name: haproxy_report
     src: haproxy_report.sh
 
+toolbox_wireguard_scripts:
+  - name: wg_debug
+    src: wg_debug.sh
+
 toolbox_postgres_scripts:
   - name: pg_client
     src: pg_client.sh

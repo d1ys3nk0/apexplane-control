@@ -88,6 +88,35 @@
   loop: '{{ toolbox_haproxy_scripts }}'
   when: not toolbox_haproxy_enabled | bool
 
+- name: Create WireGuard debug log directory
+  become: true
+  ansible.builtin.file:
+    path: /var/log/wg_debug
+    state: directory
+    mode: '0750'
+    owner: root
+    group: root
+  when: toolbox_wireguard_enabled | bool
+
+- name: Install WireGuard executables from files
+  become: true
+  ansible.builtin.copy:
+    src: scripts/{{ item.src }}
+    dest: '{{ toolbox_bin_dir }}/{{ item.name }}'
+    mode: '0755'
+    owner: root
+    group: root
+  loop: '{{ toolbox_wireguard_scripts }}'
+  when: toolbox_wireguard_enabled | bool
+
+- name: Remove disabled WireGuard executables
+  become: true
+  ansible.builtin.file:
+    path: '{{ toolbox_bin_dir }}/{{ item.name }}'
+    state: absent
+  loop: '{{ toolbox_wireguard_scripts }}'
+  when: not toolbox_wireguard_enabled | bool
+
 - name: Install PostgreSQL executables from files
   become: true
   ansible.builtin.copy:
