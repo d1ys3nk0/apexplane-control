@@ -12,7 +12,7 @@ Set these required inputs before applying the role: `docker_rabbit_default_pass`
 | Variable | Default |
 | --- | --- |
 | `docker_rabbit_image_name` | `rabbitmq` |
-| `docker_rabbit_image_tag` | `4.2.3-management` |
+| `docker_rabbit_image_tag` | `<required>` |
 | `docker_rabbit_image_full` | `<derived>` |
 | `docker_rabbit_data_volume` | `rabbit-data` |
 | `docker_rabbit_ci_mode` | `<derived>` |

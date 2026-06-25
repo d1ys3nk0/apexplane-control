@@ -18,7 +18,7 @@ Set this required input before applying the role: `docker_swarm_traefik_letsencr
 | Variable | Default |
 | --- | --- |
 | `docker_swarm_traefik_image_name` | `traefik` |
-| `docker_swarm_traefik_image_tag` | `v3.7.1` |
+| `docker_swarm_traefik_image_tag` | `<required>` |
 | `docker_swarm_traefik_image_full` | `<derived>` |
 | `docker_swarm_traefik_enabled` | `true` |
 | `docker_swarm_traefik_service_manage_enabled` | `true` |

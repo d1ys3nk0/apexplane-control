@@ -16,7 +16,7 @@ This role runs Xray as a Docker Swarm service.
 | Variable | Default |
 | --- | --- |
 | `docker_swarm_xray_image_name` | `teddysun/xray` |
-| `docker_swarm_xray_image_tag` | `26.6.1` |
+| `docker_swarm_xray_image_tag` | `<required>` |
 | `docker_swarm_xray_image_full` | `<derived>` |
 | `docker_swarm_xray_enabled` | `true` |
 | `docker_swarm_xray_service_name` | `xray` |
@@ -36,7 +36,7 @@ This role runs Xray as a Docker Swarm service.
 | `docker_swarm_xray_fallback_enabled` | `false` |
 | `docker_swarm_xray_fallback_service_name` | `xray-fallback` |
 | `docker_swarm_xray_fallback_image_name` | `nginx` |
-| `docker_swarm_xray_fallback_image_tag` | `1.29-alpine` |
+| `docker_swarm_xray_fallback_image_tag` | `<required>` |
 | `docker_swarm_xray_fallback_image_full` | `<derived>` |
 | `docker_swarm_xray_fallback_redirect_host` | `~` |
 | `docker_swarm_xray_fallback_port` | `80` |

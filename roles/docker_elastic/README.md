@@ -25,7 +25,7 @@ This role runs Elasticsearch in a standalone Docker container.
 | `docker_elastic_cluster_name` | `elastic` |
 | `docker_elastic_extra_instances` | `[]` |
 | `docker_elastic_image_name` | `elasticsearch` |
-| `docker_elastic_image_tag` | `7.17.3` |
+| `docker_elastic_image_tag` | `<required>` |
 | `docker_elastic_image_full` | `<derived>` |
 | `docker_elastic_data_volume` | `elastic-data` |
 | `docker_elastic_mem_res` | `1000M` |

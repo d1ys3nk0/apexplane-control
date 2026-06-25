@@ -21,7 +21,7 @@ Set these required inputs before applying the role: `docker_swarm_postgres_expor
 | `docker_swarm_postgres_exporter_debug_mode` | `<derived>` |
 | `docker_swarm_postgres_exporter_nolog` | `<derived>` |
 | `docker_swarm_postgres_exporter_image_name` | `quay.io/prometheuscommunity/postgres-exporter` |
-| `docker_swarm_postgres_exporter_image_tag` | `v0.19.1` |
+| `docker_swarm_postgres_exporter_image_tag` | `<required>` |
 | `docker_swarm_postgres_exporter_image_full` | `<derived>` |
 | `docker_swarm_postgres_exporter_mem_res` | `100M` |
 | `docker_swarm_postgres_exporter_mem_lim` | `150M` |

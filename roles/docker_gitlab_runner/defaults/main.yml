@@ -5,7 +5,7 @@ docker_gitlab_runner_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['
 docker_gitlab_runner_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
 docker_gitlab_runner_nolog: '{{ (docker_gitlab_runner_ci_mode | bool) and not (docker_gitlab_runner_debug_mode | bool) }}'
 docker_gitlab_runner_image_name: gitlab/gitlab-runner
-docker_gitlab_runner_image_tag: v18.11.3
+docker_gitlab_runner_image_tag: ~
 docker_gitlab_runner_image_full: '{{ docker_gitlab_runner_image_name }}:{{ docker_gitlab_runner_image_tag }}'
 docker_gitlab_runner_config_dir: /srv/gitlab-runner/config
 docker_gitlab_runner_config_path: '{{ docker_gitlab_runner_config_dir }}/config.toml'
@@ -15,7 +15,7 @@ docker_gitlab_runner_token: ~
 docker_gitlab_runner_name: '{{ ansible_hostname }}'
 docker_gitlab_runner_executor: docker
 docker_gitlab_runner_docker_image_name: docker
-docker_gitlab_runner_docker_image_tag: 29.5.0
+docker_gitlab_runner_docker_image_tag: ~
 docker_gitlab_runner_docker_image_full: '{{ docker_gitlab_runner_docker_image_name }}:{{ docker_gitlab_runner_docker_image_tag }}'
 docker_gitlab_runner_concurrency: 1
 

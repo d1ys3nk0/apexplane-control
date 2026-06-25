@@ -22,7 +22,7 @@ This role runs Alertmanager in a standalone Docker container.
 | `docker_alertmanager_global` | `<complex>` |
 | `docker_alertmanager_http_port` | `9093` |
 | `docker_alertmanager_image_name` | `prom/alertmanager` |
-| `docker_alertmanager_image_tag` | `v0.32.1` |
+| `docker_alertmanager_image_tag` | `<required>` |
 | `docker_alertmanager_image_full` | `<derived>` |
 | `docker_alertmanager_mem_res` | `100M` |
 | `docker_alertmanager_mem_lim` | `150M` |

@@ -16,7 +16,7 @@ This role runs Xray as a standalone Docker container.
 | Variable | Default |
 | --- | --- |
 | `docker_xray_image_name` | `teddysun/xray` |
-| `docker_xray_image_tag` | `26.6.1` |
+| `docker_xray_image_tag` | `<required>` |
 | `docker_xray_image_full` | `<derived>` |
 | `docker_xray_container_name` | `xray` |
 | `docker_xray_config_dir` | `/opt/xray` |

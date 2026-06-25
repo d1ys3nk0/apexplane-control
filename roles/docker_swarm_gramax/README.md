@@ -19,7 +19,7 @@ Set these required inputs before applying the role: `docker_swarm_gramax_gramax_
 | `docker_swarm_gramax_gramax_pull_token` | `~` |
 | `docker_swarm_gramax_gramax_secret` | `~` |
 | `docker_swarm_gramax_image_name` | `docker.io/gramax/docportal` |
-| `docker_swarm_gramax_image_tag` | `2026.5.18-92` |
+| `docker_swarm_gramax_image_tag` | `<required>` |
 | `docker_swarm_gramax_image_full` | `<derived>` |
 | `docker_swarm_gramax_mem_res` | `500M` |
 | `docker_swarm_gramax_mem_lim` | `750M` |

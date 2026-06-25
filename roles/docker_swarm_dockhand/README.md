@@ -13,7 +13,7 @@ This role deploys Dockhand as a Docker Swarm service.
 | --- | --- |
 | `docker_swarm_dockhand_service_name` | `dockhand` |
 | `docker_swarm_dockhand_image_name` | `fnsys/dockhand` |
-| `docker_swarm_dockhand_image_tag` | `v1.0.29` |
+| `docker_swarm_dockhand_image_tag` | `<required>` |
 | `docker_swarm_dockhand_image_full` | `<derived>` |
 | `docker_swarm_dockhand_data_dir` | `/opt/dockhand` |
 | `docker_swarm_dockhand_docker_socket` | `/var/run/docker.sock` |

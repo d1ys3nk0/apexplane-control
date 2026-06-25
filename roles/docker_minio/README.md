@@ -16,7 +16,7 @@ Set these required inputs before applying the role: `docker_minio_root_pass`, `d
 | `docker_minio_debug_mode` | `<derived>` |
 | `docker_minio_nolog` | `<derived>` |
 | `docker_minio_image_name` | `minio/minio` |
-| `docker_minio_image_tag` | `RELEASE.2025-09-07T16-13-09Z` |
+| `docker_minio_image_tag` | `<required>` |
 | `docker_minio_image_full` | `<derived>` |
 | `docker_minio_mem_res` | `1000M` |
 | `docker_minio_mem_lim` | `1500M` |

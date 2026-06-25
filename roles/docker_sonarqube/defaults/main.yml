@@ -4,10 +4,10 @@ docker_sonarqube_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 
 docker_sonarqube_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
 docker_sonarqube_nolog: '{{ (docker_sonarqube_ci_mode | bool) and not (docker_sonarqube_debug_mode | bool) }}'
 docker_sonarqube_image_name: sonarqube
-docker_sonarqube_image_tag: 26.6.0.123539-community
+docker_sonarqube_image_tag: ~
 docker_sonarqube_image_full: '{{ docker_sonarqube_image_name }}:{{ docker_sonarqube_image_tag }}'
 docker_sonarqube_postgres_image_name: postgres
-docker_sonarqube_postgres_image_tag: 17-alpine
+docker_sonarqube_postgres_image_tag: ~
 docker_sonarqube_postgres_image_full: '{{ docker_sonarqube_postgres_image_name }}:{{ docker_sonarqube_postgres_image_tag }}'
 docker_sonarqube_data_volume: sonarqube-data
 docker_sonarqube_logs_volume: sonarqube-logs

@@ -271,6 +271,8 @@ def test_docker_image_defaults_use_name_tag_and_full_image() -> None:
                 errors.append(f"{rel(role_dir / 'defaults' / 'main.yml')}: missing {image_name_name}")
             if image_tag_name not in defaults:
                 errors.append(f"{rel(role_dir / 'defaults' / 'main.yml')}: missing {image_tag_name}")
+            if image_tag_name in defaults and defaults.get(image_tag_name) is not None:
+                errors.append(f"{rel(role_dir / 'defaults' / 'main.yml')}: {image_tag_name} must be required with ~")
             image_default = defaults.get(image_full_name)
             if (
                 not isinstance(image_default, str)
@@ -302,6 +304,8 @@ def test_docker_image_full_defaults_use_name_and_tag_defaults() -> None:
                 errors.append(f"{rel(role_dir / 'defaults' / 'main.yml')}: missing {image_name}")
             if image_tag not in defaults:
                 errors.append(f"{rel(role_dir / 'defaults' / 'main.yml')}: missing {image_tag}")
+            if image_tag in defaults and defaults.get(image_tag) is not None:
+                errors.append(f"{rel(role_dir / 'defaults' / 'main.yml')}: {image_tag} must be required with ~")
             if not isinstance(value, str) or image_name not in value or image_tag not in value:
                 errors.append(
                     f"{rel(role_dir / 'defaults' / 'main.yml')}: {name} must include {image_name} and {image_tag}"

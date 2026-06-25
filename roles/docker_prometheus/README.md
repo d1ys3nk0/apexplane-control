@@ -36,13 +36,13 @@ Set these required inputs before applying the role: `docker_prometheus_cluster_n
 | `docker_prometheus_fqdn_ext` | `~` |
 | `docker_prometheus_http_port` | `9090` |
 | `docker_prometheus_image_name` | `prom/prometheus` |
-| `docker_prometheus_image_tag` | `v3.12.0` |
+| `docker_prometheus_image_tag` | `<required>` |
 | `docker_prometheus_image_full` | `<derived>` |
 | `docker_prometheus_promtool_image_name` | `dnanexus/promtool` |
-| `docker_prometheus_promtool_image_tag` | `2.9.2` |
+| `docker_prometheus_promtool_image_tag` | `<required>` |
 | `docker_prometheus_promtool_image_full` | `<derived>` |
 | `docker_prometheus_blackbox_image_name` | `prom/blackbox-exporter` |
-| `docker_prometheus_blackbox_image_tag` | `v0.28.0` |
+| `docker_prometheus_blackbox_image_tag` | `<required>` |
 | `docker_prometheus_blackbox_image_full` | `<derived>` |
 | `docker_prometheus_data_volume` | `prometheus-data` |
 | `docker_prometheus_blackbox_container_name` | `blackbox-exporter` |

@@ -6,7 +6,7 @@ docker_swarm_alloy_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) i
 docker_swarm_alloy_nolog: '{{ (docker_swarm_alloy_ci_mode | bool) and not (docker_swarm_alloy_debug_mode | bool) }}'
 docker_swarm_alloy_enabled: true
 docker_swarm_alloy_image_name: grafana/alloy
-docker_swarm_alloy_image_tag: v1.17.0
+docker_swarm_alloy_image_tag: ~
 docker_swarm_alloy_image_full: '{{ docker_swarm_alloy_image_name }}:{{ docker_swarm_alloy_image_tag }}'
 docker_swarm_alloy_config_secret_name_prefix: alloy-scraper-config
 docker_swarm_alloy_config_filename: /etc/alloy/config.alloy

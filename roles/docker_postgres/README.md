@@ -19,7 +19,7 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | Variable | Default |
 | --- | --- |
 | `docker_postgres_image_name` | `postgres` |
-| `docker_postgres_image_tag` | `'18'` |
+| `docker_postgres_image_tag` | `<required>` |
 | `docker_postgres_image_full` | `<derived>` |
 | `docker_postgres_image_runtime` | `<derived>` |
 | `docker_postgres_connections` | `100` |
@@ -54,7 +54,7 @@ Set these required inputs before applying the role: `docker_postgres_data_dir`, 
 | `docker_postgres_replica_user` | `''` |
 | `docker_postgres_mode` | `~` |
 | `docker_postgres_utility_image_name` | `busybox` |
-| `docker_postgres_utility_image_tag` | `1.37.0` |
+| `docker_postgres_utility_image_tag` | `<required>` |
 | `docker_postgres_utility_image_full` | `<derived>` |
 | `docker_postgres_walg_binary_url` | `''` |
 | `docker_postgres_walg_enabled` | `<derived>` |

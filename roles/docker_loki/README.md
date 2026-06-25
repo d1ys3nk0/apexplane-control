@@ -12,7 +12,7 @@ This role runs Loki in a standalone Docker container.
 | Variable | Default |
 | --- | --- |
 | `docker_loki_image_name` | `grafana/loki` |
-| `docker_loki_image_tag` | `3.7.2` |
+| `docker_loki_image_tag` | `<required>` |
 | `docker_loki_image_full` | `<derived>` |
 | `docker_loki_grpc_listen_port` | `3099` |
 | `docker_loki_http_listen_port` | `3100` |

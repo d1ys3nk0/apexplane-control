@@ -6,7 +6,7 @@ docker_valkey_data_volume: valkey-data
 docker_valkey_healthcheck_enabled: true
 docker_valkey_hostname: valkey
 docker_valkey_image_name: valkey/valkey
-docker_valkey_image_tag: 9.0.4
+docker_valkey_image_tag: ~
 docker_valkey_image_full: '{{ docker_valkey_image_name }}:{{ docker_valkey_image_tag }}'
 docker_valkey_mem_res: 200M
 docker_valkey_mem_lim: 300M

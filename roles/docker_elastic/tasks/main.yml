@@ -1,5 +1,8 @@
 ---
 
+- name: Validate Docker image tag variables
+  ansible.builtin.include_tasks: validate.yml
+
 - name: Show Elastic memory limit
   ansible.builtin.debug:
     var: docker_elastic_mem_lim

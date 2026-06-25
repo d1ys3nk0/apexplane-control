@@ -1,7 +1,7 @@
 ---
 
 docker_swarm_pghero_image_name: ankane/pghero
-docker_swarm_pghero_image_tag: v3.7.0
+docker_swarm_pghero_image_tag: ~
 docker_swarm_pghero_image_full: '{{ docker_swarm_pghero_image_name }}:{{ docker_swarm_pghero_image_tag }}'
 docker_swarm_pghero_public_port: 10000
 docker_swarm_pghero_mem_res: 300M

@@ -1,7 +1,7 @@
 ---
 
 docker_xray_image_name: teddysun/xray
-docker_xray_image_tag: 26.6.1
+docker_xray_image_tag: ~
 docker_xray_image_full: '{{ docker_xray_image_name }}:{{ docker_xray_image_tag }}'
 
 docker_xray_enabled: true

@@ -40,6 +40,7 @@
       - docker_wg_easy_mem_res | string | length > 0
       - docker_wg_easy_mem_lim | string | length > 0
       - docker_wg_easy_mem_swp | string | length > 0
+      - docker_wg_easy_image_tag is not none
     fail_msg: Define valid wg-easy image, storage, network, ports, first-run admin credentials, first-run endpoint, and memory limits before running role docker_wg_easy.
   no_log: '{{ docker_wg_easy_nolog }}'
 

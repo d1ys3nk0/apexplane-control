@@ -4,6 +4,8 @@
   ansible.builtin.assert:
     that:
       - docker_swarm_zitadel_enabled is boolean
+      - docker_swarm_zitadel_image_tag is not none
+      - docker_swarm_zitadel_image_tag | string | length > 0
     fail_msg: docker_swarm_zitadel_enabled must be boolean.
 
 - name: Validate Docker Swarm Zitadel command variables

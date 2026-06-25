@@ -16,7 +16,7 @@ This role runs Redis in a standalone Docker container.
 | `docker_redis_healthcheck_enabled` | `true` |
 | `docker_redis_hostname` | `redis` |
 | `docker_redis_image_name` | `redis` |
-| `docker_redis_image_tag` | `7.4.9` |
+| `docker_redis_image_tag` | `<required>` |
 | `docker_redis_image_full` | `<derived>` |
 | `docker_redis_mem_res` | `200M` |
 | `docker_redis_mem_lim` | `300M` |

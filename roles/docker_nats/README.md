@@ -11,7 +11,7 @@ This role runs NATS in a standalone Docker container.
 | Variable | Default |
 | --- | --- |
 | `docker_nats_image_name` | `nats` |
-| `docker_nats_image_tag` | `2.14.0` |
+| `docker_nats_image_tag` | `<required>` |
 | `docker_nats_image_full` | `<derived>` |
 | `docker_nats_port` | `4222` |
 | `docker_nats_http_port` | `8222` |

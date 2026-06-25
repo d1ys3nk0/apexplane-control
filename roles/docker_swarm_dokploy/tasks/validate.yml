@@ -4,6 +4,14 @@
   ansible.builtin.assert:
     that:
       - docker_swarm_dokploy_enabled is boolean
+      - docker_swarm_dokploy_image_tag is not none
+      - docker_swarm_dokploy_image_tag | string | length > 0
+      - docker_swarm_dokploy_postgres_image_tag is not none
+      - docker_swarm_dokploy_postgres_image_tag | string | length > 0
+      - docker_swarm_dokploy_redis_image_tag is not none
+      - docker_swarm_dokploy_redis_image_tag | string | length > 0
+      - docker_swarm_dokploy_traefik_image_tag is not none
+      - docker_swarm_dokploy_traefik_image_tag | string | length > 0
     fail_msg: docker_swarm_dokploy_enabled must be boolean.
 
 - name: Assert Dokploy required variables are set

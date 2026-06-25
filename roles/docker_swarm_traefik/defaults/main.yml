@@ -1,7 +1,7 @@
 ---
 
 docker_swarm_traefik_image_name: traefik
-docker_swarm_traefik_image_tag: v3.7.1
+docker_swarm_traefik_image_tag: ~
 docker_swarm_traefik_image_full: '{{ docker_swarm_traefik_image_name }}:{{ docker_swarm_traefik_image_tag }}'
 docker_swarm_traefik_enabled: true
 docker_swarm_traefik_service_manage_enabled: true

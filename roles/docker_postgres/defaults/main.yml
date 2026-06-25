@@ -5,7 +5,7 @@ docker_postgres_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in [
 docker_postgres_nolog: '{{ (docker_postgres_ci_mode | bool) and not (docker_postgres_debug_mode | bool) }}'
 
 docker_postgres_image_name: postgres
-docker_postgres_image_tag: '18'
+docker_postgres_image_tag: ~
 docker_postgres_image_full: '{{ docker_postgres_image_name }}:{{ docker_postgres_image_tag }}'
 docker_postgres_image_runtime: "{{ (docker_postgres_image_name ~ '-walg:' ~ docker_postgres_image_tag) if (docker_postgres_walg_enabled | bool) else docker_postgres_image_full }}"
 docker_postgres_mem_res: 1000M
@@ -39,7 +39,7 @@ docker_postgres_replica_sync_delay: 5
 docker_postgres_replica_sync_retries: 60
 docker_postgres_replica_user: ''
 docker_postgres_utility_image_name: busybox
-docker_postgres_utility_image_tag: 1.37.0
+docker_postgres_utility_image_tag: ~
 docker_postgres_utility_image_full: '{{ docker_postgres_utility_image_name }}:{{ docker_postgres_utility_image_tag }}'
 
 # WAL-G

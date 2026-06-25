@@ -25,6 +25,10 @@
       - docker_swarm_xray_fallback_port | int >= 1
       - docker_swarm_xray_fallback_port | int <= 65535
       - docker_swarm_xray_fallback_config_filename | string | length > 0
+      - docker_swarm_xray_fallback_image_tag is not none
+      - docker_swarm_xray_fallback_image_tag | string | length > 0
+      - docker_swarm_xray_image_tag is not none
+      - docker_swarm_xray_image_tag | string | length > 0
     fail_msg: Define non-empty docker_swarm_xray_inbounds and docker_swarm_xray_outbounds lists before running role docker_swarm_xray.
 
 - name: Assert Xray fallback inputs are valid

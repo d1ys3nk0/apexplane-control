@@ -21,7 +21,7 @@ Set these required inputs before applying the role: `docker_swarm_alloy_metrics_
 | `docker_swarm_alloy_nolog` | `<derived>` |
 | `docker_swarm_alloy_enabled` | `true` |
 | `docker_swarm_alloy_image_name` | `grafana/alloy` |
-| `docker_swarm_alloy_image_tag` | `v1.17.0` |
+| `docker_swarm_alloy_image_tag` | `<required>` |
 | `docker_swarm_alloy_image_full` | `<derived>` |
 | `docker_swarm_alloy_config_secret_name_prefix` | `alloy-scraper-config` |
 | `docker_swarm_alloy_config_filename` | `/etc/alloy/config.alloy` |

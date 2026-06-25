@@ -5,7 +5,7 @@ docker_swarm_postgres_exporter_ci_mode: "{{ lookup('env', 'CI') | default('0', t
 docker_swarm_postgres_exporter_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
 docker_swarm_postgres_exporter_nolog: '{{ (docker_swarm_postgres_exporter_ci_mode | bool) and not (docker_swarm_postgres_exporter_debug_mode | bool) }}'
 docker_swarm_postgres_exporter_image_name: quay.io/prometheuscommunity/postgres-exporter
-docker_swarm_postgres_exporter_image_tag: v0.19.1
+docker_swarm_postgres_exporter_image_tag: ~
 docker_swarm_postgres_exporter_image_full: '{{ docker_swarm_postgres_exporter_image_name }}:{{ docker_swarm_postgres_exporter_image_tag }}'
 docker_swarm_postgres_exporter_mem_res: 100M
 docker_swarm_postgres_exporter_mem_lim: 150M

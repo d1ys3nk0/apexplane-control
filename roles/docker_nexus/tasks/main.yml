@@ -1,5 +1,8 @@
 ---
 
+- name: Validate Docker image tag variables
+  ansible.builtin.include_tasks: validate.yml
+
 - name: Create docker volumes
   become: true
   community.docker.docker_volume:

@@ -17,6 +17,12 @@
       - docker_prometheus_common_labels.keys() | list | intersect(['cluster', 'instance', 'platform', 'realm', 'world']) | length == 0
       - docker_prometheus_blackbox_targets is iterable
       - docker_prometheus_blackbox_targets is not string
+      - docker_prometheus_blackbox_image_tag is not none
+      - docker_prometheus_blackbox_image_tag | string | length > 0
+      - docker_prometheus_image_tag is not none
+      - docker_prometheus_image_tag | string | length > 0
+      - docker_prometheus_promtool_image_tag is not none
+      - docker_prometheus_promtool_image_tag | string | length > 0
     fail_msg: Define valid docker_prometheus cluster labels, common labels, blackbox targets, and external FQDN before running role docker_prometheus.
 
 - name: Assert Prometheus blackbox targets define static configs

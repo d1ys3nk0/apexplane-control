@@ -16,7 +16,7 @@ This role runs Valkey in a standalone Docker container.
 | `docker_valkey_healthcheck_enabled` | `true` |
 | `docker_valkey_hostname` | `valkey` |
 | `docker_valkey_image_name` | `valkey/valkey` |
-| `docker_valkey_image_tag` | `9.0.4` |
+| `docker_valkey_image_tag` | `<required>` |
 | `docker_valkey_image_full` | `<derived>` |
 | `docker_valkey_mem_res` | `200M` |
 | `docker_valkey_mem_lim` | `300M` |

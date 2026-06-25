@@ -9,5 +9,7 @@
       - docker_minio_root_user | string | length > 0
       - docker_minio_site_region is not none
       - docker_minio_site_region | string | length > 0
+      - docker_minio_image_tag is not none
+      - docker_minio_image_tag | string | length > 0
     fail_msg: Define MinIO root credentials and site region before running role docker_minio.
   no_log: '{{ docker_minio_nolog }}'

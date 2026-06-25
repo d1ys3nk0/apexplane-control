@@ -17,7 +17,7 @@ Set these required inputs before applying the role: `docker_gitlab_runner_url`, 
 | `docker_gitlab_runner_debug_mode` | `<derived>` |
 | `docker_gitlab_runner_nolog` | `<derived>` |
 | `docker_gitlab_runner_image_name` | `gitlab/gitlab-runner` |
-| `docker_gitlab_runner_image_tag` | `v18.11.3` |
+| `docker_gitlab_runner_image_tag` | `<required>` |
 | `docker_gitlab_runner_image_full` | `<derived>` |
 | `docker_gitlab_runner_config_dir` | `/srv/gitlab-runner/config` |
 | `docker_gitlab_runner_config_path` | `<derived>` |
@@ -26,7 +26,7 @@ Set these required inputs before applying the role: `docker_gitlab_runner_url`, 
 | `docker_gitlab_runner_name` | `<derived>` |
 | `docker_gitlab_runner_executor` | `docker` |
 | `docker_gitlab_runner_docker_image_name` | `docker` |
-| `docker_gitlab_runner_docker_image_tag` | `29.5.0` |
+| `docker_gitlab_runner_docker_image_tag` | `<required>` |
 | `docker_gitlab_runner_docker_image_full` | `<derived>` |
 | `docker_gitlab_runner_concurrency` | `1` |
 | `docker_gitlab_runner_session_timeout` | `1800` |

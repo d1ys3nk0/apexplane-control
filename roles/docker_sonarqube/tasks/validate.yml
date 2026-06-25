@@ -11,5 +11,9 @@
       - docker_sonarqube_port | int >= 1
       - docker_sonarqube_port | int <= 65535
       - docker_sonarqube_cpus | float > 0
+      - docker_sonarqube_image_tag is not none
+      - docker_sonarqube_image_tag | string | length > 0
+      - docker_sonarqube_postgres_image_tag is not none
+      - docker_sonarqube_postgres_image_tag | string | length > 0
     fail_msg: Define valid SonarQube database credentials, web listener, port, and resource limits before running role docker_sonarqube.
   no_log: '{{ docker_sonarqube_nolog }}'

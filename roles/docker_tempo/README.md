@@ -20,10 +20,10 @@ Set these required inputs before applying the role: `docker_tempo_cluster_name`,
 | `docker_tempo_grpc_port` | `3199` |
 | `docker_tempo_http_port` | `3200` |
 | `docker_tempo_image_name` | `grafana/tempo` |
-| `docker_tempo_image_tag` | `2.10.5` |
+| `docker_tempo_image_tag` | `<required>` |
 | `docker_tempo_image_full` | `<derived>` |
 | `docker_tempo_init_image_name` | `busybox` |
-| `docker_tempo_init_image_tag` | `1.37.0` |
+| `docker_tempo_init_image_tag` | `<required>` |
 | `docker_tempo_init_image_full` | `<derived>` |
 | `docker_tempo_mem_res` | `1000M` |
 | `docker_tempo_mem_lim` | `1500M` |

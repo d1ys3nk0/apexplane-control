@@ -7,5 +7,9 @@
       - docker_gitlab_runner_token | string | length > 0
       - docker_gitlab_runner_url is not none
       - docker_gitlab_runner_url | string | length > 0
+      - docker_gitlab_runner_docker_image_tag is not none
+      - docker_gitlab_runner_docker_image_tag | string | length > 0
+      - docker_gitlab_runner_image_tag is not none
+      - docker_gitlab_runner_image_tag | string | length > 0
     fail_msg: Define docker_gitlab_runner_url and docker_gitlab_runner_token before running role docker_gitlab_runner.
   no_log: '{{ docker_gitlab_runner_nolog }}'

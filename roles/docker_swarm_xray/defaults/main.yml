@@ -1,7 +1,7 @@
 ---
 
 docker_swarm_xray_image_name: teddysun/xray
-docker_swarm_xray_image_tag: 26.6.1
+docker_swarm_xray_image_tag: ~
 docker_swarm_xray_image_full: '{{ docker_swarm_xray_image_name }}:{{ docker_swarm_xray_image_tag }}'
 
 docker_swarm_xray_enabled: true
@@ -23,7 +23,7 @@ docker_swarm_xray_update_monitor: 30s
 docker_swarm_xray_fallback_enabled: false
 docker_swarm_xray_fallback_service_name: xray-fallback
 docker_swarm_xray_fallback_image_name: nginx
-docker_swarm_xray_fallback_image_tag: 1.29-alpine
+docker_swarm_xray_fallback_image_tag: ~
 docker_swarm_xray_fallback_image_full: '{{ docker_swarm_xray_fallback_image_name }}:{{ docker_swarm_xray_fallback_image_tag }}'
 docker_swarm_xray_fallback_redirect_host: ~
 docker_swarm_xray_fallback_port: 80

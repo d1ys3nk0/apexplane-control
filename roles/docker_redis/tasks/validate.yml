@@ -1,0 +1,8 @@
+---
+
+- name: Assert Docker image tag variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_redis_image_tag is not none
+      - docker_redis_image_tag | string | length > 0
+    fail_msg: Define non-empty Docker image tag variables before running role docker_redis.

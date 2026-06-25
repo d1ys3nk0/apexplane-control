@@ -10,7 +10,7 @@ This role runs Nexus Repository in a standalone Docker container.
 | Variable | Default |
 | --- | --- |
 | `docker_nexus_image_name` | `sonatype/nexus3` |
-| `docker_nexus_image_tag` | `3.92.2` |
+| `docker_nexus_image_tag` | `<required>` |
 | `docker_nexus_image_full` | `<derived>` |
 | `docker_nexus_http_port` | `8081` |
 | `docker_nexus_mem_res` | `1000M` |

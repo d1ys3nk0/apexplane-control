@@ -21,7 +21,7 @@ Set these required inputs before applying the role: `docker_swarm_zitadel_domain
 | `docker_swarm_zitadel_http_listen_port` | `8080` |
 | `docker_swarm_zitadel_http_public_port` | `18080` |
 | `docker_swarm_zitadel_image_name` | `ghcr.io/zitadel/zitadel` |
-| `docker_swarm_zitadel_image_tag` | `v4.15.0` |
+| `docker_swarm_zitadel_image_tag` | `<required>` |
 | `docker_swarm_zitadel_image_full` | `<derived>` |
 | `docker_swarm_zitadel_command` | `''` (derive from first-instance org inputs) |
 | `docker_swarm_zitadel_masterkey` | `~` |

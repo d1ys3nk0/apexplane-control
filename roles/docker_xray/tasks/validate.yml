@@ -38,6 +38,8 @@
       - docker_xray_tproxy_source_cidrs is not string
       - docker_xray_tproxy_bypass_cidrs is sequence
       - docker_xray_tproxy_bypass_cidrs is not string
+      - docker_xray_image_tag is not none
+      - docker_xray_image_tag | string | length > 0
     fail_msg: Define valid Xray image, container, config, inbound, outbound, and TPROXY settings before running role docker_xray.
 
 - name: Assert Xray inbounds are valid

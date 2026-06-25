@@ -18,7 +18,7 @@ Set these required inputs before first apply: `docker_wg_easy_init_username`, `d
 | Variable | Default |
 | --- | --- |
 | `docker_wg_easy_image_name` | `ghcr.io/wg-easy/wg-easy` |
-| `docker_wg_easy_image_tag` | `15.3.0` |
+| `docker_wg_easy_image_tag` | `<required>` |
 | `docker_wg_easy_image_full` | `<derived>` |
 | `docker_wg_easy_container_name` | `wg-easy` |
 | `docker_wg_easy_data_dir` | `/opt/wg-easy/wireguard` |

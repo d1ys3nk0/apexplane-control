@@ -1,7 +1,7 @@
 ---
 
 docker_mailpit_image_name: axllent/mailpit
-docker_mailpit_image_tag: v1.30.0
+docker_mailpit_image_tag: ~
 docker_mailpit_image_full: '{{ docker_mailpit_image_name }}:{{ docker_mailpit_image_tag }}'
 
 docker_mailpit_data_dir: /opt/mailpit/data

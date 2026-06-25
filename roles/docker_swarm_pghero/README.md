@@ -17,7 +17,7 @@ Set these required inputs before applying the role: `docker_swarm_pghero_pg_user
 | Variable | Default |
 | --- | --- |
 | `docker_swarm_pghero_image_name` | `ankane/pghero` |
-| `docker_swarm_pghero_image_tag` | `v3.7.0` |
+| `docker_swarm_pghero_image_tag` | `<required>` |
 | `docker_swarm_pghero_image_full` | `<derived>` |
 | `docker_swarm_pghero_public_port` | `10000` |
 | `docker_swarm_pghero_mem_res` | `300M` |

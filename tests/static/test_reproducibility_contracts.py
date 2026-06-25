@@ -29,7 +29,7 @@ def _iter_tasks(value: object) -> Iterator[Mapping[str, object]]:
         yield from _iter_tasks(task.get(nested_key))
 
 
-def test_docker_image_tag_defaults_are_pinned() -> None:
+def test_docker_image_tag_defaults_are_required() -> None:
     errors: list[str] = []
 
     for defaults_path in sorted((REPO_ROOT / "roles").glob("docker_*/defaults/main.yml")):
@@ -37,8 +37,8 @@ def test_docker_image_tag_defaults_are_pinned() -> None:
         if not isinstance(defaults, Mapping):
             continue
         for name, value in defaults.items():
-            if isinstance(name, str) and name.endswith("_image_tag") and value == "latest":
-                errors.append(f"{defaults_path.relative_to(REPO_ROOT)}: {name} must not use latest")
+            if isinstance(name, str) and name.endswith("_image_tag") and value is not None:
+                errors.append(f"{defaults_path.relative_to(REPO_ROOT)}: {name} must be required with ~")
 
     assert errors == []
 

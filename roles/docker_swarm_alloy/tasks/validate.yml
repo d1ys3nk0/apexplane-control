@@ -4,6 +4,8 @@
   ansible.builtin.assert:
     that:
       - docker_swarm_alloy_enabled is boolean
+      - docker_swarm_alloy_image_tag is not none
+      - docker_swarm_alloy_image_tag | string | length > 0
     fail_msg: docker_swarm_alloy_enabled must be boolean.
 
 - name: Assert Docker Swarm Alloy required variables are set

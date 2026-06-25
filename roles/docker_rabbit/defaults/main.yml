@@ -1,7 +1,7 @@
 ---
 
 docker_rabbit_image_name: rabbitmq
-docker_rabbit_image_tag: 4.2.3-management
+docker_rabbit_image_tag: ~
 docker_rabbit_image_full: '{{ docker_rabbit_image_name }}:{{ docker_rabbit_image_tag }}'
 docker_rabbit_data_volume: rabbit-data
 docker_rabbit_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"

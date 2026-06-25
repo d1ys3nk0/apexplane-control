@@ -10,7 +10,7 @@ This role runs Mailpit in a standalone Docker container.
 | Variable | Default |
 | --- | --- |
 | `docker_mailpit_image_name` | `axllent/mailpit` |
-| `docker_mailpit_image_tag` | `v1.30.0` |
+| `docker_mailpit_image_tag` | `<required>` |
 | `docker_mailpit_image_full` | `<derived>` |
 | `docker_mailpit_data_dir` | `/opt/mailpit/data` |
 | `docker_mailpit_smtp_port` | `1025` |
