@@ -1,7 +1,7 @@
 ---
 
 docker_deb_repo: https://download.docker.com/linux/ubuntu
-docker_mirrors: ['https://cr.yandex/mirror', 'https://dockerhub.timeweb.cloud']
+docker_mirrors: []
 docker_tcp_socket_enabled: false
 docker_tcp_socket_bind_address: 0.0.0.0
 docker_tcp_socket_port: 2375

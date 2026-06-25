@@ -5,11 +5,11 @@ docker_daemon_base_config:
   log-opts:
     max-size: 10m
     max-file: '5'
-  registry-mirrors: '{{ docker_mirrors }}'
+docker_daemon_mirror_config: "{{ (docker_mirrors | length > 0) | ternary({'registry-mirrors': docker_mirrors}, {}) }}"
 docker_daemon_tcp_config:
   hosts:
     - unix:///var/run/docker.sock
     - tcp://{{ docker_tcp_socket_bind_address }}:{{ docker_tcp_socket_port }}
-docker_daemon_config: "{{ docker_daemon_base_config | combine((docker_tcp_socket_enabled | bool) | ternary(docker_daemon_tcp_config, {})) }}"
+docker_daemon_config: "{{ docker_daemon_base_config | combine(docker_daemon_mirror_config) | combine((docker_tcp_socket_enabled | bool) | ternary(docker_daemon_tcp_config, {})) }}"
 docker_restart_approved: >-
   {{ docker_yes_mode or (docker_restart_approval is defined and (docker_restart_approval.user_input | default('') | lower) == 'yes') }}

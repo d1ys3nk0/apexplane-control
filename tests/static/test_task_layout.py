@@ -68,19 +68,24 @@ def _iter_tasks(value: object) -> Iterator[dict[object, object]]:
         yield from _iter_tasks(task.get(nested_key))
 
 
+def _include_task_name(include_file: str) -> str:
+    return Path(include_file).name
+
+
 def test_main_task_includes_use_setup_prefix() -> None:
     errors: list[str] = []
-    allowed_lifecycle_files = {"dr.yml", "validate.yml", "verify.yml", "{{ role_path }}/tasks/validate.yml"}
+    allowed_lifecycle_files = {"dr.yml", "validate.yml", "verify.yml"}
 
     for main_path in sorted((REPO_ROOT / "roles").glob("*/tasks/main.yml")):
         tasks = yaml.safe_load(main_path.read_text(encoding="utf-8")) or []
         for task in tasks:
             include_file = task.get("ansible.builtin.include_tasks") if isinstance(task, dict) else None
+            include_name = _include_task_name(include_file) if isinstance(include_file, str) else ""
             if (
                 not isinstance(include_file, str)
-                or include_file in allowed_lifecycle_files
-                or FEATURE_DOMAIN_TASK_FILE_RE.fullmatch(include_file) is not None
-                or include_file.startswith("setup")
+                or include_name in allowed_lifecycle_files
+                or FEATURE_DOMAIN_TASK_FILE_RE.fullmatch(include_name) is not None
+                or include_name.startswith("setup")
             ):
                 continue
             errors.append(
@@ -92,15 +97,16 @@ def test_main_task_includes_use_setup_prefix() -> None:
 
 def test_subdomain_task_files_are_included_by_domain_entrypoints() -> None:
     errors: list[str] = []
-    lifecycle_files = {"dr.yml", "validate.yml", "verify.yml", "{{ role_path }}/tasks/validate.yml"}
+    lifecycle_files = {"dr.yml", "validate.yml", "verify.yml"}
 
     for main_path in sorted((REPO_ROOT / "roles").glob("*/tasks/main.yml")):
         tasks = yaml.safe_load(main_path.read_text(encoding="utf-8")) or []
         for task in tasks:
             include_file = task.get("ansible.builtin.include_tasks") if isinstance(task, dict) else None
-            if not isinstance(include_file, str) or include_file in lifecycle_files or include_file.startswith("setup"):
+            include_name = _include_task_name(include_file) if isinstance(include_file, str) else ""
+            if not isinstance(include_file, str) or include_name in lifecycle_files or include_name.startswith("setup"):
                 continue
-            if FEATURE_DOMAIN_TASK_FILE_RE.fullmatch(include_file) is not None:
+            if FEATURE_DOMAIN_TASK_FILE_RE.fullmatch(include_name) is not None:
                 continue
             errors.append(
                 f"{main_path.relative_to(REPO_ROOT)}: include {include_file} must be included by its <domain>.yml entrypoint"
