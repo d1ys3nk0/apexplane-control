@@ -153,8 +153,7 @@ def test_role_variable_overrides_accept_declared_defaults(sync_module: SyncModul
     role_defaults_dir.mkdir(parents=True)
     (role_defaults_dir / "main.yml").write_text("---\n\ndocker_example_enabled: true\n", encoding="utf-8")
     (variables_dir / "app.yml").write_text(
-        "---\n\n# Role: docker_example\ndocker_example_enabled: false\n",
-        encoding="utf-8",
+        "---\n\n# Role: docker_example\ndocker_example_enabled: true\n", encoding="utf-8"
     )
 
     assert sync_module.check_role_variable_overrides(repo_root) == []

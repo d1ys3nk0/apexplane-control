@@ -491,13 +491,6 @@ def check_role_variable_overrides(repo_root: Path) -> list[str]:
             errors.append(
                 f"{relative_path}:{override.line_number}: {override.variable_name} is not declared in {defaults_location}"
             )
-        if (
-            override.variable_name in override.defaults.values
-            and override.variable_value == override.defaults.values[override.variable_name]
-        ):
-            errors.append(
-                f"{relative_path}:{override.line_number}: {override.variable_name} duplicates the default from {defaults_location}"
-            )
         if override.role_block != override.role_name:
             errors.append(
                 f"{relative_path}:{override.line_number}: {override.variable_name} must be under # Role: {override.role_name}"
