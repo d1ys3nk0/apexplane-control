@@ -27,7 +27,7 @@ For local Control framework debugging, generate the consumer repository's local 
 ---
 
 collections:
-  - name: ../apexplane-control
+  - name: /path/to/apexplane-control
     type: dir
 ```
 

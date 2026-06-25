@@ -20,7 +20,7 @@
   ---
 
   collections:
-    - name: ../apexplane-control
+    - name: /path/to/apexplane-control
       type: dir
   ```
 
