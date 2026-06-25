@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import contextlib
 import importlib.util
 import io
@@ -143,3 +144,9 @@ def test_remote_state_uses_python_310_compatible_utc_constant() -> None:
     assert "from datetime import UTC" not in source
     assert "dt.UTC" not in source
     assert remote_state.REMOTE_STATE_UTC is remote_state.dt.timezone.utc
+
+
+def test_remote_state_script_parses_as_python_39() -> None:
+    source = SCRIPT_PATH.read_text(encoding="utf-8")
+
+    ast.parse(source, filename=str(SCRIPT_PATH), feature_version=(3, 9))

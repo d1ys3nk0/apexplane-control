@@ -128,19 +128,18 @@ def main() -> None:
     args = parser.parse_args()
     state_path, lock_path = state_paths(args.namespace)
 
-    match args.command:
-        case "get":
-            emit(read_state(state_path))
-        case "acquire":
-            acquire(state_path, lock_path, args.locked_by)
-        case "release":
-            release(state_path, lock_path, args.locked_by)
-        case "unlock":
-            unlock(state_path, lock_path)
-        case "mark":
-            mark(state_path, lock_path, args.migrate_tag)
-        case _:
-            raise SystemExit(f"Unsupported command: {args.command}")
+    if args.command == "get":
+        emit(read_state(state_path))
+    elif args.command == "acquire":
+        acquire(state_path, lock_path, args.locked_by)
+    elif args.command == "release":
+        release(state_path, lock_path, args.locked_by)
+    elif args.command == "unlock":
+        unlock(state_path, lock_path)
+    elif args.command == "mark":
+        mark(state_path, lock_path, args.migrate_tag)
+    else:
+        raise SystemExit(f"Unsupported command: {args.command}")
 
 
 if __name__ == "__main__":
