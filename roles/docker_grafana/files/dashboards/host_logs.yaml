@@ -131,7 +131,7 @@ panels:
       showCommonLabels: false
       showLabels: false
       showTime: true
-      sortOrder: Descending
+      sortOrder: Ascending
       wrapLogMessage: false
     pluginVersion: 12.1.1
     targets:
