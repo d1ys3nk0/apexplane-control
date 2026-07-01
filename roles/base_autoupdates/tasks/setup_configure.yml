@@ -76,18 +76,23 @@
         "${distro_id}:${distro_codename}";
         "${distro_id}:${distro_codename}-security";
       };
+      Unattended-Upgrade::Package-Blacklist {
+      {% for item in base_autoupdates_package_blacklist %}
+        "{{ item }}";
+      {% endfor %}
+      };
       Unattended-Upgrade::Remove-Unused-Dependencies "true";
       Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
       Unattended-Upgrade::Automatic-Reboot "{{ base_autoupdates_automatic_reboot_enabled | bool | ternary('true', 'false') }}";
       Unattended-Upgrade::Automatic-Reboot-Time "{{ base_autoupdates_maintenance_window | regex_search('[0-9]{1,2}:[0-9]{2}') }}";
 
-- name: Configure needrestart to auto-restart services
+- name: Configure needrestart restart policy
   become: true
   ansible.builtin.copy:
     dest: /etc/needrestart/conf.d/90-auto-restart.conf
     mode: '0644'
     content: |
-      $nrconf{restart} = 'a';
+      $nrconf{restart} = '{{ base_autoupdates_needrestart_mode }}';
 
 - name: Ensure unattended-upgrades service is enabled
   become: true

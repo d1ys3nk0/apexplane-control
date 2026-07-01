@@ -2,4 +2,10 @@
 
 - name: Run automatic security updates tasks
   ansible.builtin.include_tasks: setup_configure.yml
-  when: base_autoupdates_maintenance_window | default('', true) | trim | length > 0
+  when:
+    - base_autoupdates_enabled | bool
+    - base_autoupdates_maintenance_window | default('', true) | trim | length > 0
+
+- name: Disable automatic security updates tasks
+  ansible.builtin.include_tasks: setup_disable.yml
+  when: not base_autoupdates_enabled | bool
