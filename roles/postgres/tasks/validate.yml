@@ -4,5 +4,11 @@
   ansible.builtin.assert:
     that:
       - postgres_version | int > 0
-    fail_msg: Define valid PostgreSQL settings before running role postgres.
+      - postgres_apt_repo_url is not none
+      - postgres_apt_repo_url | string | length > 0
+      - postgres_apt_repo_distribution is not none
+      - postgres_apt_repo_distribution | string | length > 0
+      - postgres_apt_repo_component is not none
+      - postgres_apt_repo_component | string | length > 0
+    fail_msg: Define valid PostgreSQL settings and apt repository variables before running role postgres.
   no_log: '{{ postgres_nolog }}'

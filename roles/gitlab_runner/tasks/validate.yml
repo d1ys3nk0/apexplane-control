@@ -9,7 +9,13 @@
       - gitlab_runner_url is not none
       - gitlab_runner_url | string | length > 0
       - gitlab_runner_executor | string | length > 0
-    fail_msg: Define gitlab_runner_url, gitlab_runner_token, and valid gitlab_runner_mode/gitlab_runner_executor values before running role gitlab_runner.
+      - gitlab_runner_apt_repo_url is not none
+      - gitlab_runner_apt_repo_url | string | length > 0
+      - gitlab_runner_apt_repo_distribution is not none
+      - gitlab_runner_apt_repo_distribution | string | length > 0
+      - gitlab_runner_apt_repo_component is not none
+      - gitlab_runner_apt_repo_component | string | length > 0
+    fail_msg: Define gitlab_runner_url, gitlab_runner_token, valid gitlab_runner_mode/gitlab_runner_executor values, and GitLab runner apt repository variables before running role gitlab_runner.
   no_log: '{{ gitlab_runner_nolog }}'
 
 - name: Assert Docker GitLab runner variables are set

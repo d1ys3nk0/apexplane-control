@@ -3,6 +3,7 @@
 - name: Assert Docker required variables are set
   ansible.builtin.assert:
     that:
+      - docker_deb_repo is not none
       - docker_deb_repo | string | length > 0
       - docker_mirrors is sequence
       - docker_mirrors is not string

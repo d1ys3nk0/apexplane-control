@@ -29,6 +29,9 @@ Set these required inputs before applying the role: `gitlab_email_from`, `gitlab
 | `gitlab_smtp_port` | `587` |
 | `gitlab_smtp_user` | `~` |
 | `gitlab_sre_email` | `~` |
+| `gitlab_apt_repo_url` | `https://packages.gitlab.com/gitlab/gitlab-ee/ubuntu/` |
+| `gitlab_apt_repo_distribution` | `<derived>` |
+| `gitlab_apt_repo_component` | `main` |
 
 ## Usage
 ```yaml

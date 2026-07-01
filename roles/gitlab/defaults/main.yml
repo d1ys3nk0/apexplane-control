@@ -17,3 +17,6 @@ gitlab_smtp_pass: ~
 gitlab_smtp_port: 587
 gitlab_smtp_user: ~
 gitlab_sre_email: ~
+gitlab_apt_repo_url: https://packages.gitlab.com/gitlab/gitlab-ee/ubuntu/
+gitlab_apt_repo_distribution: '{{ ansible_distribution_release | lower }}'
+gitlab_apt_repo_component: main

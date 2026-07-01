@@ -16,6 +16,8 @@
       - alloy_docker_enabled is boolean
       - alloy_metrics_extra_targets is iterable
       - alloy_metrics_extra_targets is not string
+      - alloy_apt_repo_url is not none
+      - alloy_apt_repo_url | string | length > 0
     fail_msg: Define valid Alloy cluster labels, Docker integration state, and at least one logs, metrics, or traces endpoint before running role alloy.
 
 - name: Assert Alloy basic auth credentials are complete

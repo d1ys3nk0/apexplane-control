@@ -19,6 +19,9 @@ This role installs PostgreSQL packages and can provision an admin user.
 | `postgres_key_fingerprint` | `B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8` |
 | `postgres_key_asc_path` | `/usr/share/keyrings/postgresql-archive-keyring.asc` |
 | `postgres_keyring_path` | `/usr/share/keyrings/postgresql-archive-keyring.gpg` |
+| `postgres_apt_repo_url` | `http://apt.postgresql.org/pub/repos/apt` |
+| `postgres_apt_repo_distribution` | `<derived>` |
+| `postgres_apt_repo_component` | `main` |
 | `postgres_pg_admin_pass` | `''` |
 | `postgres_pg_admin_user` | `''` |
 | `postgres_version` | `18` |

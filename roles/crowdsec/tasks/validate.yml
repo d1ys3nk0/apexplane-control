@@ -5,5 +5,11 @@
     that:
       - crowdsec_bouncer_key is not none
       - crowdsec_bouncer_key | string | length > 0
-    fail_msg: Define crowdsec_bouncer_key before running role crowdsec.
+      - crowdsec_apt_repo_url is not none
+      - crowdsec_apt_repo_url | string | length > 0
+      - crowdsec_apt_repo_distribution is not none
+      - crowdsec_apt_repo_distribution | string | length > 0
+      - crowdsec_apt_repo_component is not none
+      - crowdsec_apt_repo_component | string | length > 0
+    fail_msg: Define crowdsec_bouncer_key and CrowdSec apt repository variables before running role crowdsec.
   no_log: '{{ crowdsec_nolog }}'

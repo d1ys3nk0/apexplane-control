@@ -27,5 +27,11 @@
       - gitlab_smtp_user | string | length > 0
       - gitlab_sre_email is not none
       - gitlab_sre_email | string | length > 0
-    fail_msg: Define GitLab URLs, email, SMTP, S3, and MinIO variables.
+      - gitlab_apt_repo_url is not none
+      - gitlab_apt_repo_url | string | length > 0
+      - gitlab_apt_repo_distribution is not none
+      - gitlab_apt_repo_distribution | string | length > 0
+      - gitlab_apt_repo_component is not none
+      - gitlab_apt_repo_component | string | length > 0
+    fail_msg: Define GitLab URLs, email, SMTP, S3, MinIO, and apt repository variables.
   no_log: '{{ gitlab_nolog }}'
