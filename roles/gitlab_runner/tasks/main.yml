@@ -1,0 +1,12 @@
+---
+
+- name: Validate GitLab runner variable contract
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Configure dedicated GitLab runner
+  ansible.builtin.include_tasks: setup_dedicated.yml
+  when: gitlab_runner_mode == 'dedicated'
+
+- name: Configure Docker GitLab runner
+  ansible.builtin.include_tasks: setup_docker.yml
+  when: gitlab_runner_mode == 'docker'

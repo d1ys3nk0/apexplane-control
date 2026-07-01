@@ -1,0 +1,117 @@
+---
+
+- name: Download GitLab runner GPG key
+  become: true
+  ansible.builtin.get_url:
+    url: '{{ gitlab_runner_apt_key_url }}'
+    dest: '{{ gitlab_runner_apt_key_asc_path }}'
+    mode: '0644'
+    tmp_dest: /var/tmp
+  register: gitlab_runner_gpg_key
+
+- name: Check GitLab runner keyring
+  become: true
+  ansible.builtin.stat:
+    path: '{{ gitlab_runner_apt_keyring_path }}'
+  register: gitlab_runner_keyring
+
+- name: Convert GitLab runner GPG key
+  become: true
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --dearmor
+      - --yes
+      - --output
+      - '{{ gitlab_runner_apt_keyring_path }}'
+      - '{{ gitlab_runner_apt_key_asc_path }}'
+  when: not ansible_check_mode and (gitlab_runner_gpg_key.changed or not gitlab_runner_keyring.stat.exists)
+
+- name: Add GitLab runner apt repository
+  become: true
+  ansible.builtin.apt_repository:
+    repo: deb [signed-by={{ gitlab_runner_apt_keyring_path }}] {{ gitlab_runner_apt_repo_url }} {{ gitlab_runner_apt_repo_distribution }} {{ gitlab_runner_apt_repo_component }}
+    state: present
+    filename: runner_gitlab-runner
+  register: gitlab_runner_repository
+  when: not ansible_check_mode or gitlab_runner_keyring.stat.exists
+
+- name: Install GitLab runner packages
+  become: true
+  ansible.builtin.apt:
+    name: '{{ gitlab_runner_selected_package_names }}'
+    state: '{{ gitlab_runner_package_state }}'
+    update_cache: true
+    autoclean: true
+  register: gitlab_runner_packages
+  when:
+    - not ansible_check_mode or gitlab_runner_keyring.stat.exists
+    - not ansible_check_mode or not (gitlab_runner_repository.changed | default(true))
+
+- name: Ensure GitLab runner config directory exists
+  become: true
+  ansible.builtin.file:
+    path: '{{ gitlab_runner_config_dir }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Write GitLab runner config
+  become: true
+  ansible.builtin.template:
+    src: config.toml.j2
+    dest: '{{ gitlab_runner_config_path }}'
+    owner: root
+    group: root
+    mode: '0600'
+  register: gitlab_runner_config
+  no_log: '{{ gitlab_runner_nolog }}'
+
+- name: Restart GitLab runner after config change
+  become: true
+  ansible.builtin.service:
+    name: '{{ gitlab_runner_service_name }}'
+    state: restarted
+    enabled: true
+  when:
+    - not ansible_check_mode
+    - gitlab_runner_config.changed
+    - not (gitlab_runner_packages.skipped | default(false))
+
+- name: Ensure GitLab runner service is started
+  become: true
+  ansible.builtin.service:
+    name: '{{ gitlab_runner_service_name }}'
+    state: started
+    enabled: true
+  when:
+    - not ansible_check_mode
+    - not gitlab_runner_config.changed
+    - not (gitlab_runner_packages.skipped | default(false))
+
+- name: Verify GitLab runner service is active
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - '{{ gitlab_runner_service_name }}'
+  register: gitlab_runner_service_health
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - not (gitlab_runner_packages.skipped | default(false))
+
+- name: Verify GitLab runner
+  become: true
+  ansible.builtin.command:
+    argv:
+      - gitlab-runner
+      - verify
+      - --delete
+  changed_when: false
+  no_log: '{{ gitlab_runner_nolog }}'
+  when:
+    - not ansible_check_mode
+    - not (gitlab_runner_packages.skipped | default(false))

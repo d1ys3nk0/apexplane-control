@@ -1,0 +1,12 @@
+---
+
+gitlab_runner_ci_mode: "{{ lookup('env', 'CI') | default('0', true) in ['1', 'true'] }}"
+gitlab_runner_debug_mode: "{{ lookup('env', 'DEBUG') | default('0', true) in ['1', 'true'] }}"
+gitlab_runner_nolog: '{{ (gitlab_runner_ci_mode | bool) and not (gitlab_runner_debug_mode | bool) }}'
+gitlab_runner_package_names: "{{ [gitlab_runner_package_name, gitlab_runner_helper_images_package_name] }}"
+gitlab_runner_pinned_package_names:
+  - gitlab-runner={{ gitlab_runner_package_version }}
+  - gitlab-runner-helper-images={{ gitlab_runner_package_version }}
+gitlab_runner_selected_package_names: "{{ gitlab_runner_pinned_package_names if gitlab_runner_package_version | string | length > 0 else gitlab_runner_package_names }}"
+gitlab_runner_package_name: gitlab-runner
+gitlab_runner_helper_images_package_name: gitlab-runner-helper-images

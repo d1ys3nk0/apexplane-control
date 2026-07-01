@@ -1,0 +1,35 @@
+concurrent = {{ gitlab_runner_concurrency | int }}
+check_interval = {{ gitlab_runner_check_interval | int }}
+shutdown_timeout = {{ gitlab_runner_shutdown_timeout | int }}
+
+[session_server]
+  session_timeout = {{ gitlab_runner_session_timeout | int }}
+
+[[runners]]
+  name = {{ gitlab_runner_name | to_json }}
+  url = {{ gitlab_runner_url | to_json }}
+  token = {{ gitlab_runner_token | to_json }}
+  executor = {{ gitlab_runner_executor | to_json }}
+{% if gitlab_runner_output_limit | string | length > 0 %}
+  output_limit = {{ gitlab_runner_output_limit | int }}
+{% endif %}
+  [runners.cache]
+    MaxUploadedArchiveSize = 0
+{% if gitlab_runner_executor == 'docker' %}
+  [runners.docker]
+    tls_verify = {{ gitlab_runner_docker_tls_verify | bool | ternary('true', 'false') }}
+    image = {{ gitlab_runner_docker_image_full | to_json }}
+    privileged = {{ gitlab_runner_docker_privileged | bool | ternary('true', 'false') }}
+    disable_entrypoint_overwrite = {{ gitlab_runner_docker_disable_entrypoint_overwrite | bool | ternary('true', 'false') }}
+    oom_kill_disable = {{ gitlab_runner_docker_oom_kill_disable | bool | ternary('true', 'false') }}
+    disable_cache = {{ gitlab_runner_docker_disable_cache | bool | ternary('true', 'false') }}
+    volumes = {{ gitlab_runner_docker_volumes | to_json }}
+    shm_size = {{ gitlab_runner_docker_shm_size | int }}
+    network_mtu = {{ gitlab_runner_docker_network_mtu | int }}
+    extra_hosts = {{ gitlab_runner_docker_extra_hosts | to_json }}
+    pull_policy = {{ gitlab_runner_docker_pull_policy | to_json }}
+    allowed_pull_policies = {{ gitlab_runner_docker_allowed_pull_policies | to_json }}
+    service_memory_reservation = {{ gitlab_runner_docker_service_mem_res | to_json }}
+    service_memory = {{ gitlab_runner_docker_service_mem_lim | to_json }}
+    service_memory_swap = {{ gitlab_runner_docker_service_mem_swp | to_json }}
+{% endif %}
