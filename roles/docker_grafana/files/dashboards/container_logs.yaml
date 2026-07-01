@@ -149,7 +149,7 @@ panels:
     transparent: true
     type: logs
 preload: false
-refresh: auto
+refresh: ''
 schemaVersion: 41
 tags:
   - preinstalled
