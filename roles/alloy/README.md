@@ -13,6 +13,7 @@ This role installs and configures Grafana Alloy as a system service.
 - Deploy Alloy systemd override.
 - Upload Alloy config.
 - Upload Alloy service defaults.
+- Optionally group Docker log lines with an Alloy multiline processing stage before sending them to Loki.
 - Store Alloy permission update state.
 - Reset Alloy failed state after permissions change.
 - Restart Alloy after environment or permissions change.
@@ -52,6 +53,10 @@ Alloy emits metrics and logs with `instance` set to `<alloy_world>-<inventory_ho
 | `alloy_platform` | `~` |
 | `alloy_cluster` | `~` |
 | `alloy_docker_enabled` | `<derived>` |
+| `alloy_docker_logs_multiline_enabled` | `false` |
+| `alloy_docker_logs_multiline_selector` | `''` |
+| `alloy_docker_logs_multiline_firstline` | `''` |
+| `alloy_docker_logs_multiline_max_wait_time` | `3s` |
 | `alloy_metrics_extra_targets` | `[]` |
 | `alloy_apt_repo_url` | `https://apt.grafana.com` |
 | `alloy_web_port` | `12345` |

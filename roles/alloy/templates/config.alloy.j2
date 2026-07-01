@@ -452,11 +452,33 @@ discovery.relabel "docker_logs" {
   }
 }
 
+{% if alloy_docker_logs_multiline_enabled | bool %}
+loki.process "docker_logs" {
+  forward_to = [loki.write.default.receiver]
+
+{% if alloy_docker_logs_multiline_selector_enabled | bool %}
+  stage.match {
+    selector = {{ alloy_docker_logs_multiline_selector | string | tojson }}
+
+    stage.multiline {
+      firstline     = {{ alloy_docker_logs_multiline_firstline | string | tojson }}
+      max_wait_time = {{ alloy_docker_logs_multiline_max_wait_time | string | tojson }}
+    }
+  }
+{% else %}
+  stage.multiline {
+    firstline     = {{ alloy_docker_logs_multiline_firstline | string | tojson }}
+    max_wait_time = {{ alloy_docker_logs_multiline_max_wait_time | string | tojson }}
+  }
+{% endif %}
+}
+
+{% endif %}
 loki.source.docker "docker_logs" {
   host          = "unix:///var/run/docker.sock"
   targets       = discovery.docker.local.targets
   relabel_rules = discovery.relabel.docker_logs.rules
-  forward_to    = [loki.write.default.receiver]
+  forward_to    = [{{ alloy_docker_logs_receiver }}]
 }
 
 {% endif %}

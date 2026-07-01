@@ -14,6 +14,8 @@
       - (alloy_logs_url | default('', true) | string | length > 0) or (alloy_metrics_url | default('', true) | string | length > 0) or (alloy_traces_url | default('', true) | string | length > 0)
       - alloy_traces_tls_insecure | type_debug == 'bool'
       - alloy_docker_enabled is boolean
+      - alloy_docker_logs_multiline_enabled is boolean
+      - alloy_docker_logs_multiline_selector is string
       - alloy_metrics_extra_targets is iterable
       - alloy_metrics_extra_targets is not string
       - alloy_apt_repo_url is not none
@@ -28,6 +30,20 @@
       - (alloy_traces_user | default('', true) | string | length > 0) == (alloy_traces_pass | default('', true) | string | length > 0)
     fail_msg: Alloy basic auth variables must define both user and password for each enabled endpoint.
   no_log: '{{ alloy_nolog }}'
+
+- name: Assert Alloy Docker multiline log settings are valid
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (alloy_docker_logs_multiline_enabled | bool)
+        or (alloy_logs_url | default('', true) | string | length > 0)
+      - >-
+        not (alloy_docker_logs_multiline_enabled | bool)
+        or (alloy_docker_logs_multiline_firstline | string | length > 0)
+      - >-
+        not (alloy_docker_logs_multiline_enabled | bool)
+        or (alloy_docker_logs_multiline_max_wait_time | string | length > 0)
+    fail_msg: Alloy Docker multiline logs require an enabled logs endpoint, a firstline regex, and a max wait duration.
 
 - name: Assert Alloy extra metrics targets are valid
   ansible.builtin.assert:

@@ -3,3 +3,9 @@
 alloy_service_user: "{{ (alloy_docker_enabled | bool) | ternary('root', 'alloy') }}"
 alloy_service_group: "{{ (alloy_docker_enabled | bool) | ternary('root', 'alloy') }}"
 alloy_instance_name: '{{ alloy_world }}-{{ inventory_hostname }}'
+alloy_docker_logs_receiver: >-
+  {{
+    (alloy_docker_logs_multiline_enabled | bool)
+    | ternary('loki.process.docker_logs.receiver', 'loki.write.default.receiver')
+  }}
+alloy_docker_logs_multiline_selector_enabled: "{{ alloy_docker_logs_multiline_selector | string | length > 0 }}"
