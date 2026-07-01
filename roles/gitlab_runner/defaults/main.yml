@@ -13,7 +13,7 @@ gitlab_runner_shutdown_timeout: 0
 gitlab_runner_session_timeout: 1800
 gitlab_runner_output_limit: ''
 
-gitlab_runner_config_dir: '{{ gitlab_runner_dedicated_config_dir if gitlab_runner_mode == "dedicated" else gitlab_runner_docker_config_dir }}'
+gitlab_runner_config_dir: /etc/gitlab-runner
 gitlab_runner_config_path: '{{ gitlab_runner_config_dir }}/config.toml'
 
 gitlab_runner_apt_key_url: https://packages.gitlab.com/runner/gitlab-runner/gpgkey
@@ -25,13 +25,11 @@ gitlab_runner_apt_repo_component: main
 gitlab_runner_package_version: ''
 gitlab_runner_package_state: present
 gitlab_runner_service_name: gitlab-runner
-gitlab_runner_dedicated_config_dir: /etc/gitlab-runner
 
 gitlab_runner_container_name: gitlab-runner
 gitlab_runner_image_name: gitlab/gitlab-runner
 gitlab_runner_image_tag: ~
 gitlab_runner_image_full: '{{ gitlab_runner_image_name }}:{{ gitlab_runner_image_tag }}'
-gitlab_runner_docker_config_dir: /srv/gitlab-runner/config
 gitlab_runner_container_mem_res: 200M
 gitlab_runner_container_mem_lim: 300M
 gitlab_runner_container_mem_swp: 400M

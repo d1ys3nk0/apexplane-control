@@ -24,7 +24,7 @@ Set these required inputs before applying the role: `gitlab_runner_url`, `gitlab
 | `gitlab_runner_shutdown_timeout` | `0` |
 | `gitlab_runner_session_timeout` | `1800` |
 | `gitlab_runner_output_limit` | `''` |
-| `gitlab_runner_config_dir` | `<derived>` |
+| `gitlab_runner_config_dir` | `/etc/gitlab-runner` |
 | `gitlab_runner_config_path` | `<derived>` |
 | `gitlab_runner_apt_key_url` | `https://packages.gitlab.com/runner/gitlab-runner/gpgkey` |
 | `gitlab_runner_apt_key_asc_path` | `/usr/share/keyrings/runner_gitlab-runner-archive-keyring.asc` |
@@ -35,12 +35,10 @@ Set these required inputs before applying the role: `gitlab_runner_url`, `gitlab
 | `gitlab_runner_package_version` | `''` |
 | `gitlab_runner_package_state` | `present` |
 | `gitlab_runner_service_name` | `gitlab-runner` |
-| `gitlab_runner_dedicated_config_dir` | `/etc/gitlab-runner` |
 | `gitlab_runner_container_name` | `gitlab-runner` |
 | `gitlab_runner_image_name` | `gitlab/gitlab-runner` |
 | `gitlab_runner_image_tag` | `<required in docker mode>` |
 | `gitlab_runner_image_full` | `<derived>` |
-| `gitlab_runner_docker_config_dir` | `/srv/gitlab-runner/config` |
 | `gitlab_runner_container_mem_res` | `200M` |
 | `gitlab_runner_container_mem_lim` | `300M` |
 | `gitlab_runner_container_mem_swp` | `400M` |
@@ -85,7 +83,7 @@ gitlab_runner_mode: docker
 gitlab_runner_image_tag: v18.11.3
 ```
 
-In Docker mode the role writes `/srv/gitlab-runner/config/config.toml`, starts the `gitlab-runner` container, mounts Docker socket access for Docker executor jobs, and verifies the runner after the container is running.
+In Docker mode the role writes `/etc/gitlab-runner/config.toml`, mounts the host config directory into the container at `/etc/gitlab-runner`, starts the `gitlab-runner` container, mounts Docker socket access for Docker executor jobs, and verifies the runner after the container is running.
 
 Set `gitlab_runner_package_version` to pin the dedicated runner package version. When it is unset, apt installs the current repository package with state `present`.
 
