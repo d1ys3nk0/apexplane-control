@@ -39,9 +39,9 @@ Set these required inputs before applying the role: `gitlab_runner_url`, `gitlab
 | `gitlab_runner_docker_image_name` | `gitlab/gitlab-runner` |
 | `gitlab_runner_docker_image_tag` | `latest` |
 | `gitlab_runner_docker_image_full` | `<derived>` |
-| `gitlab_runner_container_mem_res` | `200M` |
-| `gitlab_runner_container_mem_lim` | `300M` |
-| `gitlab_runner_container_mem_swp` | `400M` |
+| `gitlab_runner_container_mem_res` | `1000M` |
+| `gitlab_runner_container_mem_lim` | `1500M` |
+| `gitlab_runner_container_mem_swp` | `2000M` |
 | `gitlab_runner_job_image_name` | `~` |
 | `gitlab_runner_job_image_tag` | `~` |
 | `gitlab_runner_job_image_full` | `<derived>` |
