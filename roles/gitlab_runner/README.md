@@ -10,7 +10,7 @@ This role installs and configures GitLab Runner.
 - Verify the runner process after setup.
 
 ## Configuration
-Set these required inputs before applying the role: `gitlab_runner_url`, `gitlab_runner_token`, `gitlab_runner_docker_image_tag`.
+Set these required inputs before applying the role: `gitlab_runner_url`, `gitlab_runner_token`, `gitlab_runner_job_image_name`, `gitlab_runner_job_image_tag`.
 
 | Variable | Default |
 | --- | --- |
@@ -36,15 +36,15 @@ Set these required inputs before applying the role: `gitlab_runner_url`, `gitlab
 | `gitlab_runner_package_state` | `present` |
 | `gitlab_runner_service_name` | `gitlab-runner` |
 | `gitlab_runner_container_name` | `gitlab-runner` |
-| `gitlab_runner_image_name` | `gitlab/gitlab-runner` |
-| `gitlab_runner_image_tag` | `<required in docker mode>` |
-| `gitlab_runner_image_full` | `<derived>` |
+| `gitlab_runner_docker_image_name` | `gitlab/gitlab-runner` |
+| `gitlab_runner_docker_image_tag` | `latest` |
+| `gitlab_runner_docker_image_full` | `<derived>` |
 | `gitlab_runner_container_mem_res` | `200M` |
 | `gitlab_runner_container_mem_lim` | `300M` |
 | `gitlab_runner_container_mem_swp` | `400M` |
-| `gitlab_runner_docker_image_name` | `docker` |
-| `gitlab_runner_docker_image_tag` | `<required>` |
-| `gitlab_runner_docker_image_full` | `<derived>` |
+| `gitlab_runner_job_image_name` | `~` |
+| `gitlab_runner_job_image_tag` | `~` |
+| `gitlab_runner_job_image_full` | `<derived>` |
 | `gitlab_runner_docker_tls_verify` | `false` |
 | `gitlab_runner_docker_privileged` | `false` |
 | `gitlab_runner_docker_disable_entrypoint_overwrite` | `false` |
@@ -70,20 +70,22 @@ Set these required inputs before applying the role: `gitlab_runner_url`, `gitlab
       vars:
         gitlab_runner_url: https://gitlab.example.com
         gitlab_runner_token: <runner-token>
-        gitlab_runner_docker_image_tag: '29.5.0'
+        gitlab_runner_job_image_name: curlimages/curl
+        gitlab_runner_job_image_tag: '8.21.0'
 ```
 
 ## Operations
 Dedicated mode is the default. It installs the `gitlab-runner` package, writes `/etc/gitlab-runner/config.toml`, restarts `gitlab-runner` when the rendered config changes, and verifies the runner.
 
-Docker mode is opt-in:
+Docker mode is explicit:
 
 ```yaml
 gitlab_runner_mode: docker
-gitlab_runner_image_tag: v18.11.3
 ```
 
-In Docker mode the role writes `/etc/gitlab-runner/config.toml`, mounts the host config directory into the container at `/etc/gitlab-runner`, starts the `gitlab-runner` container, mounts Docker socket access for Docker executor jobs, and verifies the runner after the container is running.
+In Docker mode the role writes `/etc/gitlab-runner/config.toml`, mounts the host config directory into the container at `/etc/gitlab-runner`, starts the `gitlab-runner` container from `gitlab_runner_docker_image_full`, mounts Docker socket access for Docker executor jobs, and verifies the runner after the container is running. The runner container image defaults to `gitlab/gitlab-runner:latest`; override it with `gitlab_runner_docker_image_name` and `gitlab_runner_docker_image_tag`.
+
+The default executor is `docker`. Set `gitlab_runner_job_image_name` and `gitlab_runner_job_image_tag` in the consumer repository to render the Docker executor job image in the `[runners.docker]` config section.
 
 Set `gitlab_runner_package_version` to pin the dedicated runner package version. When it is unset, apt installs the current repository package with state `present`.
 

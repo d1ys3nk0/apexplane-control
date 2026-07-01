@@ -8,18 +8,28 @@
       - gitlab_runner_token | string | length > 0
       - gitlab_runner_url is not none
       - gitlab_runner_url | string | length > 0
-      - gitlab_runner_executor is not none
       - gitlab_runner_executor | string | length > 0
-      - gitlab_runner_docker_image_tag is not none
-      - gitlab_runner_docker_image_tag | string | length > 0
-    fail_msg: Define gitlab_runner_url, gitlab_runner_token, and a valid gitlab_runner_mode before running role gitlab_runner.
+    fail_msg: Define gitlab_runner_url, gitlab_runner_token, and valid gitlab_runner_mode/gitlab_runner_executor values before running role gitlab_runner.
   no_log: '{{ gitlab_runner_nolog }}'
 
 - name: Assert Docker GitLab runner variables are set
   ansible.builtin.assert:
     that:
-      - gitlab_runner_image_tag is not none
-      - gitlab_runner_image_tag | string | length > 0
-    fail_msg: Define gitlab_runner_image_tag when gitlab_runner_mode is docker.
+      - gitlab_runner_docker_image_name is not none
+      - gitlab_runner_docker_image_name | string | length > 0
+      - gitlab_runner_docker_image_tag is not none
+      - gitlab_runner_docker_image_tag | string | length > 0
+    fail_msg: Define gitlab_runner_docker_image_name and gitlab_runner_docker_image_tag when gitlab_runner_mode is docker.
   no_log: '{{ gitlab_runner_nolog }}'
   when: gitlab_runner_mode == 'docker'
+
+- name: Assert Docker executor image variables are set
+  ansible.builtin.assert:
+    that:
+      - gitlab_runner_job_image_name is not none
+      - gitlab_runner_job_image_name | string | length > 0
+      - gitlab_runner_job_image_tag is not none
+      - gitlab_runner_job_image_tag | string | length > 0
+    fail_msg: Define gitlab_runner_job_image_name and gitlab_runner_job_image_tag when gitlab_runner_executor is docker.
+  no_log: '{{ gitlab_runner_nolog }}'
+  when: gitlab_runner_executor == 'docker'

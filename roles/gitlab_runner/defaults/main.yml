@@ -27,16 +27,16 @@ gitlab_runner_package_state: present
 gitlab_runner_service_name: gitlab-runner
 
 gitlab_runner_container_name: gitlab-runner
-gitlab_runner_image_name: gitlab/gitlab-runner
-gitlab_runner_image_tag: ~
-gitlab_runner_image_full: '{{ gitlab_runner_image_name }}:{{ gitlab_runner_image_tag }}'
+gitlab_runner_docker_image_name: gitlab/gitlab-runner
+gitlab_runner_docker_image_tag: latest
+gitlab_runner_docker_image_full: '{{ gitlab_runner_docker_image_name }}:{{ gitlab_runner_docker_image_tag }}'
 gitlab_runner_container_mem_res: 200M
 gitlab_runner_container_mem_lim: 300M
 gitlab_runner_container_mem_swp: 400M
 
-gitlab_runner_docker_image_name: docker
-gitlab_runner_docker_image_tag: ~
-gitlab_runner_docker_image_full: '{{ gitlab_runner_docker_image_name }}:{{ gitlab_runner_docker_image_tag }}'
+gitlab_runner_job_image_name: ~
+gitlab_runner_job_image_tag: ~
+gitlab_runner_job_image_full: '{{ gitlab_runner_job_image_name }}:{{ gitlab_runner_job_image_tag }}'
 gitlab_runner_docker_tls_verify: false
 gitlab_runner_docker_privileged: false
 gitlab_runner_docker_disable_entrypoint_overwrite: false
