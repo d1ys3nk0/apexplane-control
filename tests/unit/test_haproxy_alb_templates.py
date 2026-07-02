@@ -147,10 +147,29 @@ def test_fe_web_renders_frame_parent_auth_bypass() -> None:
     ) in lines
 
 
-def test_fe_web_renders_route_allowed_cidr_deny_after_source_rewrite() -> None:
+def test_fe_web_renders_userlist_skip_cidrs_auth_bypass() -> None:
+    variables = base_haproxy_alb_variables()
+    variables["haproxy_alb_auth"] = [
+        {
+            "domain": "docs.example.test",
+            "userlist": "docs_users",
+            "userlist_skip_cidrs": ["10.1.0.0/16", "192.0.2.0/24"],
+        }
+    ]
+
+    rendered = render_template("fe_web.cfg.j2", variables)
+    lines = rendered.splitlines()
+
+    assert (
+        "  http-request auth realm infra if !is_acme { hdr(host) -i docs.example.test } "
+        "!{ src -m ip 10.1.0.0/16 192.0.2.0/24 } !{ http_auth(docs_users) }"
+    ) in lines
+
+
+def test_fe_web_renders_route_restricted_cidr_deny_after_source_rewrite() -> None:
     variables = base_haproxy_alb_variables()
     variables["haproxy_alb_trusted_proxy_cidrs"] = ["10.0.0.0/8"]
-    variables["haproxy_alb_routes"][0]["allowed_cidrs"] = ["10.1.0.0/16", "192.0.2.0/24"]
+    variables["haproxy_alb_routes"][0]["restricted_cidrs"] = ["10.1.0.0/16", "192.0.2.0/24"]
 
     rendered = render_template("fe_web.cfg.j2", variables)
     lines = rendered.splitlines()

@@ -236,21 +236,21 @@
 - name: Assert route allowed CIDRs are valid when set
   ansible.builtin.assert:
     that:
-      - item.allowed_cidrs is iterable
-      - item.allowed_cidrs is not string
-      - item.allowed_cidrs | length > 0
+      - item.restricted_cidrs is iterable
+      - item.restricted_cidrs is not string
+      - item.restricted_cidrs | length > 0
       - >-
-        item.allowed_cidrs
+        item.restricted_cidrs
         | map('string')
         | map('trim')
         | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
         | list
-        | length == item.allowed_cidrs | length
-    fail_msg: 'Route {{ item.name }}: allowed_cidrs must be a non-empty list of IPv4 CIDR strings when set'
+        | length == item.restricted_cidrs | length
+    fail_msg: 'Route {{ item.name }}: restricted_cidrs must be a non-empty list of IPv4 CIDR strings when set'
   loop: '{{ haproxy_alb_routes }}'
   loop_control:
     label: '{{ item.name }}'
-  when: item.allowed_cidrs is defined
+  when: item.restricted_cidrs is defined
 
 - name: Assert route (domain, prefix) pairs are unique
   ansible.builtin.assert:
@@ -335,7 +335,7 @@
       - item.userlist | string | trim | length > 0
       - item.userlist in haproxy_alb_userlists
       - item.prefix is not defined or item.prefix is none or ((item.prefix | string | trim | length) > 0 and (item.prefix | string | trim) is match('^/'))
-      - item.cidr_whitelist is not defined or (item.cidr_whitelist is iterable and item.cidr_whitelist is not string and item.cidr_whitelist | length > 0)
+      - item.userlist_skip_cidrs is not defined or (item.userlist_skip_cidrs is iterable and item.userlist_skip_cidrs is not string and item.userlist_skip_cidrs | length > 0)
       - >-
         item.prefix_whitelist is not defined
         or (
@@ -381,18 +381,18 @@
           | length == (item.frame_parent_whitelist | length)
         )
       - >-
-        item.cidr_whitelist is not defined
+        item.userlist_skip_cidrs is not defined
         or (
-          item.cidr_whitelist
+          item.userlist_skip_cidrs
           | map('string')
           | map('trim')
           | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
           | list
-          | length == (item.cidr_whitelist | length)
+          | length == (item.userlist_skip_cidrs | length)
         )
     fail_msg: >-
       Invalid auth rule {{ item }}: need domain as a string or non-empty unique string list, known userlist,
-      optional prefix starting with /, optional non-empty cidr_whitelist list of IPv4 CIDR strings,
+      optional prefix starting with /, optional non-empty userlist_skip_cidrs list of IPv4 CIDR strings,
       optional non-empty prefix_whitelist list with values starting with /, and optional non-empty
       frame_parent_whitelist list of unique HTTPS origins
   loop: '{{ haproxy_alb_auth | default([]) }}'
