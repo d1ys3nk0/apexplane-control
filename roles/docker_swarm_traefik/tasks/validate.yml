@@ -19,6 +19,16 @@
       - docker_swarm_traefik_https_expose_port | int > 0
       - docker_swarm_traefik_health_rule is string
       - docker_swarm_traefik_health_rule | trim | length > 0
+      - docker_swarm_traefik_forwarded_headers_trusted_ips is iterable
+      - docker_swarm_traefik_forwarded_headers_trusted_ips is not string
+      - docker_swarm_traefik_forwarded_headers_trusted_ips | length > 0
+      - >-
+        docker_swarm_traefik_forwarded_headers_trusted_ips
+        | map('string')
+        | map('trim')
+        | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
+        | list
+        | length == (docker_swarm_traefik_forwarded_headers_trusted_ips | length)
       - docker_swarm_traefik_placement_constraints is iterable
       - docker_swarm_traefik_update_order in ['stop-first', 'start-first']
       - docker_swarm_traefik_update_parallelism | int > 0

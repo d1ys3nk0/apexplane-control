@@ -257,15 +257,15 @@ templating:
       regex: ''
       type: query
     - current:
-        text: .*
-        value: .*
+        text: ''
+        value: ''
       label: Regex Match
       name: search
       options:
         - selected: true
-          text: .*
-          value: .*
-      query: .*
+          text: ''
+          value: ''
+      query: ''
       type: textbox
 time:
   from: now-5m

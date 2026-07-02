@@ -3,7 +3,15 @@
 log:
   level: INFO
 
-accessLog: {}
+accessLog:
+  format: json
+  fields:
+    defaultMode: keep
+    headers:
+      defaultMode: drop
+      names:
+        X-Forwarded-For: keep
+        X-Request-ID: keep
 
 api:
   dashboard: true
@@ -17,16 +25,16 @@ entryPoints:
     address: :80
     forwardedHeaders:
       trustedIPs:
-        - 10.0.0.0/8
-        - 172.16.0.0/12
-        - 192.168.0.0/16
+{% for trusted_ip in docker_swarm_traefik_forwarded_headers_trusted_ips %}
+        - {{ trusted_ip }}
+{% endfor %}
   websecure:
     address: :443
     forwardedHeaders:
       trustedIPs:
-        - 10.0.0.0/8
-        - 172.16.0.0/12
-        - 192.168.0.0/16
+{% for trusted_ip in docker_swarm_traefik_forwarded_headers_trusted_ips %}
+        - {{ trusted_ip }}
+{% endfor %}
 
 {% if docker_swarm_traefik_letsencrypt_enabled | bool %}
 certificatesResolvers:

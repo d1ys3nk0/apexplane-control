@@ -13,6 +13,7 @@ This role configures HAProxy as an application load balancer. HAProxy reads exis
 - Update HAProxy throttle backend fragments.
 - Upload HAProxy whitelist files.
 - Update HAProxy frontend config.
+- Generate a per-request HAProxy UUID and forward it to backends as `X-Request-ID`.
 - Set or delete route-specific response headers.
 - Route ACME HTTP-01 challenge requests to the configured local challenge backend.
 - Additional focused setup tasks for the same role-owned desired state.
@@ -48,6 +49,8 @@ Set this required input before applying the role: `haproxy_alb_self_signed_cert_
 | `haproxy_alb_default_target_port` | `80` |
 
 Routes may set `allowed_cidrs` as a list of IPv4 CIDR strings. Matching requests from other source addresses are denied with `403`. Routes may also set `response_headers` as a mapping of header name to value and `response_header_deletes` as a list of header names to delete from responses selected for that route.
+
+HAProxy generates one UUID per request and forwards it to backends as `X-Request-ID`. Application logs and tracing can use this header as the request correlation identifier.
 
 Auth rules may set `frame_parent_whitelist` as a list of HTTPS origins. Exact origins such as `https://app.example.test` and leading-wildcard origins such as `https://*.example.test` bypass basic auth only for iframe navigations from matching parents and same-origin subresources loaded by that framed page.
 

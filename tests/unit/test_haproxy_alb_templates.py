@@ -103,6 +103,16 @@ def test_fe_web_renders_header_updates_and_rewrites_on_separate_lines() -> None:
     assert "  http-request replace-header X-Service-Name ^.*$ docs if host_docs" in lines
 
 
+def test_fe_web_renders_generated_request_id_headers() -> None:
+    rendered = render_template("fe_web.cfg.j2", base_haproxy_alb_variables())
+    lines = rendered.splitlines()
+
+    assert "  unique-id-format %[uuid()]" in lines
+    assert "  unique-id-header X-Request-ID" in lines
+    assert "  unique-id-header X-Unique-ID" not in lines
+    assert "  http-request set-header X-Request-ID %[unique-id]" not in lines
+
+
 def test_fe_web_renders_frame_parent_auth_bypass() -> None:
     variables = base_haproxy_alb_variables()
     variables["haproxy_alb_auth"] = [

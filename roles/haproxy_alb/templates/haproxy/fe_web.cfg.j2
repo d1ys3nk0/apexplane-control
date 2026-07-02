@@ -136,7 +136,7 @@ frontend web
   maxconn 1000
   monitor-uri /_haproxy/health
   unique-id-format %[uuid()]
-  unique-id-header X-Unique-ID
+  unique-id-header X-Request-ID
   http-request set-log-level info
   http-request set-log-level silent if { path /_health } || { path /_haproxy/health }
   http-request return status 200 content-type text/plain string "OK" if { path /_haproxy/health }
