@@ -9,13 +9,21 @@ host_{{ route.name }}
 {%- if route_prefixes | length > 0 %} { path_beg {{ route_prefixes | join(' ') }} }{%- endif -%}
 {%- endmacro %}
 
-{%- macro auth_more_specific_exclusions(auth_rule) -%}
-{%- set auth_domains = [auth_rule.domain] if auth_rule.domain is string else auth_rule.domain -%}
-{%- set auth_prefix = auth_rule.prefix | default('', true) | string | trim -%}
-{%- for other_rule in haproxy_alb_auth | default([]) -%}
-{%- set other_domains = [other_rule.domain] if other_rule.domain is string else other_rule.domain -%}
-{%- set other_prefix = other_rule.prefix | default('', true) | string | trim -%}
-{%- if auth_domains | intersect(other_domains) | list | length > 0 and other_prefix | length > auth_prefix | length and (auth_prefix | length == 0 or other_prefix.startswith(auth_prefix)) %}{{ " " }}!{ path_beg {{ other_prefix }} }{%- endif -%}
+{%- macro route_more_specific_exclusions(route) -%}
+{%- set route_domains = [route.domain] if route.domain is string else route.domain -%}
+{%- set route_prefixes = [''] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) -%}
+{%- for other_route in haproxy_alb_routes | default([]) -%}
+{%- if other_route.name != route.name -%}
+{%- set _other_domains = [other_route.domain] if other_route.domain is string else other_route.domain -%}
+{%- set _other_prefixes = [''] if other_route.prefix is not defined or other_route.prefix is none or (other_route.prefix is string and other_route.prefix | trim | length == 0) else ([other_route.prefix | string | trim] if other_route.prefix is string else (other_route.prefix | map('string') | map('trim') | list)) -%}
+{%- if route_domains | intersect(_other_domains) | list | length > 0 -%}
+{%- for route_prefix in route_prefixes -%}
+{%- for other_prefix in _other_prefixes -%}
+{%- if other_prefix | length > route_prefix | length and (route_prefix | length == 0 or other_prefix.startswith(route_prefix)) %}{{ " " }}!{ path_beg {{ other_prefix }} }{%- endif -%}
+{%- endfor -%}
+{%- endfor -%}
+{%- endif -%}
+{%- endif -%}
 {%- endfor -%}
 {%- endmacro %}
 
@@ -29,21 +37,18 @@ host_{{ route.name }}
 {%- endfor -%}
 {%- endmacro %}
 
-{%- macro auth_requirements(auth_rule, auth_rule_id) -%}
-{%- if auth_rule.headers is defined -%}
-{%- for hdr_name, hdr_val in auth_rule.headers.items() %}{{ " " }}!{ hdr({{ hdr_name }}) -m str {{ hdr_val }} }{%- endfor -%}
+{%- macro route_userlist_requirements(route, route_id) -%}
+{%- if route.userlist_skip_headers is defined -%}
+{%- for hdr_name, hdr_val in route.userlist_skip_headers.items() %}{{ " " }}!{ hdr({{ hdr_name }}) -m str {{ hdr_val }} }{%- endfor -%}
 {%- endif -%}
-{%- if auth_rule.userlist_skip_cidrs is defined -%}
-{{ " " }}!{ src -m ip {{ auth_rule.userlist_skip_cidrs | join(' ') }} }
+{%- if route.userlist_skip_cidrs is defined -%}
+{{ " " }}!{ src -m ip {{ route.userlist_skip_cidrs | join(' ') }} }
 {%- endif -%}
-{%- if haproxy_alb_auth_whitelist_cidrs | default([]) | length > 0 -%}
-{{ " " }}!{ src -m ip {{ haproxy_alb_auth_whitelist_cidrs | join(' ') }} }
+{%- if route.userlist_skip_prefixes is defined -%}
+{%- for path_prefix in route.userlist_skip_prefixes %}{{ " " }}!{ path_beg {{ path_prefix }} }{%- endfor -%}
 {%- endif -%}
-{%- if auth_rule.prefix_whitelist is defined -%}
-{%- for path_prefix in auth_rule.prefix_whitelist %}{{ " " }}!{ path_beg {{ path_prefix }} }{%- endfor -%}
-{%- endif -%}
-{{ " " }}!{ http_auth({{ auth_rule.userlist }}) }
-{%- if auth_rule.frame_parent_whitelist is defined %} !{ var(txn.auth_frame_bypass_{{ auth_rule_id }}) -m str true }{%- endif -%}
+{{ " " }}!{ http_auth({{ route.userlist }}) }
+{%- if route.userlist_skip_origins is defined %} !{ var(txn.userlist_origin_skip_{{ route_id }}) -m str true }{%- endif -%}
 {%- endmacro %}
 
 {%- macro throttle_rule_lines(throttle_rule) -%}
@@ -51,18 +56,18 @@ host_{{ route.name }}
 {{ "  " }}http-request deny deny_status {{ haproxy_alb_throttle_deny_status }} if !is_acme {{ route_match(throttle_rule) }}{{ throttle_more_specific_exclusions(throttle_rule) }} { sc_http_req_rate(0,throttle_{{ throttle_rule.name }}) gt {{ throttle_rule.requests }} }
 {%- endmacro %}
 
-{%- macro auth_rule_line(auth_rule, auth_rule_id) -%}
-{{ "  " }}http-request auth realm infra if !is_acme {{ route_match(auth_rule) }}{{ auth_more_specific_exclusions(auth_rule) }}{{ auth_requirements(auth_rule, auth_rule_id) }}
+{%- macro route_userlist_line(route, route_id) -%}
+{{ "  " }}http-request auth realm infra if !is_acme {{ route_match(route) }}{{ route_more_specific_exclusions(route) }}{{ route_userlist_requirements(route, route_id) }}
 {%- endmacro %}
 
 {%- macro route_restricted_cidr_deny_line(route) -%}
-{{ "  " }}http-request deny deny_status 403 if !is_acme {{ route_match(route) }} !{ src -m ip {{ route.restricted_cidrs | join(' ') }} }{% if route.prefix_whitelist is defined %}{% for path_prefix in route.prefix_whitelist %} !{ path_beg {{ path_prefix }} }{% endfor %}{% endif %}
+{{ "  " }}http-request deny deny_status 403 if !is_acme {{ route_match(route) }}{{ route_more_specific_exclusions(route) }} !{ src -m ip {{ route.restricted_cidrs | join(' ') }} }{% if route.restricted_skip_prefixes is defined %}{% for path_prefix in route.restricted_skip_prefixes %} !{ path_beg {{ path_prefix }} }{% endfor %}{% endif %}
 {%- endmacro %}
 
-{%- macro auth_frame_acl_lines(auth_rule, auth_rule_id) %}
+{%- macro route_userlist_origin_acl_lines(route, route_id) %}
 {%- set exact_origins = [] -%}
 {%- set wildcard_suffixes = [] -%}
-{%- for origin in auth_rule.frame_parent_whitelist -%}
+{%- for origin in route.userlist_skip_origins -%}
 {%- set trimmed_origin = origin | string | trim -%}
 {%- if trimmed_origin.startswith('https://*.') -%}
 {%- set _ = wildcard_suffixes.append(trimmed_origin | regex_replace('^https://[*][.]', '.')) -%}
@@ -70,20 +75,20 @@ host_{{ route.name }}
 {%- set _ = exact_origins.append(trimmed_origin) -%}
 {%- endif -%}
 {%- endfor %}
-  acl auth_frame_iframe_{{ auth_rule_id }} req.hdr(Sec-Fetch-Dest) -i iframe
-  acl auth_frame_subresource_{{ auth_rule_id }} req.hdr(Sec-Fetch-Site) -i same-origin
-  acl auth_frame_subresource_dest_{{ auth_rule_id }} req.hdr(Sec-Fetch-Dest) -i empty script style image font
+  acl userlist_origin_iframe_{{ route_id }} req.hdr(Sec-Fetch-Dest) -i iframe
+  acl userlist_origin_subresource_{{ route_id }} req.hdr(Sec-Fetch-Site) -i same-origin
+  acl userlist_origin_subresource_dest_{{ route_id }} req.hdr(Sec-Fetch-Dest) -i empty script style image font
 {% if exact_origins | length > 0 %}
-  acl auth_frame_parent_{{ auth_rule_id }} req.hdr(Referer) -m beg {{ exact_origins | map('regex_replace', '$', '/') | join(' ') }}
+  acl userlist_origin_parent_{{ route_id }} req.hdr(Referer) -m beg {{ exact_origins | map('regex_replace', '$', '/') | join(' ') }}
 {% endif %}
 {% for wildcard_suffix in wildcard_suffixes %}
-  acl auth_frame_parent_{{ auth_rule_id }} req.hdr(Referer) -m reg ^https://[^/][^/]*{{ wildcard_suffix | replace('.', '[.]') }}(/|$)
+  acl userlist_origin_parent_{{ route_id }} req.hdr(Referer) -m reg ^https://[^/][^/]*{{ wildcard_suffix | replace('.', '[.]') }}(/|$)
 {% endfor -%}
 {%- endmacro %}
 
-{%- macro auth_frame_bypass_lines(auth_rule, auth_rule_id) -%}
-{{ "  " }}http-request set-var(txn.auth_frame_bypass_{{ auth_rule_id }}) str(true) if {{ route_match(auth_rule) }} auth_frame_iframe_{{ auth_rule_id }} auth_frame_parent_{{ auth_rule_id }}
-{{ "  " }}http-request set-var(txn.auth_frame_bypass_{{ auth_rule_id }}) str(true) if {{ route_match(auth_rule) }} auth_frame_subresource_{{ auth_rule_id }} auth_frame_subresource_dest_{{ auth_rule_id }}
+{%- macro route_userlist_origin_skip_lines(route, route_id) -%}
+{{ "  " }}http-request set-var(txn.userlist_origin_skip_{{ route_id }}) str(true) if {{ route_match(route) }} userlist_origin_iframe_{{ route_id }} userlist_origin_parent_{{ route_id }}
+{{ "  " }}http-request set-var(txn.userlist_origin_skip_{{ route_id }}) str(true) if {{ route_match(route) }} userlist_origin_subresource_{{ route_id }} userlist_origin_subresource_dest_{{ route_id }}
 {%- endmacro %}
 
 {%- macro route_request_header_rewrites(route) -%}
@@ -109,13 +114,6 @@ host_{{ route.name }}
 {%- set haproxy_route_prefix_lengths.values = haproxy_route_prefix_lengths.values + [route_prefix | length] -%}
 {%- endif -%}
 {%- endfor -%}
-{%- endfor -%}
-{%- set haproxy_auth_prefix_lengths = namespace(values=[]) -%}
-{%- for auth_rule in haproxy_alb_auth | default([]) -%}
-{%- set auth_prefix = auth_rule.prefix | default('', true) | string | trim -%}
-{%- if auth_prefix | length > 0 and auth_prefix | length not in haproxy_auth_prefix_lengths.values -%}
-{%- set haproxy_auth_prefix_lengths.values = haproxy_auth_prefix_lengths.values + [auth_prefix | length] -%}
-{%- endif -%}
 {%- endfor -%}
 {%- set haproxy_throttle_prefix_lengths = namespace(values=[]) -%}
 {%- for throttle_rule in haproxy_alb_throttles | default([]) -%}
@@ -151,8 +149,8 @@ frontend web
 {% set route_domains = [route.domain] if route.domain is string else route.domain %}
   acl host_{{ route.name }} hdr(host) -i {{ route_domains | join(' ') }}
 {% endfor %}
-{% for auth_rule in haproxy_alb_auth | default([]) %}
-{% if auth_rule.frame_parent_whitelist is defined %}{{ auth_frame_acl_lines(auth_rule, loop.index0).strip('\n') }}
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{% if route.userlist_skip_origins is defined %}{{ route_userlist_origin_acl_lines(route, loop.index0).strip('\n') }}
 {% endif %}
 {% endfor %}
 {% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
@@ -220,8 +218,8 @@ frontend web
   http-request set-var(txn.route) str({{ route.name }}) if !{ var(txn.route) -m found } {{ route_match(route) }}
 {% endif %}
 {% endfor %}
-{% for auth_rule in haproxy_alb_auth | default([]) %}
-{% if auth_rule.frame_parent_whitelist is defined %}{{ auth_frame_bypass_lines(auth_rule, loop.index0).strip('\n') }}
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{% if route.userlist_skip_origins is defined %}{{ route_userlist_origin_skip_lines(route, loop.index0).strip('\n') }}
 {% endif %}
 {% endfor %}
 {% for prefix_length in haproxy_throttle_prefix_lengths.values | sort(reverse=true) %}
@@ -232,18 +230,9 @@ frontend web
 {% endif %}
 {% endfor %}
 {% endfor %}
-{% for prefix_length in haproxy_auth_prefix_lengths.values | sort(reverse=true) %}
-{% for auth_rule in haproxy_alb_auth | default([]) %}
-{% set auth_prefix = auth_rule.prefix | default('', true) | string | trim %}
-{% if auth_prefix | length == prefix_length %}
-{{ auth_rule_line(auth_rule, loop.index0) }}
-{% endif %}
-{% endfor %}
-{% endfor %}
-{% for auth_rule in haproxy_alb_auth | default([]) %}
-{% set auth_prefix = auth_rule.prefix | default('', true) | string | trim %}
-{% if auth_prefix | length == 0 %}
-{{ auth_rule_line(auth_rule, loop.index0) }}
+{% for route in haproxy_alb_routes | sort(attribute='name') %}
+{% if route.userlist is defined %}
+{{ route_userlist_line(route, loop.index0) }}
 {% endif %}
 {% endfor %}
 

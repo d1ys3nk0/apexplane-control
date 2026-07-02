@@ -24,8 +24,6 @@ haproxy_alb_trusted_proxy_cidrs:
 haproxy_alb_self_signed_cert_domain: ~
 haproxy_alb_target_groups: {}
 haproxy_alb_routes: []
-haproxy_alb_auth_whitelist_cidrs: []
-haproxy_alb_auth: []
 haproxy_alb_userlists: {}
 haproxy_alb_default_target_group: ''
 haproxy_alb_default_target_host: ''

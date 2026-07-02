@@ -59,12 +59,6 @@
       - haproxy_alb_routes | length > 0
     fail_msg: haproxy_alb_routes must be a non-empty list of route dicts
 
-- name: Assert haproxy_alb_auth is a list when set
-  ansible.builtin.assert:
-    that:
-      - haproxy_alb_auth is not defined or (haproxy_alb_auth is iterable and haproxy_alb_auth is not string)
-    fail_msg: haproxy_alb_auth must be a list of auth rule dicts
-
 - name: Assert haproxy_alb_throttles is a list
   ansible.builtin.assert:
     that:
@@ -143,26 +137,6 @@
         | length == (haproxy_alb_trusted_proxy_cidrs | length)
     fail_msg: haproxy_alb_trusted_proxy_cidrs must contain only IPv4 CIDR strings
 
-- name: Assert haproxy_alb_auth_whitelist_cidrs is a list
-  ansible.builtin.assert:
-    that:
-      - haproxy_alb_auth_whitelist_cidrs is defined
-      - haproxy_alb_auth_whitelist_cidrs is iterable
-      - haproxy_alb_auth_whitelist_cidrs is not string
-    fail_msg: haproxy_alb_auth_whitelist_cidrs must be a list of IPv4 CIDR strings
-
-- name: Assert haproxy_alb_auth_whitelist_cidrs values are IPv4 CIDRs
-  ansible.builtin.assert:
-    that:
-      - >-
-        haproxy_alb_auth_whitelist_cidrs
-        | map('string')
-        | map('trim')
-        | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
-        | list
-        | length == (haproxy_alb_auth_whitelist_cidrs | length)
-    fail_msg: haproxy_alb_auth_whitelist_cidrs must contain only IPv4 CIDR strings
-
 - name: Assert haproxy_alb_userlists is a mapping
   ansible.builtin.assert:
     that:
@@ -233,7 +207,42 @@
   loop_control:
     label: '{{ item.name }}'
 
-- name: Assert route allowed CIDRs are valid when set
+- name: Assert removed HAProxy ALB route access fields are not set
+  ansible.builtin.assert:
+    that:
+      - item.prefix_whitelist is not defined
+      - item.frame_parent_whitelist is not defined
+      - item.headers is not defined
+      - item.allowed_cidrs is not defined
+      - item.cidr_whitelist is not defined
+    fail_msg: >-
+      Route {{ item.name }} uses removed access fields; use restricted_skip_prefixes, userlist_skip_prefixes,
+      userlist_skip_headers, userlist_skip_origins, restricted_cidrs, and userlist on haproxy_alb_routes.
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Assert route access modes are mutually exclusive
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          item.restricted_cidrs is not defined
+          and item.restricted_skip_prefixes is not defined
+        )
+        or (
+          item.userlist is not defined
+          and item.userlist_skip_cidrs is not defined
+          and item.userlist_skip_prefixes is not defined
+          and item.userlist_skip_headers is not defined
+          and item.userlist_skip_origins is not defined
+        )
+    fail_msg: 'Route {{ item.name }}: restricted_* and userlist* fields are mutually exclusive; split the policy into separate routes'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Assert route restricted CIDRs are valid when set
   ansible.builtin.assert:
     that:
       - item.restricted_cidrs is iterable
@@ -252,24 +261,129 @@
     label: '{{ item.name }}'
   when: item.restricted_cidrs is defined
 
-- name: Assert route prefix whitelist is valid when set
+- name: Assert route restricted skip prefixes are valid when set
   ansible.builtin.assert:
     that:
-      - item.prefix_whitelist is iterable
-      - item.prefix_whitelist is not string
-      - item.prefix_whitelist | length > 0
+      - item.restricted_cidrs is defined
+      - item.restricted_skip_prefixes is iterable
+      - item.restricted_skip_prefixes is not string
+      - item.restricted_skip_prefixes | length > 0
       - >-
-        item.prefix_whitelist
+        item.restricted_skip_prefixes
         | map('string')
         | map('trim')
         | select('match', '^/')
         | list
-        | length == item.prefix_whitelist | length
-    fail_msg: 'Route {{ item.name }}: prefix_whitelist must be a non-empty list of paths starting with / when set'
+        | length == item.restricted_skip_prefixes | length
+    fail_msg: 'Route {{ item.name }}: restricted_skip_prefixes must be set only with restricted_cidrs and contain non-empty paths starting with /'
   loop: '{{ haproxy_alb_routes }}'
   loop_control:
     label: '{{ item.name }}'
-  when: item.prefix_whitelist is defined
+  when: item.restricted_skip_prefixes is defined
+
+- name: Assert route userlist is valid when set
+  ansible.builtin.assert:
+    that:
+      - item.userlist | string | trim | length > 0
+      - item.userlist in haproxy_alb_userlists
+    fail_msg: 'Route {{ item.name }}: userlist must reference a key in haproxy_alb_userlists'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+  no_log: '{{ haproxy_alb_nolog }}'
+  when: item.userlist is defined
+
+- name: Assert route userlist skip fields require userlist
+  ansible.builtin.assert:
+    that:
+      - item.userlist is defined
+    fail_msg: 'Route {{ item.name }}: userlist_skip_* fields require userlist'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: >-
+    item.userlist_skip_cidrs is defined
+    or item.userlist_skip_prefixes is defined
+    or item.userlist_skip_headers is defined
+    or item.userlist_skip_origins is defined
+
+- name: Assert route userlist skip CIDRs are valid when set
+  ansible.builtin.assert:
+    that:
+      - item.userlist_skip_cidrs is iterable
+      - item.userlist_skip_cidrs is not string
+      - item.userlist_skip_cidrs | length > 0
+      - >-
+        item.userlist_skip_cidrs
+        | map('string')
+        | map('trim')
+        | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
+        | list
+        | length == item.userlist_skip_cidrs | length
+    fail_msg: 'Route {{ item.name }}: userlist_skip_cidrs must be a non-empty list of IPv4 CIDR strings when set'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.userlist_skip_cidrs is defined
+
+- name: Assert route userlist skip prefixes are valid when set
+  ansible.builtin.assert:
+    that:
+      - item.userlist_skip_prefixes is iterable
+      - item.userlist_skip_prefixes is not string
+      - item.userlist_skip_prefixes | length > 0
+      - >-
+        item.userlist_skip_prefixes
+        | map('string')
+        | map('trim')
+        | select('match', '^/')
+        | list
+        | length == item.userlist_skip_prefixes | length
+    fail_msg: 'Route {{ item.name }}: userlist_skip_prefixes must be a non-empty list of paths starting with / when set'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.userlist_skip_prefixes is defined
+
+- name: Assert route userlist skip headers are valid when set
+  ansible.builtin.assert:
+    that:
+      - item.userlist_skip_headers is mapping
+      - item.userlist_skip_headers | length > 0
+      - item.userlist_skip_headers | dictsort | map(attribute=0) | select | list | length == item.userlist_skip_headers | length
+      - item.userlist_skip_headers | dictsort | map(attribute=1) | map('string') | select | list | length == item.userlist_skip_headers | length
+    fail_msg: 'Route {{ item.name }}: userlist_skip_headers must be a non-empty mapping with non-empty string keys and values'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+  no_log: '{{ haproxy_alb_nolog }}'
+  when: item.userlist_skip_headers is defined
+
+- name: Assert route userlist skip origins are valid when set
+  ansible.builtin.assert:
+    that:
+      - item.userlist_skip_origins is iterable
+      - item.userlist_skip_origins is not string
+      - item.userlist_skip_origins | length > 0
+      - >-
+        item.userlist_skip_origins
+        | map('string')
+        | map('trim')
+        | select('match', '^https://([*][.])?[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$')
+        | list
+        | length == (item.userlist_skip_origins | length)
+      - >-
+        item.userlist_skip_origins
+        | map('string')
+        | map('trim')
+        | unique
+        | list
+        | length == (item.userlist_skip_origins | length)
+    fail_msg: 'Route {{ item.name }}: userlist_skip_origins must be a non-empty list of unique HTTPS origins'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.userlist_skip_origins is defined
 
 - name: Assert route (domain, prefix) pairs are unique
   ansible.builtin.assert:
@@ -334,97 +448,6 @@
     label: '{{ item.name }}'
   when: item.response_headers is defined
 
-- name: Assert each auth rule has required fields
-  ansible.builtin.assert:
-    that:
-      - item.domain is defined
-      - >-
-        item.domain is string
-        or (item.domain is iterable and item.domain is not string and item.domain is not mapping and item.domain | length > 0)
-      - >-
-        (item.domain is string and item.domain | trim | length > 0)
-        or (
-          item.domain is iterable
-          and item.domain is not string
-          and item.domain is not mapping
-          and item.domain | map('string') | map('trim') | select | list | length == item.domain | length
-          and item.domain | map('string') | map('trim') | unique | list | length == item.domain | length
-        )
-      - item.userlist is defined
-      - item.userlist | string | trim | length > 0
-      - item.userlist in haproxy_alb_userlists
-      - item.prefix is not defined or item.prefix is none or ((item.prefix | string | trim | length) > 0 and (item.prefix | string | trim) is match('^/'))
-      - item.userlist_skip_cidrs is not defined or (item.userlist_skip_cidrs is iterable and item.userlist_skip_cidrs is not string and item.userlist_skip_cidrs | length > 0)
-      - >-
-        item.prefix_whitelist is not defined
-        or (
-          item.prefix_whitelist is iterable
-          and item.prefix_whitelist is not string
-          and item.prefix_whitelist | length > 0
-        )
-      - >-
-        item.prefix_whitelist is not defined
-        or (
-          item.prefix_whitelist
-          | map('string')
-          | map('trim')
-          | select('match', '^/')
-          | list
-          | length == (item.prefix_whitelist | length)
-        )
-      - >-
-        item.frame_parent_whitelist is not defined
-        or (
-          item.frame_parent_whitelist is iterable
-          and item.frame_parent_whitelist is not string
-          and item.frame_parent_whitelist | length > 0
-        )
-      - >-
-        item.frame_parent_whitelist is not defined
-        or (
-          item.frame_parent_whitelist
-          | map('string')
-          | map('trim')
-          | select('match', '^https://([*][.])?[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$')
-          | list
-          | length == (item.frame_parent_whitelist | length)
-        )
-      - >-
-        item.frame_parent_whitelist is not defined
-        or (
-          item.frame_parent_whitelist
-          | map('string')
-          | map('trim')
-          | unique
-          | list
-          | length == (item.frame_parent_whitelist | length)
-        )
-      - >-
-        item.userlist_skip_cidrs is not defined
-        or (
-          item.userlist_skip_cidrs
-          | map('string')
-          | map('trim')
-          | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
-          | list
-          | length == (item.userlist_skip_cidrs | length)
-        )
-    fail_msg: >-
-      Invalid auth rule {{ item }}: need domain as a string or non-empty unique string list, known userlist,
-      optional prefix starting with /, optional non-empty userlist_skip_cidrs list of IPv4 CIDR strings,
-      optional non-empty prefix_whitelist list with values starting with /, and optional non-empty
-      frame_parent_whitelist list of unique HTTPS origins
-  loop: '{{ haproxy_alb_auth | default([]) }}'
-  loop_control:
-    label: '{{ item.domain | default("?") }}'
-  no_log: '{{ haproxy_alb_nolog }}'
-
-- name: Assert auth (domain, prefix) pairs are unique
-  ansible.builtin.assert:
-    that:
-      - haproxy_alb_auth_domain_prefix_keys | length == haproxy_alb_auth_domain_prefix_keys | unique | length
-    fail_msg: haproxy_alb_auth contains duplicate (domain, prefix) combinations
-
 - name: Assert each throttle rule has required fields
   ansible.builtin.assert:
     that:
@@ -469,32 +492,8 @@
       - haproxy_alb_throttle_domain_prefix_keys | length == haproxy_alb_throttle_domain_prefix_keys | unique | length
     fail_msg: haproxy_alb_throttles contains duplicate (domain, prefix) combinations
 
-- name: Assert auth rule headers are non-empty mappings when set
-  ansible.builtin.assert:
-    that:
-      - item.headers is mapping
-      - item.headers | length > 0
-    fail_msg: 'Auth rule {{ item.domain }}: headers must be a non-empty mapping when set'
-  loop: '{{ haproxy_alb_auth | default([]) }}'
-  loop_control:
-    label: '{{ item.domain | default("?") }}'
-  no_log: '{{ haproxy_alb_nolog }}'
-  when: item.headers is defined
-
-- name: Assert auth rule header mappings have non-empty string keys and values
-  ansible.builtin.assert:
-    that:
-      - item.headers | dictsort | map(attribute=0) | select | list | length == item.headers | length
-      - item.headers | dictsort | map(attribute=1) | map('string') | select | list | length == item.headers | length
-    fail_msg: 'Auth rule {{ item.domain }}: headers mapping must have non-empty string keys and values'
-  loop: '{{ haproxy_alb_auth | default([]) }}'
-  loop_control:
-    label: '{{ item.domain | default("?") }}'
-  no_log: '{{ haproxy_alb_nolog }}'
-  when: item.headers is defined
-
 - name: Assert at least one route requires auth
   ansible.builtin.assert:
     that:
-      - haproxy_alb_auth | default([]) | length > 0
-    fail_msg: At least one auth rule must be defined
+      - haproxy_alb_routes | selectattr('userlist', 'defined') | list | length > 0
+    fail_msg: At least one HAProxy ALB route must define userlist

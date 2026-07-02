@@ -36,8 +36,6 @@ def max_consecutive_blank_lines(rendered: str) -> int:
 def base_haproxy_alb_variables() -> dict[str, Any]:
     return {
         "haproxy_alb_acme_enabled": False,
-        "haproxy_alb_auth": [],
-        "haproxy_alb_auth_whitelist_cidrs": [],
         "haproxy_alb_backend_group": "edge_nodes",
         "haproxy_alb_crowdsec_enabled": False,
         "haproxy_alb_default_target_group": "",
@@ -113,56 +111,64 @@ def test_fe_web_renders_generated_request_id_headers() -> None:
     assert "  http-request set-header X-Request-ID %[unique-id]" not in lines
 
 
-def test_fe_web_renders_frame_parent_auth_bypass() -> None:
+def test_fe_web_renders_userlist_skip_origins_auth_bypass() -> None:
     variables = base_haproxy_alb_variables()
-    variables["haproxy_alb_auth"] = [
-        {
-            "domain": "docs.example.test",
-            "frame_parent_whitelist": ["https://app.example.test", "https://*.parent.example.test"],
-            "userlist": "docs_users",
-        }
+    variables["haproxy_alb_routes"][1]["userlist"] = "docs_users"
+    variables["haproxy_alb_routes"][1]["userlist_skip_origins"] = [
+        "https://app.example.test",
+        "https://*.parent.example.test",
     ]
 
     rendered = render_template("fe_web.cfg.j2", variables)
     lines = rendered.splitlines()
 
-    assert "  acl auth_frame_iframe_0 req.hdr(Sec-Fetch-Dest) -i iframe" in lines
-    assert "  acl auth_frame_subresource_0 req.hdr(Sec-Fetch-Site) -i same-origin" in lines
-    assert "  acl auth_frame_subresource_dest_0 req.hdr(Sec-Fetch-Dest) -i empty script style image font" in lines
-    assert "  acl auth_frame_parent_0 req.hdr(Referer) -m beg https://app.example.test/" in lines
+    assert "  acl userlist_origin_iframe_1 req.hdr(Sec-Fetch-Dest) -i iframe" in lines
+    assert "  acl userlist_origin_subresource_1 req.hdr(Sec-Fetch-Site) -i same-origin" in lines
+    assert "  acl userlist_origin_subresource_dest_1 req.hdr(Sec-Fetch-Dest) -i empty script style image font" in lines
+    assert "  acl userlist_origin_parent_1 req.hdr(Referer) -m beg https://app.example.test/" in lines
     assert (
-        "  acl auth_frame_parent_0 req.hdr(Referer) -m reg ^https://[^/][^/]*[.]parent[.]example[.]test(/|$)"
+        "  acl userlist_origin_parent_1 req.hdr(Referer) -m reg ^https://[^/][^/]*[.]parent[.]example[.]test(/|$)"
     ) in lines
     assert (
-        "  http-request set-var(txn.auth_frame_bypass_0) str(true) if { hdr(host) -i docs.example.test } "
-        "auth_frame_iframe_0 auth_frame_parent_0"
+        "  http-request set-var(txn.userlist_origin_skip_1) str(true) if host_docs "
+        "userlist_origin_iframe_1 userlist_origin_parent_1"
     ) in lines
     assert (
-        "  http-request set-var(txn.auth_frame_bypass_0) str(true) if { hdr(host) -i docs.example.test } "
-        "auth_frame_subresource_0 auth_frame_subresource_dest_0"
+        "  http-request set-var(txn.userlist_origin_skip_1) str(true) if host_docs "
+        "userlist_origin_subresource_1 userlist_origin_subresource_dest_1"
     ) in lines
     assert (
-        "  http-request auth realm infra if !is_acme { hdr(host) -i docs.example.test } "
-        "!{ http_auth(docs_users) } !{ var(txn.auth_frame_bypass_0) -m str true }"
+        "  http-request auth realm infra if !is_acme host_docs "
+        "!{ http_auth(docs_users) } !{ var(txn.userlist_origin_skip_1) -m str true }"
     ) in lines
 
 
 def test_fe_web_renders_userlist_skip_cidrs_auth_bypass() -> None:
     variables = base_haproxy_alb_variables()
-    variables["haproxy_alb_auth"] = [
-        {
-            "domain": "docs.example.test",
-            "userlist": "docs_users",
-            "userlist_skip_cidrs": ["10.1.0.0/16", "192.0.2.0/24"],
-        }
-    ]
+    variables["haproxy_alb_routes"][1]["userlist"] = "docs_users"
+    variables["haproxy_alb_routes"][1]["userlist_skip_cidrs"] = ["10.1.0.0/16", "192.0.2.0/24"]
 
     rendered = render_template("fe_web.cfg.j2", variables)
     lines = rendered.splitlines()
 
     assert (
-        "  http-request auth realm infra if !is_acme { hdr(host) -i docs.example.test } "
+        "  http-request auth realm infra if !is_acme host_docs "
         "!{ src -m ip 10.1.0.0/16 192.0.2.0/24 } !{ http_auth(docs_users) }"
+    ) in lines
+
+
+def test_fe_web_renders_userlist_skip_prefixes_and_headers_auth_bypass() -> None:
+    variables = base_haproxy_alb_variables()
+    variables["haproxy_alb_routes"][1]["userlist"] = "docs_users"
+    variables["haproxy_alb_routes"][1]["userlist_skip_headers"] = {"X-API-Key": "secret"}
+    variables["haproxy_alb_routes"][1]["userlist_skip_prefixes"] = ["/api/", "/health"]
+
+    rendered = render_template("fe_web.cfg.j2", variables)
+    lines = rendered.splitlines()
+
+    assert (
+        "  http-request auth realm infra if !is_acme host_docs !{ hdr(X-API-Key) -m str secret } "
+        "!{ path_beg /api/ } !{ path_beg /health } !{ http_auth(docs_users) }"
     ) in lines
 
 
@@ -186,10 +192,10 @@ def test_fe_web_renders_route_restricted_cidr_deny_after_source_rewrite() -> Non
     assert lines.index(deny_line) < lines.index("  use_backend alpha if host_alpha")
 
 
-def test_fe_web_renders_route_restricted_cidr_prefix_whitelist() -> None:
+def test_fe_web_renders_route_restricted_cidr_skip_prefixes() -> None:
     variables = base_haproxy_alb_variables()
     variables["haproxy_alb_routes"][0]["restricted_cidrs"] = ["10.1.0.0/16"]
-    variables["haproxy_alb_routes"][0]["prefix_whitelist"] = ["/api/", "/health"]
+    variables["haproxy_alb_routes"][0]["restricted_skip_prefixes"] = ["/api/", "/health"]
 
     rendered = render_template("fe_web.cfg.j2", variables)
     lines = rendered.splitlines()
@@ -197,6 +203,27 @@ def test_fe_web_renders_route_restricted_cidr_prefix_whitelist() -> None:
     assert (
         "  http-request deny deny_status 403 if !is_acme host_alpha !{ src -m ip 10.1.0.0/16 } "
         "!{ path_beg /api/ } !{ path_beg /health }"
+    ) in lines
+
+
+def test_fe_web_renders_more_specific_route_access_exclusion() -> None:
+    variables = base_haproxy_alb_variables()
+    variables["haproxy_alb_routes"][0]["restricted_cidrs"] = ["10.1.0.0/16"]
+    variables["haproxy_alb_routes"].append(
+        {
+            "domain": "alpha.example.test",
+            "name": "alpha_api",
+            "prefix": "/api/",
+            "target_host": "10.0.0.10",
+            "target_port": 8080,
+        }
+    )
+
+    rendered = render_template("fe_web.cfg.j2", variables)
+    lines = rendered.splitlines()
+
+    assert (
+        "  http-request deny deny_status 403 if !is_acme host_alpha !{ path_beg /api/ } !{ src -m ip 10.1.0.0/16 }"
     ) in lines
 
 

@@ -41,20 +41,16 @@ Set this required input before applying the role: `haproxy_alb_self_signed_cert_
 | `haproxy_alb_self_signed_cert_domain` | `~` |
 | `haproxy_alb_target_groups` | `{}` |
 | `haproxy_alb_routes` | `[]` |
-| `haproxy_alb_auth_whitelist_cidrs` | `[]` |
-| `haproxy_alb_auth` | `[]` |
 | `haproxy_alb_userlists` | `{}` |
 | `haproxy_alb_default_target_group` | `''` |
 | `haproxy_alb_default_target_host` | `''` |
 | `haproxy_alb_default_target_port` | `80` |
 
-Routes may set `restricted_cidrs` as a list of IPv4 CIDR strings. Matching requests from other source addresses are denied with `403`. When a restricted route also sets `prefix_whitelist`, matching path prefixes remain reachable from any source address. Routes may also set `response_headers` as a mapping of header name to value and `response_header_deletes` as a list of header names to delete from responses selected for that route.
+Routes may set `restricted_cidrs` as a list of IPv4 CIDR strings. Matching requests from other source addresses are denied with `403`. When a restricted route also sets `restricted_skip_prefixes`, matching path prefixes bypass the CIDR restriction. Routes may set `userlist` to require Basic Auth from `haproxy_alb_userlists`; `userlist_skip_cidrs`, `userlist_skip_prefixes`, `userlist_skip_headers`, and `userlist_skip_origins` bypass that userlist check. `restricted_*` and `userlist*` fields are mutually exclusive on one route.
 
 HAProxy generates one UUID per request and forwards it to backends as `X-Request-ID`. Application logs and tracing can use this header as the request correlation identifier.
 
-Auth rules may set `userlist_skip_cidrs` as a list of IPv4 CIDR strings. Matching requests bypass basic auth for that rule's `userlist`.
-
-Auth rules may set `frame_parent_whitelist` as a list of HTTPS origins. Exact origins such as `https://app.example.test` and leading-wildcard origins such as `https://*.example.test` bypass basic auth only for iframe navigations from matching parents and same-origin subresources loaded by that framed page.
+Routes may also set `response_headers` as a mapping of header name to value and `response_header_deletes` as a list of header names to delete from responses selected for that route.
 
 ## Usage
 ```yaml

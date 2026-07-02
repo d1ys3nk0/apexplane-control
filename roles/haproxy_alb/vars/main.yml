@@ -15,16 +15,6 @@ haproxy_alb_route_domain_prefix_keys: >-
     {%- endfor -%}
   {%- endfor -%}
   {{ _keys }}
-haproxy_alb_auth_domain_prefix_keys: >-
-  {%- set _keys = [] -%}
-  {%- for _auth_rule in haproxy_alb_auth | default([]) -%}
-    {%- set _domains = [_auth_rule.domain] if _auth_rule.domain is string else _auth_rule.domain -%}
-    {%- set _trimmed_prefix = _auth_rule.prefix | default('', true) | string | trim -%}
-    {%- for _key in _domains | map('regex_replace', '$', haproxy_alb_domain_prefix_key_separator ~ _trimmed_prefix) | list -%}
-      {%- set _ = _keys.append(_key) -%}
-    {%- endfor -%}
-  {%- endfor -%}
-  {{ _keys }}
 haproxy_alb_throttle_domain_prefix_keys: >-
   {%- set _keys = [] -%}
   {%- for _throttle in haproxy_alb_throttles | default([]) -%}
