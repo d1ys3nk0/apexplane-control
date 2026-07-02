@@ -186,6 +186,20 @@ def test_fe_web_renders_route_restricted_cidr_deny_after_source_rewrite() -> Non
     assert lines.index(deny_line) < lines.index("  use_backend alpha if host_alpha")
 
 
+def test_fe_web_renders_route_restricted_cidr_prefix_whitelist() -> None:
+    variables = base_haproxy_alb_variables()
+    variables["haproxy_alb_routes"][0]["restricted_cidrs"] = ["10.1.0.0/16"]
+    variables["haproxy_alb_routes"][0]["prefix_whitelist"] = ["/api/", "/health"]
+
+    rendered = render_template("fe_web.cfg.j2", variables)
+    lines = rendered.splitlines()
+
+    assert (
+        "  http-request deny deny_status 403 if !is_acme host_alpha !{ src -m ip 10.1.0.0/16 } "
+        "!{ path_beg /api/ } !{ path_beg /health }"
+    ) in lines
+
+
 def test_be_local_renders_each_backend_and_server_on_separate_lines() -> None:
     rendered = render_template("be_local.cfg.j2", base_haproxy_alb_variables())
     lines = rendered.splitlines()

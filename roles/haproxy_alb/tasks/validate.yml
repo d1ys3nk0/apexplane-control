@@ -252,6 +252,25 @@
     label: '{{ item.name }}'
   when: item.restricted_cidrs is defined
 
+- name: Assert route prefix whitelist is valid when set
+  ansible.builtin.assert:
+    that:
+      - item.prefix_whitelist is iterable
+      - item.prefix_whitelist is not string
+      - item.prefix_whitelist | length > 0
+      - >-
+        item.prefix_whitelist
+        | map('string')
+        | map('trim')
+        | select('match', '^/')
+        | list
+        | length == item.prefix_whitelist | length
+    fail_msg: 'Route {{ item.name }}: prefix_whitelist must be a non-empty list of paths starting with / when set'
+  loop: '{{ haproxy_alb_routes }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.prefix_whitelist is defined
+
 - name: Assert route (domain, prefix) pairs are unique
   ansible.builtin.assert:
     that:

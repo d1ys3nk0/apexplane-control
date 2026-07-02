@@ -48,7 +48,7 @@ Set this required input before applying the role: `haproxy_alb_self_signed_cert_
 | `haproxy_alb_default_target_host` | `''` |
 | `haproxy_alb_default_target_port` | `80` |
 
-Routes may set `restricted_cidrs` as a list of IPv4 CIDR strings. Matching requests from other source addresses are denied with `403`. Routes may also set `response_headers` as a mapping of header name to value and `response_header_deletes` as a list of header names to delete from responses selected for that route.
+Routes may set `restricted_cidrs` as a list of IPv4 CIDR strings. Matching requests from other source addresses are denied with `403`. When a restricted route also sets `prefix_whitelist`, matching path prefixes remain reachable from any source address. Routes may also set `response_headers` as a mapping of header name to value and `response_header_deletes` as a list of header names to delete from responses selected for that route.
 
 HAProxy generates one UUID per request and forwards it to backends as `X-Request-ID`. Application logs and tracing can use this header as the request correlation identifier.
 

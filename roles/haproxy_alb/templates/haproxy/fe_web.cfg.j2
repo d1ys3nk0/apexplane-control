@@ -56,7 +56,7 @@ host_{{ route.name }}
 {%- endmacro %}
 
 {%- macro route_restricted_cidr_deny_line(route) -%}
-{{ "  " }}http-request deny deny_status 403 if !is_acme {{ route_match(route) }} !{ src -m ip {{ route.restricted_cidrs | join(' ') }} }
+{{ "  " }}http-request deny deny_status 403 if !is_acme {{ route_match(route) }} !{ src -m ip {{ route.restricted_cidrs | join(' ') }} }{% if route.prefix_whitelist is defined %}{% for path_prefix in route.prefix_whitelist %} !{ path_beg {{ path_prefix }} }{% endfor %}{% endif %}
 {%- endmacro %}
 
 {%- macro auth_frame_acl_lines(auth_rule, auth_rule_id) %}
