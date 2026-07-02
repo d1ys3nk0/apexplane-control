@@ -98,7 +98,7 @@ panels:
           type: prometheus
           uid: PBFA97CFB590B2093
         editorMode: code
-        expr: sum(rate(container_cpu_usage_seconds_total{job="docker",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}[5m])) by (name) * 100
+        expr: sum(rate(container_cpu_usage_seconds_total{job="docker",world=~"$world",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}[5m])) by (name) * 100
         hide: false
         interval: ''
         legendFormat: '{{name}}'
@@ -185,7 +185,7 @@ panels:
       - datasource:
           type: prometheus
           uid: PBFA97CFB590B2093
-        expr: sum(container_memory_rss{job="docker",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}) by (name)
+        expr: sum(container_memory_rss{job="docker",world=~"$world",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}) by (name)
         hide: false
         interval: ''
         legendFormat: '{{name}}'
@@ -261,7 +261,7 @@ panels:
       - datasource:
           type: prometheus
           uid: PBFA97CFB590B2093
-        expr: sum(container_memory_cache{job="docker",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}) by (name)
+        expr: sum(container_memory_cache{job="docker",world=~"$world",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}) by (name)
         hide: false
         interval: ''
         legendFormat: '{{name}}'
@@ -347,7 +347,7 @@ panels:
       - datasource:
           type: prometheus
           uid: PBFA97CFB590B2093
-        expr: sum(rate(container_network_receive_bytes_total{job="docker",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}[5m])) by (name)
+        expr: sum(rate(container_network_receive_bytes_total{job="docker",world=~"$world",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}[5m])) by (name)
         hide: false
         interval: ''
         legendFormat: '{{name}}'
@@ -423,7 +423,7 @@ panels:
       - datasource:
           type: prometheus
           uid: PBFA97CFB590B2093
-        expr: sum(rate(container_network_transmit_bytes_total{job="docker",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}[5m])) by (name)
+        expr: sum(rate(container_network_transmit_bytes_total{job="docker",world=~"$world",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}[5m])) by (name)
         interval: ''
         legendFormat: '{{name}}'
         refId: A
@@ -502,7 +502,7 @@ panels:
           type: prometheus
           uid: PBFA97CFB590B2093
         editorMode: code
-        expr: (time() - container_start_time_seconds{job="docker",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}) / 86400
+        expr: (time() - container_start_time_seconds{job="docker",world=~"$world",realm=~"$realm",cluster=~"$cluster",container_name=~"$container_name"}) / 86400
         format: table
         instant: true
         interval: ''
@@ -546,14 +546,30 @@ templating:
       current:
         text: All
         value: $__all
-      definition: label_values({job="docker"},realm)
+      definition: label_values({job="docker"},world)
+      includeAll: true
+      label: World
+      name: world
+      options: []
+      query:
+        qryType: 1
+        query: label_values({job="docker"},world)
+        refId: PrometheusVariableQueryEditor-VariableQuery
+      refresh: 2
+      regex: ''
+      type: query
+    - allowCustomValue: false
+      current:
+        text: All
+        value: $__all
+      definition: label_values({job="docker", world=~"$world"},realm)
       includeAll: true
       label: Realm
       name: realm
       options: []
       query:
         qryType: 1
-        query: label_values({job="docker"},realm)
+        query: label_values({job="docker", world=~"$world"},realm)
         refId: PrometheusVariableQueryEditor-VariableQuery
       refresh: 2
       regex: ''
@@ -562,14 +578,14 @@ templating:
       current:
         text: All
         value: $__all
-      definition: label_values({job="docker", realm=~"$realm"},cluster)
+      definition: label_values({job="docker", world=~"$world", realm=~"$realm"},cluster)
       includeAll: true
       label: Cluster
       name: cluster
       options: []
       query:
         qryType: 1
-        query: label_values({job="docker", realm=~"$realm"},cluster)
+        query: label_values({job="docker", world=~"$world", realm=~"$realm"},cluster)
         refId: PrometheusVariableQueryEditor-VariableQuery
       refresh: 2
       regex: ''
@@ -578,14 +594,14 @@ templating:
       current:
         text: All
         value: $__all
-      definition: label_values({job="docker", realm=~"$realm", cluster=~"$cluster"},instance)
+      definition: label_values({job="docker", world=~"$world", realm=~"$realm", cluster=~"$cluster"},instance)
       includeAll: true
       label: Instance
       name: instance
       options: []
       query:
         qryType: 1
-        query: label_values({job="docker", realm=~"$realm", cluster=~"$cluster"},instance)
+        query: label_values({job="docker", world=~"$world", realm=~"$realm", cluster=~"$cluster"},instance)
         refId: PrometheusVariableQueryEditor-VariableQuery
       refresh: 2
       regex: ''
@@ -594,14 +610,14 @@ templating:
       current:
         text: All
         value: $__all
-      definition: label_values({job="docker", realm=~"$realm", cluster=~"$cluster", instance=~"$instance"},container_name)
+      definition: label_values({job="docker", world=~"$world", realm=~"$realm", cluster=~"$cluster", instance=~"$instance"},container_name)
       includeAll: true
       label: Container
       name: container_name
       options: []
       query:
         qryType: 1
-        query: label_values({job="docker", realm=~"$realm", cluster=~"$cluster", instance=~"$instance"},container_name)
+        query: label_values({job="docker", world=~"$world", realm=~"$realm", cluster=~"$cluster", instance=~"$instance"},container_name)
         refId: PrometheusVariableQueryEditor-VariableQuery
       refresh: 2
       regex: ''

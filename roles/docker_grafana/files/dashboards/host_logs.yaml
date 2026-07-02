@@ -104,7 +104,7 @@ panels:
           uid: P8E80F9AEF21F6940
         direction: backward
         editorMode: code
-        expr: sum(count_over_time({realm=~"$realm",cluster=~"$cluster",instance=~"$instance",job=~"$job"} |~ "$search" [$__interval]))
+        expr: sum(count_over_time({world=~"$world",realm=~"$realm",cluster=~"$cluster",instance=~"$instance",job=~"$job"} |~ "$search" [$__interval]))
         legendFormat: ''
         queryType: range
         refId: A
@@ -140,7 +140,7 @@ panels:
           uid: P8E80F9AEF21F6940
         direction: backward
         editorMode: code
-        expr: '{realm=~"$realm",cluster=~"$cluster",instance=~"$instance",job=~"$job"} |~ "$search" | logfmt'
+        expr: '{world=~"$world",realm=~"$realm",cluster=~"$cluster",instance=~"$instance",job=~"$job"} |~ "$search" | logfmt'
         hide: false
         legendFormat: ''
         queryType: range
@@ -164,13 +164,33 @@ templating:
         uid: P8E80F9AEF21F6940
       definition: ''
       includeAll: true
+      label: World
+      name: world
+      options: []
+      query:
+        label: world
+        refId: LokiVariableQueryEditor-VariableQuery
+        stream: ''
+        type: 1
+      refresh: 2
+      regex: ''
+      type: query
+    - allowCustomValue: false
+      current:
+        text: All
+        value: $__all
+      datasource:
+        type: loki
+        uid: P8E80F9AEF21F6940
+      definition: ''
+      includeAll: true
       label: Realm
       name: realm
       options: []
       query:
         label: realm
         refId: LokiVariableQueryEditor-VariableQuery
-        stream: ''
+        stream: '{world=~"$world"}'
         type: 1
       refresh: 2
       regex: ''
@@ -190,7 +210,7 @@ templating:
       query:
         label: cluster
         refId: LokiVariableQueryEditor-VariableQuery
-        stream: '{realm=~"$realm"}'
+        stream: '{world=~"$world",realm=~"$realm"}'
         type: 1
       refresh: 2
       regex: ''
@@ -210,7 +230,7 @@ templating:
       query:
         label: instance
         refId: LokiVariableQueryEditor-VariableQuery
-        stream: '{realm=~"$realm",cluster=~"$cluster"}'
+        stream: '{world=~"$world",realm=~"$realm",cluster=~"$cluster"}'
         type: 1
       refresh: 2
       regex: ''
@@ -230,7 +250,7 @@ templating:
       query:
         label: job
         refId: LokiVariableQueryEditor-VariableQuery
-        stream: '{realm=~"$realm",cluster=~"$cluster",instance=~"$instance"}'
+        stream: '{world=~"$world",realm=~"$realm",cluster=~"$cluster",instance=~"$instance"}'
         type: 1
       refresh: 2
       regex: ''

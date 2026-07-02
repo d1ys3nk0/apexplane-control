@@ -104,7 +104,7 @@ panels:
           uid: P8E80F9AEF21F6940
         direction: backward
         editorMode: code
-        expr: sum(count_over_time({job="docker",realm=~"$realm",swarm_service=~"$service",swarm_task=~"$task"} |~ "$search" [$__interval]))
+        expr: sum(count_over_time({job="docker",world=~"$world",realm=~"$realm",swarm_service=~"$service",swarm_task=~"$task"} |~ "$search" [$__interval]))
         legendFormat: ''
         queryType: range
         refId: A
@@ -140,7 +140,7 @@ panels:
           uid: P8E80F9AEF21F6940
         direction: backward
         editorMode: code
-        expr: '{job="docker",realm=~"$realm",swarm_service=~"$service",swarm_task=~"$task"} |~ "$search" | logfmt'
+        expr: '{job="docker",world=~"$world",realm=~"$realm",swarm_service=~"$service",swarm_task=~"$task"} |~ "$search" | logfmt'
         hide: false
         legendFormat: ''
         queryType: range
@@ -164,13 +164,33 @@ templating:
         uid: P8E80F9AEF21F6940
       definition: ''
       includeAll: true
+      label: World
+      name: world
+      options: []
+      query:
+        label: world
+        refId: LokiVariableQueryEditor-VariableQuery
+        stream: '{job="docker"}'
+        type: 1
+      refresh: 2
+      regex: ''
+      type: query
+    - allowCustomValue: false
+      current:
+        text: All
+        value: $__all
+      datasource:
+        type: loki
+        uid: P8E80F9AEF21F6940
+      definition: ''
+      includeAll: true
       label: Realm
       name: realm
       options: []
       query:
         label: realm
         refId: LokiVariableQueryEditor-VariableQuery
-        stream: '{job="docker"}'
+        stream: '{job="docker",world=~"$world"}'
         type: 1
       refresh: 2
       regex: ''
@@ -191,7 +211,7 @@ templating:
       query:
         label: swarm_service
         refId: LokiVariableQueryEditor-VariableQuery
-        stream: '{job="docker",realm=~"$realm"}'
+        stream: '{job="docker",world=~"$world",realm=~"$realm"}'
         type: 1
       refresh: 2
       regex: ''
@@ -211,7 +231,7 @@ templating:
       query:
         label: instance
         refId: LokiVariableQueryEditor-VariableQuery
-        stream: '{job="docker",realm=~"$realm",swarm_service=~"$service"}'
+        stream: '{job="docker",world=~"$world",realm=~"$realm",swarm_service=~"$service"}'
         type: 1
       refresh: 2
       regex: ''
@@ -231,7 +251,7 @@ templating:
       query:
         label: swarm_task
         refId: LokiVariableQueryEditor-VariableQuery
-        stream: '{job="docker",realm=~"$realm",swarm_service=~"$service",instance=~"$instance"}'
+        stream: '{job="docker",world=~"$world",realm=~"$realm",swarm_service=~"$service",instance=~"$instance"}'
         type: 1
       refresh: 2
       regex: ''

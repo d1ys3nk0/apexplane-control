@@ -98,7 +98,7 @@ panels:
           type: prometheus
           uid: PBFA97CFB590B2093
         editorMode: code
-        expr: sum(rate(container_cpu_usage_seconds_total{job="docker",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"}[5m])) by (name) * 100
+        expr: sum(rate(container_cpu_usage_seconds_total{job="docker",world=~"$world",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"}[5m])) by (name) * 100
         hide: false
         interval: ''
         legendFormat: '{{name}}'
@@ -185,7 +185,7 @@ panels:
       - datasource:
           type: prometheus
           uid: PBFA97CFB590B2093
-        expr: sum(container_memory_rss{job="docker",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"}) by (name)
+        expr: sum(container_memory_rss{job="docker",world=~"$world",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"}) by (name)
         hide: false
         interval: ''
         legendFormat: '{{name}}'
@@ -261,7 +261,7 @@ panels:
       - datasource:
           type: prometheus
           uid: PBFA97CFB590B2093
-        expr: sum(container_memory_cache{job="docker",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"}) by (name)
+        expr: sum(container_memory_cache{job="docker",world=~"$world",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"}) by (name)
         hide: false
         interval: ''
         legendFormat: '{{name}}'
@@ -347,7 +347,7 @@ panels:
       - datasource:
           type: prometheus
           uid: PBFA97CFB590B2093
-        expr: sum(rate(container_network_receive_bytes_total{job="docker",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"}[5m])) by (name)
+        expr: sum(rate(container_network_receive_bytes_total{job="docker",world=~"$world",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"}[5m])) by (name)
         hide: false
         interval: ''
         legendFormat: '{{name}}'
@@ -423,7 +423,7 @@ panels:
       - datasource:
           type: prometheus
           uid: PBFA97CFB590B2093
-        expr: sum(rate(container_network_transmit_bytes_total{job="docker",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"}[5m])) by (name)
+        expr: sum(rate(container_network_transmit_bytes_total{job="docker",world=~"$world",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"}[5m])) by (name)
         interval: ''
         legendFormat: '{{name}}'
         refId: A
@@ -516,7 +516,7 @@ panels:
           type: prometheus
           uid: PBFA97CFB590B2093
         editorMode: code
-        expr: (time() - container_start_time_seconds{job="docker",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"})/86400
+        expr: (time() - container_start_time_seconds{job="docker",world=~"$world",realm=~"$realm",swarm_service=~"$swarm_service",instance=~"$instance",swarm_task=~"$swarm_task"})/86400
         format: table
         instant: true
         interval: ''
@@ -563,14 +563,30 @@ templating:
       current:
         text: All
         value: $__all
-      definition: label_values({job="docker"},realm)
+      definition: label_values({job="docker"},world)
+      includeAll: true
+      label: World
+      name: world
+      options: []
+      query:
+        qryType: 1
+        query: label_values({job="docker"},world)
+        refId: PrometheusVariableQueryEditor-VariableQuery
+      refresh: 2
+      regex: ''
+      type: query
+    - allowCustomValue: false
+      current:
+        text: All
+        value: $__all
+      definition: label_values({job="docker", world=~"$world"},realm)
       includeAll: true
       label: Realm
       name: realm
       options: []
       query:
         qryType: 1
-        query: label_values({job="docker"},realm)
+        query: label_values({job="docker", world=~"$world"},realm)
         refId: PrometheusVariableQueryEditor-VariableQuery
       refresh: 2
       regex: ''
@@ -579,14 +595,14 @@ templating:
       current:
         text: All
         value: $__all
-      definition: label_values({job="docker", realm=~"$realm"},swarm_service)
+      definition: label_values({job="docker", world=~"$world", realm=~"$realm"},swarm_service)
       includeAll: true
       label: Service
       name: swarm_service
       options: []
       query:
         qryType: 1
-        query: label_values({job="docker", realm=~"$realm"},swarm_service)
+        query: label_values({job="docker", world=~"$world", realm=~"$realm"},swarm_service)
         refId: PrometheusVariableQueryEditor-VariableQuery
       refresh: 2
       regex: ''
@@ -595,14 +611,14 @@ templating:
       current:
         text: All
         value: $__all
-      definition: label_values({job="docker", realm=~"$realm", swarm_service=~"$swarm_service"},instance)
+      definition: label_values({job="docker", world=~"$world", realm=~"$realm", swarm_service=~"$swarm_service"},instance)
       includeAll: true
       label: Instance
       name: instance
       options: []
       query:
         qryType: 1
-        query: label_values({job="docker", realm=~"$realm", swarm_service=~"$swarm_service"},instance)
+        query: label_values({job="docker", world=~"$world", realm=~"$realm", swarm_service=~"$swarm_service"},instance)
         refId: PrometheusVariableQueryEditor-VariableQuery
       refresh: 2
       regex: ''
@@ -611,14 +627,14 @@ templating:
       current:
         text: All
         value: $__all
-      definition: label_values({job="docker", realm=~"$realm", swarm_service=~"$swarm_service"},swarm_task)
+      definition: label_values({job="docker", world=~"$world", realm=~"$realm", swarm_service=~"$swarm_service"},swarm_task)
       includeAll: true
       label: Task
       name: swarm_task
       options: []
       query:
         qryType: 1
-        query: label_values({job="docker", realm=~"$realm", swarm_service=~"$swarm_service"},swarm_task)
+        query: label_values({job="docker", world=~"$world", realm=~"$realm", swarm_service=~"$swarm_service"},swarm_task)
         refId: PrometheusVariableQueryEditor-VariableQuery
       refresh: 2
       regex: ''
