@@ -104,7 +104,7 @@ panels:
           uid: P8E80F9AEF21F6940
         direction: backward
         editorMode: code
-        expr: sum(count_over_time({job="docker",world=~"$world",realm=~"$realm",cluster=~"$cluster",instance=~"$instance",container_name=~"$container_name"} |~ "$search" [$__interval]))
+        expr: sum(count_over_time({job="docker",world=~"$world",realm=~"$realm",platform=~"$platform",cluster=~"$cluster",instance=~"$instance",container_name=~"$container_name"} |~ "$search" [$__interval]))
         legendFormat: ''
         queryType: range
         refId: A
@@ -140,7 +140,7 @@ panels:
           uid: P8E80F9AEF21F6940
         direction: backward
         editorMode: code
-        expr: '{job="docker",world=~"$world",realm=~"$realm",cluster=~"$cluster",instance=~"$instance",container_name=~"$container_name"} |~ "$search" | logfmt'
+        expr: '{job="docker",world=~"$world",realm=~"$realm",platform=~"$platform",cluster=~"$cluster",instance=~"$instance",container_name=~"$container_name"} |~ "$search" | logfmt'
         hide: false
         legendFormat: ''
         queryType: range
@@ -204,13 +204,33 @@ templating:
         uid: P8E80F9AEF21F6940
       definition: ''
       includeAll: true
+      label: Platform
+      name: platform
+      options: []
+      query:
+        label: platform
+        refId: LokiVariableQueryEditor-VariableQuery
+        stream: '{job="docker",world=~"$world",realm=~"$realm"}'
+        type: 1
+      refresh: 2
+      regex: ''
+      type: query
+    - allowCustomValue: false
+      current:
+        text: All
+        value: $__all
+      datasource:
+        type: loki
+        uid: P8E80F9AEF21F6940
+      definition: ''
+      includeAll: true
       label: Cluster
       name: cluster
       options: []
       query:
         label: cluster
         refId: LokiVariableQueryEditor-VariableQuery
-        stream: '{job="docker",world=~"$world",realm=~"$realm"}'
+        stream: '{job="docker",world=~"$world",realm=~"$realm",platform=~"$platform"}'
         type: 1
       refresh: 2
       regex: ''
@@ -230,7 +250,7 @@ templating:
       query:
         label: instance
         refId: LokiVariableQueryEditor-VariableQuery
-        stream: '{job="docker",world=~"$world",realm=~"$realm",cluster=~"$cluster"}'
+        stream: '{job="docker",world=~"$world",realm=~"$realm",platform=~"$platform",cluster=~"$cluster"}'
         type: 1
       refresh: 2
       regex: ''
@@ -250,7 +270,7 @@ templating:
       query:
         label: container_name
         refId: LokiVariableQueryEditor-VariableQuery
-        stream: '{job="docker",world=~"$world",realm=~"$realm",cluster=~"$cluster",instance=~"$instance"}'
+        stream: '{job="docker",world=~"$world",realm=~"$realm",platform=~"$platform",cluster=~"$cluster",instance=~"$instance"}'
         type: 1
       refresh: 2
       regex: ''
