@@ -55,3 +55,7 @@ toolbox_postgres_scripts:
 
   - name: pg_user
     src: pg_user.sh
+
+toolbox_sentry_scripts:
+  - name: sentry_watchdog
+    src: sentry_watchdog.sh

@@ -135,3 +135,22 @@
     state: absent
   loop: '{{ toolbox_postgres_scripts }}'
   when: not toolbox_postgres_enabled | bool
+
+- name: Install Sentry executables from files
+  become: true
+  ansible.builtin.copy:
+    src: scripts/{{ item.src }}
+    dest: '{{ toolbox_bin_dir }}/{{ item.name }}'
+    mode: '0755'
+    owner: root
+    group: root
+  loop: '{{ toolbox_sentry_scripts }}'
+  when: toolbox_sentry_enabled | bool
+
+- name: Remove disabled Sentry executables
+  become: true
+  ansible.builtin.file:
+    path: '{{ toolbox_bin_dir }}/{{ item.name }}'
+    state: absent
+  loop: '{{ toolbox_sentry_scripts }}'
+  when: not toolbox_sentry_enabled | bool

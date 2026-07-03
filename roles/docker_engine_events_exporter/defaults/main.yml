@@ -1,0 +1,11 @@
+---
+
+docker_engine_events_exporter_image_name: ghcr.io/neuroforgede/docker-engine-events-exporter
+docker_engine_events_exporter_image_tag: ~
+docker_engine_events_exporter_image_full: '{{ docker_engine_events_exporter_image_name }}:{{ docker_engine_events_exporter_image_tag }}'
+docker_engine_events_exporter_container_name: docker-engine-events-exporter
+docker_engine_events_exporter_hostname: '{{ inventory_hostname }}'
+docker_engine_events_exporter_http_port: 9324
+docker_engine_events_exporter_mem_res: 128M
+docker_engine_events_exporter_mem_lim: 256M
+docker_engine_events_exporter_mem_swp: 384M

@@ -1,0 +1,11 @@
+---
+
+- name: Assert Docker Engine events exporter variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_engine_events_exporter_image_tag is not none
+      - docker_engine_events_exporter_image_tag | string | length > 0
+      - docker_engine_events_exporter_container_name | string | length > 0
+      - docker_engine_events_exporter_hostname | string | length > 0
+      - docker_engine_events_exporter_http_port | int > 0
+    fail_msg: Define valid Docker Engine events exporter image tag, container name, hostname, and HTTP port before running role docker_engine_events_exporter.

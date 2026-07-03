@@ -477,7 +477,7 @@ groups:
           rule: 'health status is {{ $value }}; alert fires when == 0'
 
       - alert: DockerContainerDown
-        expr: time() - container_last_seen{name!='', swarm_task='', swarm_service='', container_label_com_docker_swarm_service_name=''} > 60
+        expr: time() - container_last_seen{name!='', swarm_task='', swarm_service='', container_label_com_docker_swarm_service_name='', container_label_com_gitlab_gitlab_runner_managed!='true'} > 60
         for: 5m
         labels:
           sev: critical
@@ -488,6 +488,19 @@ groups:
         annotations:
           summary: Container {{ $labels.name }} is down on {{ $labels.instance }}
           rule: 'seconds since last seen is {{ $value }}s; alert fires when > 60s for 5m'
+
+      - alert: DockerContainerFailedExit
+        expr: increase(docker_events_container_total{status=~"die|.*oom.*|.*kill.*", container_attributes_exitcode!='', container_attributes_exitcode!='0'}[10m]) > 0
+        for: 0m
+        labels:
+          sev: warning
+          cluster: '{{ $labels.cluster }}'
+          realm: '{{ $labels.realm }}'
+          platform: '{{ $labels.platform }}'
+          world: '{{ $labels.world }}'
+        annotations:
+          summary: Container {{ $labels.container_attributes_name }} exited with code {{ $labels.container_attributes_exitcode }} on {{ $labels.instance }}
+          rule: 'event count increase is {{ $value }}; alert fires when non-zero exit, OOM, or kill events increase over 10m'
 {% endraw %}
 {% if docker_prometheus_custom_alerts | trim | length > 0 %}
 

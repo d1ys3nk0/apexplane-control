@@ -1,6 +1,6 @@
 # toolbox
 
-This role installs shared operator shell helpers and optional Docker, HAProxy, WireGuard, and PostgreSQL scripts.
+This role installs shared operator shell helpers and optional Docker, HAProxy, Sentry, WireGuard, and PostgreSQL scripts.
 
 ## Features
 - Create directories.
@@ -16,6 +16,8 @@ This role installs shared operator shell helpers and optional Docker, HAProxy, W
 - Remove disabled WireGuard executables.
 - Install PostgreSQL executables from files.
 - Remove disabled PostgreSQL executables.
+- Install Sentry executables from files.
+- Remove disabled Sentry executables.
 
 ## Configuration
 | Variable | Default |
@@ -24,6 +26,7 @@ This role installs shared operator shell helpers and optional Docker, HAProxy, W
 | `toolbox_docker_enabled` | `false` |
 | `toolbox_haproxy_enabled` | `false` |
 | `toolbox_postgres_enabled` | `false` |
+| `toolbox_sentry_enabled` | `false` |
 | `toolbox_wireguard_enabled` | `false` |
 
 ## Usage
@@ -112,6 +115,12 @@ PostgreSQL scripts are installed when `toolbox_postgres_enabled` is true:
 - `/opt/toolbox/bin/pg_backup`
 - `/opt/toolbox/bin/pg_recover`
 - `/opt/toolbox/bin/pg_user`
+
+Sentry scripts are installed when `toolbox_sentry_enabled` is true:
+
+- `/opt/toolbox/bin/sentry_watchdog`
+
+The Sentry watchdog checks Sentry self-hosted health and runs known safe repairs. It currently detects recent Relay Kafka producer timeouts for issue ingest topics and repairs the path by stopping Relay, restarting Kafka, then starting Relay again. It uses a lock and cooldown so it can be scheduled safely.
 
 ### HAProxy Reports
 
