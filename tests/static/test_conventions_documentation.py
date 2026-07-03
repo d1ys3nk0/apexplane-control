@@ -8,7 +8,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONVENTIONS_DOC = REPO_ROOT / "docs" / "development" / "conventions.md"
 SHARED_CONVENTIONS_DOC = REPO_ROOT / "docs" / "shared" / "development" / "conventions.md"
-TEST_REF_RE = re.compile(r"`(?P<path>tests/static/test_[A-Za-z0-9_]+\.py)::(?P<name>test_[A-Za-z0-9_]+)`")
+TEST_REF_RE = re.compile(
+    r"`(?P<path>(?:tests/static|toolkit/tests/static)/test_[A-Za-z0-9_]+\.py)::(?P<name>test_[A-Za-z0-9_]+)`"
+)
 
 
 def convention_section_titles(text: str) -> list[str]:
@@ -38,6 +40,16 @@ def referenced_static_tests(text: str) -> set[str]:
     return {f"{match.group('path')}::{match.group('name')}" for match in TEST_REF_RE.finditer(text)}
 
 
+def referenced_static_test_exists(reference: str) -> bool:
+    path_text, function_name = reference.split("::", maxsplit=1)
+    path = REPO_ROOT / path_text
+    if not path.is_file():
+        return False
+
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    return any(isinstance(node, ast.FunctionDef) and node.name == function_name for node in ast.walk(tree))
+
+
 def test_conventions_document_has_required_sections() -> None:
     for path in (CONVENTIONS_DOC, SHARED_CONVENTIONS_DOC):
         assert path.is_file()
@@ -47,7 +59,6 @@ def test_conventions_document_has_required_sections() -> None:
 
 
 def test_automated_conventions_reference_existing_static_tests() -> None:
-    existing_tests = static_test_functions()
     errors: list[str] = []
 
     for path in (CONVENTIONS_DOC, SHARED_CONVENTIONS_DOC):
@@ -61,7 +72,8 @@ def test_automated_conventions_reference_existing_static_tests() -> None:
                 continue
             errors.extend(
                 f"{path.relative_to(REPO_ROOT)} referenced static test does not exist: {reference}"
-                for reference in sorted(references - existing_tests)
+                for reference in sorted(references)
+                if not referenced_static_test_exists(reference)
             )
 
     assert automated_bullets(CONVENTIONS_DOC.read_text(encoding="utf-8"))

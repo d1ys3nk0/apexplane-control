@@ -46,3 +46,7 @@
 - name: Scan Docker Swarm service logs
   ansible.builtin.include_tasks: setup_swarm_logs.yml
   when: assessment_swarm_log_services | length > 0
+
+- name: Run host audit
+  ansible.builtin.include_tasks: setup_host_audit.yml
+  when: assessment_audit_enabled | bool

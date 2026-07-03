@@ -1,0 +1,35 @@
+---
+
+- name: Require audit toolbox script
+  ansible.builtin.stat:
+    path: '{{ assessment_audit_toolbox_script }}'
+  register: assessment_audit_script_stat
+
+- name: Validate audit toolbox script presence
+  ansible.builtin.assert:
+    that:
+      - assessment_audit_script_stat.stat.exists
+      - assessment_audit_script_stat.stat.executable
+    fail_msg: >-
+      assessment audit is enabled but the toolbox host audit script is missing or not executable at {{ assessment_audit_toolbox_script }}. Install the toolbox role before assessment.
+
+- name: Run host audit script
+  become: true
+  ansible.builtin.command:
+    argv:
+      - '{{ assessment_audit_toolbox_script }}'
+  environment:
+    AUDIT_SSH_PORT: '{{ assessment_audit_ssh_port | string }}'
+    AUDIT_SSH_USERS: "{{ assessment_audit_ssh_users | join('\n') }}"
+    AUDIT_ADMIN_USERS: "{{ assessment_audit_admin_users | join('\n') }}"
+    AUDIT_SERVICE_USERS: "{{ assessment_audit_service_users | join('\n') }}"
+    AUDIT_DISK_THRESHOLD: '{{ assessment_audit_disk_threshold | string }}'
+    AUDIT_CRITICAL_SYSTEMD_UNITS: "{{ assessment_audit_critical_systemd_units | join('\n') }}"
+    AUDIT_INACTIVE_SYSTEMD_UNITS: "{{ assessment_audit_inactive_systemd_units | join('\n') }}"
+    AUDIT_RUNNING_SYSTEMD_UNIT_FILE_STATES: "{{ assessment_audit_running_systemd_unit_file_states | join('\n') }}"
+    AUDIT_SYSTEMD_LOG_SINCE_JOURNAL: '{{ assessment_audit_systemd_log_since_journal }}'
+    AUDIT_LOG_ERROR_REGEX: '{{ assessment_audit_log_error_regex }}'
+    AUDIT_LOG_IGNORE_REGEX: '{{ assessment_audit_log_ignore_regex }}'
+    AUDIT_LOG_MATCH_LIMIT: '{{ assessment_audit_log_match_limit | string }}'
+    AUDIT_SYSCTL_PARAMS_JSON: '{{ assessment_audit_sysctl_params | to_json }}'
+  changed_when: false

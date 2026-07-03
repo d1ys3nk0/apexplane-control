@@ -77,3 +77,64 @@
       - item.cmd | string | length > 0
     fail_msg: Each assessment_commands item must define cmd.
   loop: '{{ assessment_commands }}'
+
+- name: Validate host audit inputs
+  ansible.builtin.assert:
+    that:
+      - assessment_audit_enabled | bool
+      - assessment_audit_toolbox_script is string
+      - assessment_audit_toolbox_script | length > 0
+      - assessment_audit_ssh_port | int > 0
+      - assessment_audit_ssh_port | int <= 65535
+      - assessment_audit_ssh_users is iterable
+      - assessment_audit_ssh_users is not string
+      - assessment_audit_admin_users is iterable
+      - assessment_audit_admin_users is not string
+      - assessment_audit_service_users is iterable
+      - assessment_audit_service_users is not string
+      - assessment_audit_disk_threshold | int > 0
+      - assessment_audit_critical_systemd_units is iterable
+      - assessment_audit_critical_systemd_units is not string
+      - assessment_audit_inactive_systemd_units is iterable
+      - assessment_audit_inactive_systemd_units is not string
+      - assessment_audit_running_systemd_unit_file_states is iterable
+      - assessment_audit_running_systemd_unit_file_states is not string
+      - assessment_audit_sysctl_params is iterable
+      - assessment_audit_sysctl_params is not string
+      - assessment_audit_log_match_limit | int > 0
+    fail_msg: Host audit inputs must be valid lists, ports, thresholds, and positive assessment_audit_log_match_limit when assessment audit is enabled.
+  when: assessment_audit_enabled | bool
+
+- name: Validate host audit critical systemd units
+  ansible.builtin.assert:
+    that:
+      - item | string | trim | length > 0
+    fail_msg: Every assessment_audit_critical_systemd_units item must be a non-empty systemd unit name.
+  loop: '{{ assessment_audit_critical_systemd_units }}'
+  when: assessment_audit_enabled | bool
+
+- name: Validate host audit inactive systemd units
+  ansible.builtin.assert:
+    that:
+      - item | string | trim | length > 0
+    fail_msg: Every assessment_audit_inactive_systemd_units item must be a non-empty systemd unit name.
+  loop: '{{ assessment_audit_inactive_systemd_units }}'
+  when: assessment_audit_enabled | bool
+
+- name: Validate host audit running systemd unit file states
+  ansible.builtin.assert:
+    that:
+      - item | string | trim | length > 0
+    fail_msg: Every assessment_audit_running_systemd_unit_file_states item must be a non-empty systemd unit file state.
+  loop: '{{ assessment_audit_running_systemd_unit_file_states }}'
+  when: assessment_audit_enabled | bool
+
+- name: Validate host audit sysctl params
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.name | string | trim | length > 0
+      - item.value is defined
+    fail_msg: Every assessment_audit_sysctl_params item must define name and value.
+  loop: '{{ assessment_audit_sysctl_params }}'
+  when: assessment_audit_enabled | bool

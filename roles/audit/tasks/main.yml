@@ -1,8 +1,0 @@
----
-
-- name: Validate audit inputs
-  ansible.builtin.include_tasks: validate.yml
-
-- name: Include common security checks
-  ansible.builtin.include_tasks: setup_common.yml
-  when: not ansible_check_mode
