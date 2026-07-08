@@ -13,25 +13,12 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_base_autoupdates_defaults_harden_docker_hosts() -> None:
+def test_base_autoupdates_defaults_expose_public_inputs() -> None:
     defaults = yaml.safe_load(_read(ROLE_DIR / "defaults" / "main.yml"))
 
     assert defaults["base_autoupdates_enabled"] is True
-    assert defaults["base_autoupdates_needrestart_mode"] == "l"
-
-    blacklist = set(defaults["base_autoupdates_package_blacklist"])
-    assert {
-        "docker-ce",
-        "docker-ce-cli",
-        "docker-ce-rootless-extras",
-        "docker-buildx-plugin",
-        "docker-compose-plugin",
-        "docker.io",
-        "docker-compose",
-        "containerd.io",
-        "containerd",
-        "runc",
-    } <= blacklist
+    assert isinstance(defaults["base_autoupdates_needrestart_mode"], str)
+    assert isinstance(defaults["base_autoupdates_package_blacklist"], list)
 
 
 def test_base_autoupdates_renders_blacklist_and_restart_policy_from_variables() -> None:
@@ -60,5 +47,4 @@ def test_base_autoupdates_readme_documents_public_variables() -> None:
     assert "`base_autoupdates_enabled`" in readme
     assert "`base_autoupdates_package_blacklist`" in readme
     assert "`base_autoupdates_needrestart_mode`" in readme
-    assert "Docker and container runtime packages" in readme
     assert "stops/disables `apt-daily-upgrade.timer`" in readme

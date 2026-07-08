@@ -3,15 +3,5 @@
 base_autoupdates_enabled: true
 base_autoupdates_automatic_reboot_enabled: false
 base_autoupdates_maintenance_window: ''
-base_autoupdates_needrestart_mode: l
-base_autoupdates_package_blacklist:
-  - docker-ce
-  - docker-ce-cli
-  - docker-ce-rootless-extras
-  - docker-buildx-plugin
-  - docker-compose-plugin
-  - docker.io
-  - docker-compose
-  - containerd.io
-  - containerd
-  - runc
+base_autoupdates_needrestart_mode: a
+base_autoupdates_package_blacklist: []

@@ -22,12 +22,12 @@ This role configures unattended package updates.
 | `base_autoupdates_enabled` | `true` |
 | `base_autoupdates_automatic_reboot_enabled` | `false` |
 | `base_autoupdates_maintenance_window` | `''` |
-| `base_autoupdates_needrestart_mode` | `l` |
-| `base_autoupdates_package_blacklist` | Docker and container runtime packages |
+| `base_autoupdates_needrestart_mode` | `a` |
+| `base_autoupdates_package_blacklist` | `[]` |
 
-`base_autoupdates_package_blacklist` defaults to Docker and container runtime packages to avoid unattended Docker upgrades causing service restarts and production downtime on single-node hosts. Override the list if a consumer has a different maintenance model.
+`base_autoupdates_package_blacklist` defaults to an empty list. Set it in a consumer repository when selected packages must stay outside unattended upgrades.
 
-`base_autoupdates_needrestart_mode` defaults to `l`, so `needrestart` reports services that need restart instead of restarting them automatically. Set it to `a` only when automatic service restarts are acceptable.
+`base_autoupdates_needrestart_mode` defaults to `a`, so `needrestart` automatically restarts services when needed. Set it to `l` when a consumer should only report services that need restart.
 
 `base_autoupdates_automatic_reboot_enabled` controls host reboot after unattended upgrades and defaults to `false`. Package blacklisting, service restart policy, and host reboot policy are separate safeguards.
 
