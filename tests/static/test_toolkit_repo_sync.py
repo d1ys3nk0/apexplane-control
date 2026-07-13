@@ -74,12 +74,27 @@ includes:
         ),
     }
     monkeypatch.setattr(sync_module, "STRUCTURE_PATHS", structure_paths)
+    ci_dir = repo_root / ".gitlab-ci"
+    ci_dir.mkdir()
+    (ci_dir / "01-verify.yml").write_text(".verify:base:\n  stage: verify\n", encoding="utf-8")
 
     assert sync_module.check_structure(repo_root) is True
 
 
 def test_structure_check_does_not_require_ycl_platform_taskfile(sync_module: SyncModule) -> None:
     assert ".taskfile/platform-ycl.yml" not in sync_module.STRUCTURE_PATHS
+
+
+def test_structure_check_accepts_numbered_verify_ci_file(
+    sync_module: SyncModule, tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    ci_dir = repo_root / ".gitlab-ci"
+    ci_dir.mkdir(parents=True)
+    (ci_dir / "01-verify.yml").write_text(".verify:base:\n  stage: verify\n", encoding="utf-8")
+    monkeypatch.setattr(sync_module, "STRUCTURE_PATHS", {})
+
+    assert sync_module.check_structure(repo_root) is True
 
 
 def test_global_variables_require_reference_outside_definition_line(sync_module: SyncModule, tmp_path: Path) -> None:

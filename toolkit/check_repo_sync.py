@@ -73,10 +73,6 @@ STRUCTURE_PATHS = {
         r"(?m)^\.venv/$",
         r"(?m)^\.ansible/$",
     ),
-    ".gitlab-ci/verify.yml": (
-        r"(?m)^\.verify:base:$",
-        r"(?m)^\s+stage: verify$",
-    ),
     ".pre-commit-config.yaml": (
         r"(?m)^\s+entry: task apc:vault:check --$",
         r"(?m)^\s+entry: task apc:vault:fix --$",
@@ -95,6 +91,10 @@ STRUCTURE_PATHS = {
         r"(?m)^\[tool\.ruff\]$",
     ),
 }
+CI_VERIFY_PATTERNS = (
+    r"(?m)^\.verify:base:$",
+    r"(?m)^\s+stage: verify$",
+)
 
 
 @dataclass(frozen=True)
@@ -160,6 +160,11 @@ def check_structure(repo_root: Path) -> bool:
             for pattern in failed_patterns:
                 write_line(f"  {pattern}")
             ok = False
+
+    ci_files = sorted((repo_root / ".gitlab-ci").glob("*.yml"))
+    if not any(not missing_patterns(path.read_text(encoding="utf-8"), CI_VERIFY_PATTERNS) for path in ci_files):
+        write_line(".gitlab-ci: missing verify CI contract")
+        ok = False
 
     return ok
 
