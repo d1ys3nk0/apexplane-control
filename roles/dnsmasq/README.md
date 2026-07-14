@@ -9,6 +9,7 @@ This role configures dnsmasq, resolver integration, and local health checks.
 - Install dnsmasq packages.
 - Create dnsmasq config directory.
 - Deploy dnsmasq configuration.
+- Serve exact records as local-only DNS data without forwarding unresolved record types upstream.
 - Ensure dnsmasq service is enabled and running.
 - Restart dnsmasq after configuration changes.
 - Read eth0 DNS resolver from netplan.
@@ -16,6 +17,9 @@ This role configures dnsmasq, resolver integration, and local health checks.
 - Additional focused setup tasks for the same role-owned desired state.
 
 ## Configuration
+
+Each `dnsmasq_exact_records` entry returns the configured A or AAAA record and treats its name as local-only for every query type. Each `dnsmasq_health_checks` entry requires exactly the configured address from the matching A or AAAA query and no response records from the other address family.
+
 | Variable | Default |
 | --- | --- |
 | `dnsmasq_bind_addresses` | `[]` |

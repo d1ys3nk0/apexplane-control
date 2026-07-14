@@ -9,7 +9,7 @@
   loop: '{{ dnsmasq_bind_addresses }}'
   when: not ansible_check_mode
 
-- name: Check dnsmasq records
+- name: Check dnsmasq A records
   ansible.builtin.command:
     argv:
       - dig
@@ -18,8 +18,28 @@
       - '{{ item.domain }}'
       - A
   loop: '{{ dnsmasq_health_checks }}'
-  register: dnsmasq_record_check
-  failed_when: item.ip | string not in dnsmasq_record_check.stdout_lines
+  register: dnsmasq_a_record_check
+  failed_when: >-
+    dnsmasq_a_record_check.stdout_lines
+    != ([item.ip | string] if (item.ip | ansible.utils.ipv4) is not false else [])
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - dnsmasq_health_checks | length > 0
+
+- name: Check dnsmasq AAAA records
+  ansible.builtin.command:
+    argv:
+      - dig
+      - +short
+      - '@{{ dnsmasq_health_check_server | default(dnsmasq_bind_addresses | first, true) }}'
+      - '{{ item.domain }}'
+      - AAAA
+  loop: '{{ dnsmasq_health_checks }}'
+  register: dnsmasq_aaaa_record_check
+  failed_when: >-
+    dnsmasq_aaaa_record_check.stdout_lines
+    != ([item.ip | string] if (item.ip | ansible.utils.ipv6) is not false else [])
   changed_when: false
   when:
     - not ansible_check_mode

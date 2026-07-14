@@ -16,6 +16,7 @@ server={{ upstream_server }}
 {% endfor %}
 
 {% for record in dnsmasq_exact_records | sort(attribute='domain') %}
+local=/{{ record.domain }}/
 host-record={{ record.domain }},{{ record.ip }}
 {% endfor %}
 
