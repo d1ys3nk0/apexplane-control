@@ -34,6 +34,7 @@ SCANNED_GV_DIRS = ("inventories", "playbooks", "roles", "tests", "variables")
 SCANNED_GV_SUFFIXES = {".j2", ".py", ".yaml", ".yml"}
 YAML_SUFFIXES = {".yml", ".yaml"}
 EXCLUDED_PARTS = {
+    ".cache",
     ".ansible",
     ".git",
     ".mypy_cache",
