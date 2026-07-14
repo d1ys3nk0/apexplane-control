@@ -56,13 +56,13 @@ STRUCTURE_PATHS = {
         r"(?m)^\s+taskfile: \.ansible/collections/ansible_collections/apexplane/control/toolkit/Taskfile\.yml$",
         r"(?m)^\s+optional: true$",
     ),
-    ".taskfile/gitlab.yml": (
+    ".taskfiles/gitlab.yml": (
         r"(?m)^  GIT_TRUNK: main$",
         r"(?m)^  GIT_BRANCH:$",
         r"(?m)^tasks:$",
         r"(?m)^\s+ci:$",
     ),
-    ".taskfile/root.yml": (
+    ".taskfiles/root.yml": (
         r"(?m)^tasks:$",
         r"(?m)^\s+conf:$",
         r"(?m)^\s+check:$",
@@ -316,7 +316,7 @@ def yaml_files(repo_root: Path) -> list[Path]:
 
 
 def check_ansible_requirements(repo_root: Path) -> list[str]:
-    taskfile = (repo_root / ".taskfile/root.yml").read_text(encoding="utf-8")
+    taskfile = (repo_root / ".taskfiles/root.yml").read_text(encoding="utf-8")
     sample = (repo_root / "requirements.sample.yml").read_text(encoding="utf-8")
     gitignore = (repo_root / ".gitignore").read_text(encoding="utf-8")
     errors: list[str] = []
@@ -324,14 +324,14 @@ def check_ansible_requirements(repo_root: Path) -> list[str]:
     checks = {
         ".gitignore must ignore requirements.yml": "\nrequirements.yml\n" in f"\n{gitignore}",
         "requirements.local.yml must not exist": not (repo_root / "requirements.local.yml").exists(),
-        ".taskfile/root.yml must support APEXPLANE_CONTROL_PATH": "APEXPLANE_CONTROL_PATH" in taskfile,
-        ".taskfile/root.yml must preserve existing requirements.yml": "if [ -f requirements.yml ]; then" in taskfile,
-        ".taskfile/root.yml must copy requirements.sample.yml to requirements.yml": (
+        ".taskfiles/root.yml must support APEXPLANE_CONTROL_PATH": "APEXPLANE_CONTROL_PATH" in taskfile,
+        ".taskfiles/root.yml must preserve existing requirements.yml": "if [ -f requirements.yml ]; then" in taskfile,
+        ".taskfiles/root.yml must copy requirements.sample.yml to requirements.yml": (
             "requirements.sample.yml requirements.yml" in taskfile
         ),
-        ".taskfile/root.yml must install requirements.yml": "ansible-galaxy collection install -r requirements.yml"
+        ".taskfiles/root.yml must install requirements.yml": "ansible-galaxy collection install -r requirements.yml"
         in taskfile,
-        ".taskfile/root.yml must not reference requirements.local.yml": "requirements.local.yml" not in taskfile,
+        ".taskfiles/root.yml must not reference requirements.local.yml": "requirements.local.yml" not in taskfile,
         "requirements.sample.yml must use apexplane-control": (
             "https://github.com/d1ys3nk0/apexplane-control.git" in sample
         ),
@@ -343,7 +343,7 @@ def check_ansible_requirements(repo_root: Path) -> list[str]:
         sample_text = env_sample.read_text(encoding="utf-8")
         checks = {
             ".gitignore must ignore .env": "\n.env\n" in f"\n{gitignore}",
-            ".taskfile/root.yml must create .env from .env.sample": "test -f .env || cp .env.sample .env" in taskfile,
+            ".taskfiles/root.yml must create .env from .env.sample": "test -f .env || cp .env.sample .env" in taskfile,
             ".env.sample must require explicit ANSIBLE_SSH_USER": "ANSIBLE_SSH_USER=" in sample_text
             and "ANSIBLE_SSH_USER=cicd" not in sample_text,
         }

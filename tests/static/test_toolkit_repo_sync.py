@@ -82,7 +82,7 @@ includes:
 
 
 def test_structure_check_does_not_require_ycl_platform_taskfile(sync_module: SyncModule) -> None:
-    assert ".taskfile/platform-ycl.yml" not in sync_module.STRUCTURE_PATHS
+    assert ".taskfiles/platform-ycl.yml" not in sync_module.STRUCTURE_PATHS
 
 
 def test_structure_check_accepts_numbered_verify_ci_file(
