@@ -14,7 +14,7 @@
   ansible.builtin.file:
     path: /etc/rsyslog.d/49-haproxy-managed.conf
     state: absent
-  notify: Restart rsyslog
+  register: haproxy_rsyslog_legacy_config_removal
 
 - name: Deploy HAProxy rsyslog configuration
   become: true
@@ -25,13 +25,35 @@
     owner: root
     group: root
     backup: true
-  notify: Restart rsyslog
+  register: haproxy_rsyslog_config_update
 
 - name: Verify rsyslog configuration (full config including includes)
   become: true
   ansible.builtin.command:
     cmd: rsyslogd -N1
   changed_when: false
+
+- name: Restart rsyslog after HAProxy logging configuration changes
+  become: true
+  ansible.builtin.systemd:
+    name: rsyslog
+    state: restarted
+  when:
+    - haproxy_rsyslog_legacy_config_removal.changed or haproxy_rsyslog_config_update.changed
+    - not ansible_check_mode
+
+- name: Verify rsyslog service is active after restart
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - rsyslog
+  register: haproxy_rsyslog_restart_service_health
+  changed_when: false
+  when:
+    - haproxy_rsyslog_legacy_config_removal.changed or haproxy_rsyslog_config_update.changed
+    - not ansible_check_mode
 
 - name: Deploy HAProxy logrotate configuration
   become: true
