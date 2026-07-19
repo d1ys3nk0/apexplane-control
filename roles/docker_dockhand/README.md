@@ -1,4 +1,4 @@
-# docker_swarm_dockhand
+# docker_dockhand
 
 This role deploys Dockhand as a Docker container on every target host.
 
@@ -10,10 +10,10 @@ This role deploys Dockhand as a Docker container on every target host.
 ## Configuration
 | Variable | Default |
 | --- | --- |
-| `docker_swarm_dockhand_image_name` | `fnsys/dockhand` |
-| `docker_swarm_dockhand_image_tag` | `<required>` |
-| `docker_swarm_dockhand_image_full` | `<derived>` |
-| `docker_swarm_dockhand_enabled` | `true` |
+| `docker_dockhand_image_name` | `fnsys/dockhand` |
+| `docker_dockhand_image_tag` | `<required>` |
+| `docker_dockhand_image_full` | `<derived>` |
+| `docker_dockhand_enabled` | `true` |
 
 ## Usage
 ```yaml
@@ -21,5 +21,5 @@ This role deploys Dockhand as a Docker container on every target host.
 
 - hosts: all
   roles:
-    - role: apexplane.control.docker_swarm_dockhand
+    - role: apexplane.control.docker_dockhand
 ```

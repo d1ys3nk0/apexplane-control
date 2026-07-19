@@ -216,7 +216,7 @@ def test_pghero_swarm_service_has_explicit_single_replica() -> None:
 
 
 def test_dockhand_runs_as_a_host_local_container() -> None:
-    role_dir = REPO_ROOT / "roles" / "docker_swarm_dockhand"
+    role_dir = REPO_ROOT / "roles" / "docker_dockhand"
     tasks = list(iter_tasks(load_yaml(role_dir / "tasks" / "main.yml")))
     containers = list(docker_container_modules(role_dir))
 

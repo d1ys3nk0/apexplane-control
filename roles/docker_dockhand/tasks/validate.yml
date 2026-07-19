@@ -1,0 +1,16 @@
+---
+
+- name: Assert Dockhand enabled flag is valid
+  ansible.builtin.assert:
+    that:
+      - docker_dockhand_enabled is boolean
+      - docker_dockhand_image_tag is not none
+      - docker_dockhand_image_tag | string | length > 0
+    fail_msg: docker_dockhand_enabled must be boolean and docker_dockhand_image_tag must be set.
+
+- name: Assert Dockhand required variables are set
+  ansible.builtin.assert:
+    that:
+      - docker_dockhand_image_full | string | length > 0
+    fail_msg: Define a valid Dockhand image before running role docker_dockhand.
+  when: docker_dockhand_enabled | bool

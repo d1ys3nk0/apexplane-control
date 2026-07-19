@@ -1,0 +1,6 @@
+---
+
+docker_dockhand_image_name: fnsys/dockhand
+docker_dockhand_image_tag: ~
+docker_dockhand_image_full: '{{ docker_dockhand_image_name }}:{{ docker_dockhand_image_tag }}'
+docker_dockhand_enabled: true
