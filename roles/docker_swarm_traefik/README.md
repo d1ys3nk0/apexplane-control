@@ -25,10 +25,10 @@ Set this required input before applying the role: `docker_swarm_traefik_letsencr
 | `docker_swarm_traefik_enabled` | `true` |
 | `docker_swarm_traefik_service_manage_enabled` | `true` |
 | `docker_swarm_traefik_network` | `traefik` |
-| `docker_swarm_traefik_dashboard_rule` | <code>PathPrefix(`/api`) \|\| PathPrefix(`/dashboard`)</code> |
 | `docker_swarm_traefik_http_expose_port` | `1080` |
 | `docker_swarm_traefik_https_expose_port` | `1443` |
-| `docker_swarm_traefik_health_rule` | <code>Path(`/_traefik/health`)</code> |
+| `docker_swarm_traefik_internal_health_domains` | `[]` (required non-empty list of internal machine FQDNs) |
+| `docker_swarm_traefik_internal_health_paths` | `['/_traefik/health']` |
 | `docker_swarm_traefik_forwarded_headers_trusted_ips` | `<complex>` |
 | `docker_swarm_traefik_placement_constraints` | `[node.role == manager]` |
 | `docker_swarm_traefik_update_order` | `stop-first` |
@@ -42,6 +42,8 @@ Set this required input before applying the role: `docker_swarm_traefik_letsencr
 The static Traefik config writes JSON access logs and keeps the `X-Request-ID` and `X-Forwarded-For` request headers. This allows requests proxied from HAProxy ALB to be correlated across HAProxy, Traefik, and backend application logs while the forwarded client IP remains visible during debugging. Other request headers remain dropped from Traefik access logs by default.
 
 Traefik trusts `X-Forwarded-*` headers only from `docker_swarm_traefik_forwarded_headers_trusted_ips`. Keep this list limited to HAProxy ALB or other trusted ingress hops so Traefik can log the real client IP and forward the client IP chain to backend applications without accepting spoofed forwarded headers from arbitrary clients.
+
+The automatic insecure API router is disabled. The role-owned `api@internal` router accepts dashboard and API paths only with a `localhost` or `127.0.0.1` Host header on the HTTP entrypoint, for access through a loopback SSH forward. The health router requires both a configured internal machine FQDN and one of the configured exact paths.
 
 ## Usage
 ```yaml

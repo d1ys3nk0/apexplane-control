@@ -9,6 +9,9 @@
       - haproxy_alb_stats_port | string | length > 0
       - haproxy_alb_prometheus_exporter_port | string | length > 0
       - haproxy_alb_tunnel_timeout | string | trim is match('^[1-9][0-9]*(us|ms|s|m|h|d)$')
+      - haproxy_alb_internal_health_domain is not none
+      - haproxy_alb_internal_health_domain | string | length > 0
+      - haproxy_alb_internal_health_domain | trim is match('^(?=.{1,253}$)(?!-)[a-z0-9-]+([.][a-z0-9-]+)+$')
       - haproxy_alb_acme_enabled | type_debug == 'bool'
       - haproxy_alb_acme_port | string | length > 0
       - haproxy_alb_default_target_port | string | length > 0

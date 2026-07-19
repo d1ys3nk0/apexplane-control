@@ -8,12 +8,8 @@
       - docker_mirrors is sequence
       - docker_mirrors is not string
       - docker_mirrors | select('match', '^https?://[^/?#]+/?$') | list | length == docker_mirrors | length
-      - docker_tcp_socket_enabled | type_debug == 'bool'
-      - docker_tcp_socket_bind_address | string | length > 0
-      - docker_tcp_socket_port | int >= 1
-      - docker_tcp_socket_port | int <= 65535
       - docker_interactive_mode | type_debug == 'bool'
       - docker_yes_mode | type_debug == 'bool'
       - docker_arch_map is mapping
       - docker_dpkg_arch | string | length > 0
-    fail_msg: Define valid Docker repository, origin-only daemon mirrors, TCP socket, interactive mode, approval mode, and architecture settings before running role docker.
+    fail_msg: Define valid Docker repository, origin-only daemon mirrors, interactive mode, approval mode, and architecture settings before running role docker.

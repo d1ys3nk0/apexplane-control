@@ -3,89 +3,46 @@
 - name: Validate Dockhand variable contract
   ansible.builtin.include_tasks: validate.yml
 
-- name: Deploy Dockhand service from leader
+- name: Ensure Dockhand container is running
   become: true
-  run_once: true
+  community.docker.docker_container:
+    name: dockhand
+    image: '{{ docker_swarm_dockhand_image_full }}'
+    user: '0:0'
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    published_ports:
+      - 127.0.0.1:3000:3000
   when: docker_swarm_dockhand_enabled | bool
-  block:
-    - name: Ensure Dockhand data directory exists
-      ansible.builtin.file:
-        path: '{{ docker_swarm_dockhand_data_dir }}'
-        state: directory
-        mode: '0750'
-        owner: root
-        group: root
 
-    - name: Inspect Docker socket
-      ansible.builtin.stat:
-        path: '{{ docker_swarm_dockhand_docker_socket }}'
-      register: docker_swarm_dockhand_docker_socket_stat
+- name: Inspect Dockhand container
+  become: true
+  community.docker.docker_container_info:
+    name: dockhand
+  register: docker_swarm_dockhand_container_info
+  changed_when: false
+  when:
+    - docker_swarm_dockhand_enabled | bool
+    - not ansible_check_mode
 
-    - name: Assert Docker socket is available
-      ansible.builtin.assert:
-        that:
-          - docker_swarm_dockhand_docker_socket_stat.stat.exists
-          - docker_swarm_dockhand_docker_socket_stat.stat.issock
-        fail_msg: Docker socket must exist before running role docker_swarm_dockhand.
+- name: Assert Dockhand container is running
+  ansible.builtin.assert:
+    that:
+      - docker_swarm_dockhand_container_info.exists
+      - docker_swarm_dockhand_container_info.container.State.Running | bool
+    fail_msg: Dockhand container is not running.
+  when:
+    - docker_swarm_dockhand_enabled | bool
+    - not ansible_check_mode
 
-    - name: Ensure Dockhand swarm service is started
-      community.docker.docker_swarm_service:
-        name: '{{ docker_swarm_dockhand_service_name }}'
-        image: '{{ docker_swarm_dockhand_image_full }}'
-        user: '{{ docker_swarm_dockhand_user }}'
-        env:
-          DATA_DIR: '{{ docker_swarm_dockhand_data_dir }}'
-        mounts:
-          - source: '{{ docker_swarm_dockhand_docker_socket }}'
-            target: /var/run/docker.sock
-            type: bind
-
-          - source: '{{ docker_swarm_dockhand_data_dir }}'
-            target: '{{ docker_swarm_dockhand_data_dir }}'
-            type: bind
-        publish:
-          - target_port: '{{ docker_swarm_dockhand_http_listen_port }}'
-            published_port: '{{ docker_swarm_dockhand_http_expose_port }}'
-            protocol: tcp
-            mode: ingress
-        mode: replicated
-        replicas: 1
-        endpoint_mode: vip
-        restart_config:
-          condition: any
-        reservations:
-          cpus: 0.1
-          memory: '{{ docker_swarm_dockhand_mem_res }}'
-        limits:
-          cpus: 0.5
-          memory: '{{ docker_swarm_dockhand_mem_lim }}'
-        placement:
-          constraints:
-            - node.hostname == {{ ansible_hostname }}
-      when: not ansible_check_mode
-
-    - name: Verify Dockhand swarm service has a running task
-      ansible.builtin.command:
-        argv:
-          - docker
-          - service
-          - ps
-          - --filter
-          - desired-state=running
-          - --format
-          - "{% raw %}{{.CurrentState}}{% endraw %}"
-          - '{{ docker_swarm_dockhand_service_name }}'
-      register: docker_swarm_dockhand_service_tasks
-      until: docker_swarm_dockhand_service_tasks.stdout_lines | select('match', '^Running') | list | length > 0
-      retries: 30
-      delay: 2
-      changed_when: false
-      when: not ansible_check_mode
-
-    - name: Wait for Dockhand port to be ready
-      ansible.builtin.wait_for:
-        host: 127.0.0.1
-        port: '{{ docker_swarm_dockhand_http_expose_port }}'
-        delay: 1
-        timeout: 30
-      when: not ansible_check_mode
+- name: Wait for Dockhand port to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 3000
+    delay: 1
+    timeout: 30
+  when:
+    - docker_swarm_dockhand_enabled | bool
+    - not ansible_check_mode

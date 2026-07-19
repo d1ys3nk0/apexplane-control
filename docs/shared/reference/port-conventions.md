@@ -52,7 +52,6 @@ This document lists default listen or expose ports owned by `apexplane.control`.
 
 | Component | Purpose | Port | Variable |
 | --- | --- | --- | --- |
-| Dockhand | HTTP expose | 9999 | `docker_swarm_dockhand_http_expose_port` |
 | GitLab | HTTP | 80 | `gitlab_http_port` |
 | GitLab | SSH | 22 | `gitlab_ssh_port` |
 | Mattermost | HTTP | 8065 | `mattermost_http_port` |

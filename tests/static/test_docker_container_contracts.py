@@ -120,6 +120,14 @@ def swarm_service_modules(role_dir: Path) -> Iterator[Mapping[str, object]]:
                 yield cast("Mapping[str, object]", service)
 
 
+def docker_container_modules(role_dir: Path) -> Iterator[Mapping[str, object]]:
+    for task_path in sorted((role_dir / "tasks").glob("*.yml")):
+        for task in iter_tasks(load_yaml(task_path)):
+            container = task.get("community.docker.docker_container")
+            if isinstance(container, Mapping):
+                yield cast("Mapping[str, object]", container)
+
+
 def placement_constraints(service: Mapping[str, object]) -> object:
     placement = service.get("placement")
     if not isinstance(placement, Mapping):
@@ -207,6 +215,20 @@ def test_pghero_swarm_service_has_explicit_single_replica() -> None:
     assert any(service.get("replicas") == 1 for service in replicated_services)
 
 
+def test_dockhand_runs_as_a_host_local_container() -> None:
+    role_dir = REPO_ROOT / "roles" / "docker_swarm_dockhand"
+    tasks = list(iter_tasks(load_yaml(role_dir / "tasks" / "main.yml")))
+    containers = list(docker_container_modules(role_dir))
+
+    assert not list(swarm_service_modules(role_dir))
+    assert not any(task.get("run_once") is True for task in tasks)
+    assert len(containers) == 1
+    assert containers[0].get("name") == "dockhand"
+    assert containers[0].get("state") == "started"
+    assert containers[0].get("volumes") == ["/var/run/docker.sock:/var/run/docker.sock"]
+    assert containers[0].get("published_ports") == ["127.0.0.1:3000:3000"]
+
+
 def test_traefik_swarm_service_uses_manager_placement_and_rolling_updates() -> None:
     role_dir = REPO_ROOT / "roles" / "docker_swarm_traefik"
     defaults = role_defaults(role_dir)
@@ -217,8 +239,9 @@ def test_traefik_swarm_service_uses_manager_placement_and_rolling_updates() -> N
     assert "docker_swarm_traefik_domains" not in defaults
     assert "docker_swarm_traefik_ping_path" not in defaults
     assert "docker_swarm_traefik_ping_alias_paths" not in defaults
-    assert defaults["docker_swarm_traefik_dashboard_rule"] == "PathPrefix(`/api`) || PathPrefix(`/dashboard`)"
-    assert defaults["docker_swarm_traefik_health_rule"] == "Path(`/_traefik/health`)"
+    assert "docker_swarm_traefik_dashboard_rule" not in defaults
+    assert defaults["docker_swarm_traefik_internal_health_domains"] == []
+    assert defaults["docker_swarm_traefik_internal_health_paths"] == ["/_traefik/health"]
     assert defaults["docker_swarm_traefik_placement_constraints"] == ["node.role == manager"]
     assert defaults["docker_swarm_traefik_update_order"] == "stop-first"
     assert defaults["docker_swarm_traefik_update_parallelism"] == 1
@@ -234,12 +257,14 @@ def test_traefik_swarm_service_uses_manager_placement_and_rolling_updates() -> N
     assert any(
         isinstance(labels := service.get("labels"), str)
         and "'traefik.http.routers.dashboard.rule': docker_swarm_traefik_dashboard_rule" in labels
+        and "'traefik.http.routers.dashboard.entrypoints': 'web'" in labels
+        and "'traefik.http.routers.dashboard.tls': 'false'" in labels
         for service in services
     )
     assert any(
         isinstance(labels := service.get("labels"), str)
         and "'traefik.http.routers.health.service': 'ping@internal'" in labels
-        and "'traefik.http.routers.health.rule': docker_swarm_traefik_health_rule" in labels
+        and "'traefik.http.routers.health.rule': docker_swarm_traefik_internal_health_rule" in labels
         and "'traefik.http.routers.health.entrypoints': 'web'" in labels
         and "health-ip-allowlist" not in labels
         and "ipallowlist.sourcerange" not in labels

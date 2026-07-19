@@ -1,27 +1,18 @@
 # docker_swarm_dockhand
 
-This role deploys Dockhand as a Docker Swarm service.
+This role deploys Dockhand as a Docker container on every target host.
 
 ## Features
-- Deploy Dockhand service from leader.
-- Ensure Dockhand data directory exists.
-- Inspect Docker socket.
-- Ensure Dockhand swarm service is started.
+- Mount the host Docker Unix socket.
+- Bind the Dockhand web UI to `127.0.0.1:3000`.
+- Verify the container and local listener are ready.
 
 ## Configuration
 | Variable | Default |
 | --- | --- |
-| `docker_swarm_dockhand_service_name` | `dockhand` |
 | `docker_swarm_dockhand_image_name` | `fnsys/dockhand` |
 | `docker_swarm_dockhand_image_tag` | `<required>` |
 | `docker_swarm_dockhand_image_full` | `<derived>` |
-| `docker_swarm_dockhand_data_dir` | `/opt/dockhand` |
-| `docker_swarm_dockhand_docker_socket` | `/var/run/docker.sock` |
-| `docker_swarm_dockhand_user` | `'0:0'` |
-| `docker_swarm_dockhand_http_listen_port` | `3000` |
-| `docker_swarm_dockhand_http_expose_port` | `9999` |
-| `docker_swarm_dockhand_mem_res` | `600M` |
-| `docker_swarm_dockhand_mem_lim` | `900M` |
 | `docker_swarm_dockhand_enabled` | `true` |
 
 ## Usage

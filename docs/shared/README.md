@@ -19,6 +19,7 @@ Edit the source documents in `apexplane-control`, not in consuming repositories.
 
 - [Bootstrap](runbooks/bootstrap.md)
 - [Maintenance](runbooks/maintenance.md)
+- [Private web interfaces](runbooks/private-web-interfaces.md)
 
 ## Roles
 

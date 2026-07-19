@@ -2,6 +2,17 @@
 
 docker_swarm_traefik_letsencrypt_enabled: "{{ docker_swarm_traefik_letsencrypt_email is not none and docker_swarm_traefik_letsencrypt_email | string | length > 0 }}"
 docker_swarm_traefik_manager_only_enabled: "{{ 'node.role == manager' in docker_swarm_traefik_placement_constraints }}"
+docker_swarm_traefik_dashboard_rule: '(Host(`localhost`) || Host(`127.0.0.1`)) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))'
+docker_swarm_traefik_internal_health_rule: >-
+  ({{
+    docker_swarm_traefik_internal_health_domains
+    | map('regex_replace', '^(.*)$', 'Host(`\1`)')
+    | join(' || ')
+  }}) && ({{
+    docker_swarm_traefik_internal_health_paths
+    | map('regex_replace', '^(.*)$', 'Path(`\1`)')
+    | join(' || ')
+  }})
 docker_swarm_traefik_published_ports: >-
   {{
     [

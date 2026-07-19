@@ -40,6 +40,8 @@ def base_haproxy_alb_variables() -> dict[str, Any]:
         "haproxy_alb_crowdsec_enabled": False,
         "haproxy_alb_default_target_group": "",
         "haproxy_alb_default_target_host": "",
+        "haproxy_alb_internal_health_domain": "edge01.internal.example.test",
+        "haproxy_alb_prometheus_exporter_port": 8405,
         "haproxy_alb_redirect_all_http": False,
         "haproxy_alb_routes": [
             {
@@ -77,8 +79,20 @@ def base_haproxy_alb_variables() -> dict[str, Any]:
         "haproxy_alb_throttle_deny_status": 429,
         "haproxy_alb_throttles": [],
         "haproxy_alb_trusted_proxy_cidrs": [],
+        "haproxy_alb_tunnel_timeout": "1h",
+        "haproxy_alb_stats_port": 8404,
+        "haproxy_alb_userlists": {},
         "haproxy_alb_whitelists_enforced": [],
     }
+
+
+def test_main_config_binds_statistics_listener_to_loopback() -> None:
+    rendered = render_template("haproxy.cfg.j2", base_haproxy_alb_variables())
+    lines = rendered.splitlines()
+
+    assert "listen stats" in lines
+    assert "  bind 127.0.0.1:8404" in lines
+    assert "  bind :8404" not in lines
 
 
 def test_fe_web_renders_header_updates_and_rewrites_on_separate_lines() -> None:
@@ -88,8 +102,14 @@ def test_fe_web_renders_header_updates_and_rewrites_on_separate_lines() -> None:
     assert lines[0] == "frontend web"
     assert "\\n" not in rendered
     assert max_consecutive_blank_lines(rendered) <= 1
-    assert "  monitor-uri /_haproxy/health" in lines
+    assert "  monitor-uri /_haproxy/health" not in lines
     assert "  monitor-uri /_health" not in lines
+    assert "  acl internal_health_host hdr(host) -i edge01.internal.example.test" in lines
+    assert "  acl internal_health_path path /_haproxy/health" in lines
+    assert (
+        '  http-request return status 200 content-type text/plain string "OK" '
+        "if internal_health_host internal_health_path"
+    ) in lines
     assert not any(line.count("http-response ") > 1 for line in lines)
     assert not any(line.count("http-request replace-header ") > 1 for line in lines)
     assert "  http-response del-header X-Frame-Options if { var(txn.route) -m str docs }" in lines

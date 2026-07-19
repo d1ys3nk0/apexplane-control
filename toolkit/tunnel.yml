@@ -1,0 +1,22 @@
+---
+
+version: '3'
+
+vars:
+  APEXPLANE_TOOLKIT_DIR: '{{.TASKFILE_DIR}}'
+
+tasks:
+  default:
+    desc: Open the selected host's private {{.SERVICE}} interface
+    requires:
+      vars: [REALM, PLATFORM, CLUSTER, SERVICE, LOCAL_PORT, REMOTE_PORT, URL_PATH]
+    env:
+      TUNNEL_REALM: '{{.REALM}}'
+      TUNNEL_PLATFORM: '{{.PLATFORM}}'
+      TUNNEL_CLUSTER: '{{.CLUSTER}}'
+      TUNNEL_SERVICE: '{{.SERVICE}}'
+      TUNNEL_LOCAL_PORT: '{{.LOCAL_PORT}}'
+      TUNNEL_REMOTE_PORT: '{{.REMOTE_PORT}}'
+      TUNNEL_URL_PATH: '{{.URL_PATH}}'
+    cmds:
+      - bash '{{.APEXPLANE_TOOLKIT_DIR}}/bin/tunnel' {{.CLI_ARGS}}

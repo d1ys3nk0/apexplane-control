@@ -24,8 +24,6 @@ EXPECTED_OBSERVABILITY_PORTS = {
     "docker_tempo_otlp_http_port": 4316,
 }
 EXPECTED_APP_CLUSTER_PORTS = {
-    "docker_swarm_dockhand_http_listen_port": 3000,
-    "docker_swarm_dockhand_http_expose_port": 9999,
     "docker_swarm_pghero_public_port": 10000,
     "docker_swarm_postgres_exporter_public_port": 9187,
 }
@@ -62,7 +60,6 @@ def test_observability_port_defaults_match_shared_conventions() -> None:
 
 def test_app_cluster_port_defaults_match_shared_conventions() -> None:
     defaults = {
-        **_defaults("docker_swarm_dockhand"),
         **_defaults("docker_swarm_pghero"),
         **_defaults("docker_swarm_postgres_exporter"),
     }

@@ -7,7 +7,9 @@ from apc_target_static import target_repo_root
 
 
 REPO_ROOT = target_repo_root()
-ROOT_TASKFILE = REPO_ROOT / ".taskfiles" / "root.yml"
+ROOT_TASKFILE = next(
+    path for path in (REPO_ROOT / ".taskfiles" / "root.yml", REPO_ROOT / ".taskfile" / "root.yml") if path.is_file()
+)
 
 
 YamlMapping = dict[str, object]

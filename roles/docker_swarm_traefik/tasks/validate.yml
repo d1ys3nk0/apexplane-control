@@ -12,13 +12,18 @@
 - name: Validate Traefik role variables
   ansible.builtin.assert:
     that:
-      - docker_swarm_traefik_dashboard_rule is string
-      - docker_swarm_traefik_dashboard_rule | trim | length > 0
       - docker_swarm_traefik_network | string | length > 0
       - docker_swarm_traefik_http_expose_port | int > 0
       - docker_swarm_traefik_https_expose_port | int > 0
-      - docker_swarm_traefik_health_rule is string
-      - docker_swarm_traefik_health_rule | trim | length > 0
+      - docker_swarm_traefik_internal_health_domains is iterable
+      - docker_swarm_traefik_internal_health_domains is not string
+      - docker_swarm_traefik_internal_health_domains | length > 0
+      - docker_swarm_traefik_internal_health_domains | select('match', '^(?=.{1,253}$)(?!-)[a-z0-9-]+([.][a-z0-9-]+)+$') | list | length == docker_swarm_traefik_internal_health_domains | length
+      - docker_swarm_traefik_internal_health_paths is iterable
+      - docker_swarm_traefik_internal_health_paths is not string
+      - docker_swarm_traefik_internal_health_paths | length > 0
+      - docker_swarm_traefik_internal_health_paths | select('match', '^/[A-Za-z0-9._~!$&()*+,;=:@%/-]+$') | list | length == docker_swarm_traefik_internal_health_paths | length
+      - docker_swarm_traefik_internal_health_paths | unique | length == docker_swarm_traefik_internal_health_paths | length
       - docker_swarm_traefik_forwarded_headers_trusted_ips is iterable
       - docker_swarm_traefik_forwarded_headers_trusted_ips is not string
       - docker_swarm_traefik_forwarded_headers_trusted_ips | length > 0

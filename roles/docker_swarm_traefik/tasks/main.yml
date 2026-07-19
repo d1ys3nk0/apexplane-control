@@ -101,23 +101,16 @@
           'traefik.enable': 'true',
           'traefik.http.routers.dashboard.service': 'api@internal',
           'traefik.http.routers.dashboard.rule': docker_swarm_traefik_dashboard_rule,
-          'traefik.http.routers.dashboard.entrypoints': 'websecure' if docker_swarm_traefik_letsencrypt_enabled | bool else 'web',
-          'traefik.http.routers.dashboard.tls': 'true' if docker_swarm_traefik_letsencrypt_enabled | bool else 'false',
+          'traefik.http.routers.dashboard.entrypoints': 'web',
+          'traefik.http.routers.dashboard.tls': 'false',
           'traefik.http.services.dummy-svc.loadbalancer.server.port': '65535',
         }
         | combine(
           {
             'traefik.http.routers.health.service': 'ping@internal',
-            'traefik.http.routers.health.rule': docker_swarm_traefik_health_rule,
+            'traefik.http.routers.health.rule': docker_swarm_traefik_internal_health_rule,
             'traefik.http.routers.health.entrypoints': 'web',
           }
-        )
-        | combine(
-          {
-            'traefik.http.routers.dashboard.tls.certresolver': docker_swarm_traefik_letsencrypt_resolver,
-          }
-          if docker_swarm_traefik_letsencrypt_enabled | bool
-          else {}
         )
       }}
   when:
