@@ -26,8 +26,6 @@ haproxy_alb_throttle_domain_prefix_keys: >-
   {%- endfor -%}
   {{ _keys }}
 haproxy_alb_not_check_mode: '{{ not ansible_check_mode }}'
-haproxy_alb_docker_configured: "{{ 'docker.service' in (ansible_facts.services | default({})) }}"
-haproxy_alb_docker_available: "{{ haproxy_alb_docker_configured | bool and (ansible_facts.services.get('docker.service', {}).state | default('')) == 'running' }}"
 haproxy_alb_crowdsec_disabled: '{{ not (haproxy_alb_crowdsec_enabled | bool) }}'
 haproxy_alb_noninteractive_mode: '{{ not (haproxy_alb_interactive_mode | bool) }}'
 haproxy_alb_config_changed: >-

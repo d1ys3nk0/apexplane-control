@@ -14,27 +14,6 @@
     backup: true
   when: base_packages_ubuntu_deb_repo is defined
 
-- name: Check legacy Ubuntu sources list
-  become: true
-  ansible.builtin.stat:
-    path: /etc/apt/sources.list
-  register: base_packages_legacy_ubuntu_sources_list
-
-- name: Replace existing legacy Ubuntu sources list with deb822 notice
-  become: true
-  ansible.builtin.copy:
-    dest: /etc/apt/sources.list
-    content: |
-      # Ubuntu sources have moved to the /etc/apt/sources.list.d/ubuntu.sources
-      # file, which uses the deb822 format. Use deb822-formatted .sources files
-      # to manage package sources in the /etc/apt/sources.list.d/ directory.
-      # See the sources.list(5) manual page for details.
-    mode: '0644'
-    owner: root
-    group: root
-    backup: true
-  when: base_packages_legacy_ubuntu_sources_list.stat.exists
-
 - name: Install essential packages
   become: true
   ansible.builtin.apt:

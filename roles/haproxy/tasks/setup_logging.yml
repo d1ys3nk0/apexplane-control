@@ -9,13 +9,6 @@
     owner: '{{ haproxy_rsyslog_user }}'
     group: '{{ haproxy_rsyslog_group }}'
 
-- name: Remove previous managed HAProxy rsyslog configuration
-  become: true
-  ansible.builtin.file:
-    path: /etc/rsyslog.d/49-haproxy-managed.conf
-    state: absent
-  register: haproxy_rsyslog_legacy_config_removal
-
 - name: Deploy HAProxy rsyslog configuration
   become: true
   ansible.builtin.template:
@@ -39,7 +32,7 @@
     name: rsyslog
     state: restarted
   when:
-    - haproxy_rsyslog_legacy_config_removal.changed or haproxy_rsyslog_config_update.changed
+    - haproxy_rsyslog_config_update.changed
     - not ansible_check_mode
 
 - name: Verify rsyslog service is active after restart
@@ -52,7 +45,7 @@
   register: haproxy_rsyslog_restart_service_health
   changed_when: false
   when:
-    - haproxy_rsyslog_legacy_config_removal.changed or haproxy_rsyslog_config_update.changed
+    - haproxy_rsyslog_config_update.changed
     - not ansible_check_mode
 
 - name: Deploy HAProxy logrotate configuration
