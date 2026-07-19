@@ -73,6 +73,12 @@ cleanup() {
     changed_log_extract_path="$(timestamped_log_path ".${TARGET_REALM}-${TARGET_CLUSTER}-${TARGET_ACTION}-changed-")"
     if grep -F 'changed:' "${RUN_LOG_PATH}" >"${changed_log_extract_path}"; then
         cat "${changed_log_extract_path}" >>"${CHANGED_LOG_PATH}"
+        if [ -n "${DRIFT_FAIL_ON_CHANGE:-}" ]; then
+            printf '\n[DRIFT] Changes detected in %s/%s/%s:\n' "${TARGET_REALM}" "${TARGET_CLUSTER}" "${TARGET_ACTION}" >&2
+            cat "${changed_log_extract_path}" >&2
+            rm -f "${changed_log_extract_path}" "${RUN_LOG_PATH}"
+            exit 2
+        fi
     fi
     rm -f "${changed_log_extract_path}" "${RUN_LOG_PATH}"
 
@@ -272,7 +278,7 @@ if [ "${TARGET_ACTION}" = "cmd" ]; then
 else
     CMD=(uv run ansible-playbook "${PLAYBOOK_PATH}" -i "${INVENTORY_PATH}" "${EXTRA_VARS_ARRAY[@]}" -u "${ANSIBLE_SSH_USER}" ${SSH_ARGS+"${SSH_ARGS[@]}"} --limit "${TARGET_HOSTS}")
 
-    if [[ ! "${CI:-0}" =~ ^(1|true)$ ]] || [[ "${DEBUG:-}" =~ ^(1|true)$ ]]; then
+    if [[ ! "${CI:-0}" =~ ^(1|true)$ ]] || [[ "${DEBUG:-}" =~ ^(1|true)$ ]] || [[ -n "${DRIFT_FAIL_ON_CHANGE:-}" ]]; then
         CMD+=(--diff -v)
     fi
 
