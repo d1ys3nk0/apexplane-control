@@ -1,0 +1,47 @@
+---
+
+version: '3'
+
+vars:
+  PYTHON_VERSION: '3.13'
+
+tasks:
+  reset:
+    desc: Clean and initialize the repository
+    cmds:
+      - task: clean
+      - task: setup
+
+  clean:
+    desc: Remove all caches and temporary files
+    cmds:
+      - task: hooks:uninstall
+      - git clean -fdX
+      - find . -type d -prune -empty -delete
+
+  preflight:
+    desc: Run preflight checks
+    cmds:
+      - python --version | grep -q '{{.PYTHON_VERSION}}' || (echo "Python version is not correct" && exit 1)
+
+  setup:
+    desc: Initialize and setup everything
+    cmds:
+      - task: preflight
+      - task: install
+      - task: hooks:install
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - uv sync --reinstall
+
+  hooks:install:
+    desc: Install pre-commit hooks
+    cmds:
+      - uv run pre-commit install -f --install-hooks --hook-type pre-commit
+
+  hooks:uninstall:
+    desc: Uninstall pre-commit hooks
+    cmds:
+      - uv run pre-commit uninstall

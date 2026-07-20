@@ -103,7 +103,10 @@ def test_fe_web_renders_header_updates_and_rewrites_on_separate_lines() -> None:
     assert max_consecutive_blank_lines(rendered) <= 1
     assert "  monitor-uri /_health" not in lines
     assert "  monitor-uri /_haproxy/health" not in lines
-    assert '  http-request return status 200 content-type text/plain string "OK" if { path /_haproxy/health } || { path /_health }' in lines
+    assert (
+        '  http-request return status 200 content-type text/plain string "OK" if { path /_haproxy/health } || { path /_health }'
+        in lines
+    )
     assert not any(line.count("http-response ") > 1 for line in lines)
     assert not any(line.count("http-request replace-header ") > 1 for line in lines)
     assert "  http-response del-header X-Frame-Options if { var(txn.route) -m str docs }" in lines

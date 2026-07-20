@@ -1,0 +1,12 @@
+---
+
+version: '3'
+
+includes:
+  root:
+    taskfile: .taskfiles/root.yml
+    flatten: true
+
+  app:
+    taskfile: .taskfiles/app.yml
+    flatten: true
