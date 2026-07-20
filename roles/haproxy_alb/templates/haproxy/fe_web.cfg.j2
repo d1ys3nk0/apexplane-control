@@ -141,8 +141,15 @@ frontend web
   # CrowdSec
   filter spoe engine crowdsec config /etc/haproxy/crowdsec.cfg
 {% endif %}
+{% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
+  # Trusted ADDRs
+  acl from_trusted_proxy src -m ip {{ haproxy_alb_trusted_proxy_cidrs | join(' ') }}
+  http-request set-src hdr_ip(X-Forwarded-For,-1) if from_trusted_proxy { hdr_ip(X-Forwarded-For,-1) -m found }
+{% endif %}
+  # ACME
   acl is_acme path_beg /.well-known/acme-challenge/
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
+  # ALB Routes
 {% set route_domains = [route.domain] if route.domain is string else route.domain %}
   acl host_{{ route.name }} hdr(host) -i {{ route_domains | join(' ') }}
 {% endfor %}
@@ -154,10 +161,6 @@ frontend web
   # CrowdSec
   acl has_request_body req.body_size -m found
   acl body_within_limit req.body_size -m int le {{ haproxy_alb_crowdsec_body_limit }}
-{% endif %}
-{% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
-  acl from_trusted_proxy src -m ip {{ haproxy_alb_trusted_proxy_cidrs | join(' ') }}
-  http-request set-src hdr_ip(X-Forwarded-For,-1) if from_trusted_proxy { hdr_ip(X-Forwarded-For,-1) -m found }
 {% endif %}
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
 {% if route.restricted_cidrs is defined %}{{ route_restricted_cidr_deny_line(route) }}
