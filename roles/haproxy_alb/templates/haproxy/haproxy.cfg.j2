@@ -49,9 +49,10 @@ listen stats
   mode http
   option httplog
   bind 127.0.0.1:{{ haproxy_alb_stats_port }}
-  http-request set-log-level silent if { path /_stats }
+  http-request set-log-level silent if { path /_haproxy/health }
+  monitor-uri /_haproxy/health
   stats enable
-  stats uri /_stats
+  stats uri /_haproxy/stats
   stats refresh 10s
   stats show-legends
   stats show-node

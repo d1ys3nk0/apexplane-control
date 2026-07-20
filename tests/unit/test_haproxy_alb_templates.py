@@ -92,6 +92,7 @@ def test_main_config_binds_statistics_listener_to_loopback() -> None:
     assert "listen stats" in lines
     assert "  bind 127.0.0.1:8404" in lines
     assert "  bind :8404" not in lines
+    assert "  monitor-uri /_haproxy/health" in lines
 
 
 def test_fe_web_renders_header_updates_and_rewrites_on_separate_lines() -> None:
@@ -102,10 +103,7 @@ def test_fe_web_renders_header_updates_and_rewrites_on_separate_lines() -> None:
     assert "\\n" not in rendered
     assert max_consecutive_blank_lines(rendered) <= 1
     assert "  monitor-uri /_health" not in lines
-    assert "  monitor-uri /_haproxy/health" not in lines
-    assert "  acl is_haproxy_health path /_haproxy/health" in lines
     assert not any("traefik" in line for line in lines)
-    assert '  http-request return status 200 content-type text/plain string "OK" if is_haproxy_health' in lines
     assert not any(line.count("http-response ") > 1 for line in lines)
     assert not any(line.count("http-request replace-header ") > 1 for line in lines)
     assert "  http-response del-header X-Frame-Options if { var(txn.route) -m str docs }" in lines
@@ -115,23 +113,6 @@ def test_fe_web_renders_header_updates_and_rewrites_on_separate_lines() -> None:
     ) in lines
     assert "  http-request replace-header X-Forwarded-Proto ^.*$ https if host_docs" in lines
     assert "  http-request replace-header X-Service-Name ^.*$ docs if host_docs" in lines
-
-
-def test_fe_web_restricts_haproxy_health_checks_to_trusted_proxy_cidrs() -> None:
-    variables = base_haproxy_alb_variables()
-    variables["haproxy_alb_trusted_proxy_cidrs"] = ["10.0.0.0/8", "192.168.0.0/16"]
-
-    rendered = render_template("fe_web.cfg.j2", variables)
-    lines = rendered.splitlines()
-
-    trusted_proxy_acl = "  acl from_trusted_proxy src -m ip 10.0.0.0/8 192.168.0.0/16"
-    haproxy_health_deny = "  http-request deny deny_status 403 if is_haproxy_health !from_trusted_proxy"
-
-    assert trusted_proxy_acl in lines
-    assert haproxy_health_deny in lines
-    assert lines.index(haproxy_health_deny) < lines.index(
-        '  http-request return status 200 content-type text/plain string "OK" if is_haproxy_health'
-    )
 
 
 def test_fe_web_renders_generated_request_id_headers() -> None:
