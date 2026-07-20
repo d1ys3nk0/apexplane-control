@@ -1,3 +1,4 @@
+{#- Build a route match from its host ACL and optional path prefixes. -#}
 {%- macro route_match(route, prefixes=none) -%}
 {%- set route_domains = [route.domain] if route.domain is string else route.domain -%}
 {%- set route_prefixes = prefixes if prefixes is not none else ([] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list))) -%}
@@ -9,6 +10,7 @@ host_{{ route.name }}
 {%- if route_prefixes | length > 0 %} { path_beg {{ route_prefixes | join(' ') }} }{%- endif -%}
 {%- endmacro %}
 
+{#- Exclude longer matching prefixes so the most-specific route wins. -#}
 {%- macro route_more_specific_exclusions(route) -%}
 {%- set route_domains = [route.domain] if route.domain is string else route.domain -%}
 {%- set route_prefixes = [''] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) -%}
@@ -27,6 +29,7 @@ host_{{ route.name }}
 {%- endfor -%}
 {%- endmacro %}
 
+{#- Exclude more-specific throttle prefixes from a broader throttle rule. -#}
 {%- macro throttle_more_specific_exclusions(throttle_rule) -%}
 {%- set throttle_domains = [throttle_rule.domain] if throttle_rule.domain is string else throttle_rule.domain -%}
 {%- set throttle_prefix = throttle_rule.prefix | string | trim -%}
@@ -37,6 +40,7 @@ host_{{ route.name }}
 {%- endfor -%}
 {%- endmacro %}
 
+{#- Add configured exemptions before requiring route Basic Authentication. -#}
 {%- macro route_userlist_requirements(route, route_id) -%}
 {%- if route.userlist_skip_headers is defined -%}
 {%- for hdr_name, hdr_val in route.userlist_skip_headers.items() %}{{ " " }}!{ hdr({{ hdr_name }}) -m str {{ hdr_val }} }{%- endfor -%}
@@ -51,19 +55,23 @@ host_{{ route.name }}
 {%- if route.userlist_skip_origins is defined %} !{ var(txn.userlist_origin_skip_{{ route_id }}) -m str true }{%- endif -%}
 {%- endmacro %}
 
+{#- Track and reject requests that exceed a route throttle limit. -#}
 {%- macro throttle_rule_lines(throttle_rule) -%}
 {{ "  " }}http-request track-sc0 src table throttle_{{ throttle_rule.name }} if !is_acme {{ route_match(throttle_rule) }}{{ throttle_more_specific_exclusions(throttle_rule) }}
 {{ "  " }}http-request deny deny_status {{ haproxy_alb_throttle_deny_status }} if !is_acme {{ route_match(throttle_rule) }}{{ throttle_more_specific_exclusions(throttle_rule) }} { sc_http_req_rate(0,throttle_{{ throttle_rule.name }}) gt {{ throttle_rule.requests }} }
 {%- endmacro %}
 
+{#- Require Basic Authentication for a route unless an exemption applies. -#}
 {%- macro route_userlist_line(route, route_id) -%}
 {{ "  " }}http-request auth realm infra if !is_acme {{ route_match(route) }}{{ route_more_specific_exclusions(route) }}{{ route_userlist_requirements(route, route_id) }}
 {%- endmacro %}
 
+{#- Deny requests outside a route's allowed source CIDRs. -#}
 {%- macro route_restricted_cidr_deny_line(route) -%}
 {{ "  " }}http-request deny deny_status 403 if !is_acme {{ route_match(route) }}{{ route_more_specific_exclusions(route) }} !{ src -m ip {{ route.restricted_cidrs | join(' ') }} }{% if route.restricted_skip_prefixes is defined %}{% for path_prefix in route.restricted_skip_prefixes %} !{ path_beg {{ path_prefix }} }{% endfor %}{% endif %}
 {%- endmacro %}
 
+{#- Define origin ACLs that bypass Basic Authentication for embedded resources. -#}
 {%- macro route_userlist_origin_acl_lines(route, route_id) %}
 {%- set exact_origins = [] -%}
 {%- set wildcard_suffixes = [] -%}
@@ -86,17 +94,20 @@ host_{{ route.name }}
 {% endfor -%}
 {%- endmacro %}
 
+{#- Mark requests from approved embedded-resource origins as auth-exempt. -#}
 {%- macro route_userlist_origin_skip_lines(route, route_id) -%}
 {{ "  " }}http-request set-var(txn.userlist_origin_skip_{{ route_id }}) str(true) if {{ route_match(route) }} userlist_origin_iframe_{{ route_id }} userlist_origin_parent_{{ route_id }}
 {{ "  " }}http-request set-var(txn.userlist_origin_skip_{{ route_id }}) str(true) if {{ route_match(route) }} userlist_origin_subresource_{{ route_id }} userlist_origin_subresource_dest_{{ route_id }}
 {%- endmacro %}
 
+{#- Render route-specific request header replacements. -#}
 {%- macro route_request_header_rewrites(route) -%}
 {%- for rewrite in route.request_header_rewrites | default([]) %}
   http-request replace-header {{ rewrite.name }} {{ rewrite.pattern }} {{ rewrite.replacement }} if {{ route_match(route) }}
 {% endfor -%}
 {%- endmacro %}
 
+{#- Render route-specific response header deletions and replacements. -#}
 {%- macro route_response_header_updates(route) -%}
 {%- for header_name in route.response_header_deletes | default([]) %}
   http-response del-header {{ header_name }} if { var(txn.route) -m str {{ route.name }} }
@@ -106,6 +117,7 @@ host_{{ route.name }}
 {% endfor -%}
 {%- endmacro %}
 
+{#- Collect prefix lengths to emit redirects and route selection most-specific first. -#}
 {%- set haproxy_route_prefix_lengths = namespace(values=[]) -%}
 {%- for route in haproxy_alb_routes -%}
 {%- set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) -%}
@@ -135,39 +147,42 @@ frontend web
   unique-id-format %[uuid()]
   unique-id-header X-Request-ID
   http-request set-log-level info
+  # Request metadata
   http-request set-var(txn.host) req.hdr(host)
   http-request set-var(txn.peer_ip) src
 {% if haproxy_alb_crowdsec_enabled | bool %}
-  # CrowdSec
+  # CrowdSec integration
   filter spoe engine crowdsec config /etc/haproxy/crowdsec.cfg
 {% endif %}
 {% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
-  # Trusted ADDRs
+  # Trusted proxy source addresses
   acl from_trusted_proxy src -m ip {{ haproxy_alb_trusted_proxy_cidrs | join(' ') }}
   http-request set-src hdr_ip(X-Forwarded-For,-1) if from_trusted_proxy { hdr_ip(X-Forwarded-For,-1) -m found }
 {% endif %}
-  # ACME
+  # ACME HTTP-01 challenges
   acl is_acme path_beg /.well-known/acme-challenge/
+  # Route host ACLs
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
-  # ALB Routes
 {% set route_domains = [route.domain] if route.domain is string else route.domain %}
   acl host_{{ route.name }} hdr(host) -i {{ route_domains | join(' ') }}
 {% endfor %}
+  # Basic Authentication embedded-resource exemptions
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
 {% if route.userlist_skip_origins is defined %}{{ route_userlist_origin_acl_lines(route, loop.index0).strip('\n') }}
 {% endif %}
 {% endfor %}
 {% if haproxy_alb_crowdsec_enabled | bool %}
-  # CrowdSec
+  # CrowdSec request-body inspection
   acl has_request_body req.body_size -m found
   acl body_within_limit req.body_size -m int le {{ haproxy_alb_crowdsec_body_limit }}
 {% endif %}
+  # Route source-CIDR restrictions
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
 {% if route.restricted_cidrs is defined %}{{ route_restricted_cidr_deny_line(route) }}
 {% endif %}
 {% endfor %}
 {% if haproxy_alb_crowdsec_enabled | bool %}
-  # CrowdSec
+  # CrowdSec remediation
   http-request send-spoe-group crowdsec crowdsec-http-body if !is_acme !has_request_body
   http-request send-spoe-group crowdsec crowdsec-http-body if !is_acme has_request_body body_within_limit
   http-request send-spoe-group crowdsec crowdsec-http-no-body if !is_acme has_request_body !body_within_limit
@@ -176,14 +191,17 @@ frontend web
   http-request lua.crowdsec_handle if { var(txn.crowdsec.remediation) -m str "ban" }
 {% endif %}
 {% if haproxy_alb_whitelists_enforced | default([]) | length > 0 %}
+  # Enforced source IP allowlists
 {% for whitelist_name in haproxy_alb_whitelists_enforced | sort %}
   acl from_whitelist_{{ whitelist_name }} src -m ip -f /opt/haproxy/lists/{{ whitelist_name }}.lst
 {% endfor %}
   http-request deny deny_status 403 if !is_acme{% for whitelist_name in haproxy_alb_whitelists_enforced | sort %} !from_whitelist_{{ whitelist_name }}{% endfor %}
 {% endif %}
 {% if haproxy_alb_redirect_all_http | default(false) | bool %}
+  # Global HTTP-to-HTTPS redirect
   http-request redirect scheme https code 301 if !{ ssl_fc } !is_acme
 {% endif %}
+  # Route-specific HTTP-to-HTTPS redirects, most-specific prefix first
 {% for prefix_length in haproxy_route_prefix_lengths.values | sort(reverse=true) %}
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
 {% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
@@ -200,6 +218,7 @@ frontend web
   http-request redirect scheme https code 301 if !{ ssl_fc } !is_acme {{ route_match(route) }}
 {% endif %}
 {% endfor %}
+  # Select the route used for response-header policies, most-specific prefix first
 {% for prefix_length in haproxy_route_prefix_lengths.values | sort(reverse=true) %}
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
 {% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
@@ -210,6 +229,7 @@ frontend web
 {% endfor %}
 {% endfor %}
 {% endfor %}
+  # Basic Authentication origin exemptions
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
 {% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
 {% if route_prefixes | length == 0 %}
@@ -220,6 +240,7 @@ frontend web
 {% if route.userlist_skip_origins is defined %}{{ route_userlist_origin_skip_lines(route, loop.index0).strip('\n') }}
 {% endif %}
 {% endfor %}
+  # Per-route request throttling, most-specific prefix first
 {% for prefix_length in haproxy_throttle_prefix_lengths.values | sort(reverse=true) %}
 {% for throttle_rule in haproxy_alb_throttles | default([]) %}
 {% set throttle_prefix = throttle_rule.prefix | string | trim %}
@@ -228,30 +249,35 @@ frontend web
 {% endif %}
 {% endfor %}
 {% endfor %}
+  # Per-route Basic Authentication
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
 {% if route.userlist is defined %}
 {{ route_userlist_line(route, loop.index0) }}
 {% endif %}
 {% endfor %}
 
-  # Forwarded Headers
+  # Forwarded request headers
   http-request set-header X-Forwarded-For %[src]
   http-request set-header X-Forwarded-Host %[req.hdr(host)]
   http-request set-header X-Forwarded-Proto https if { ssl_fc }
+  # Route-specific request header rewrites
 {% for route in haproxy_alb_routes | sort(attribute='name') %}{% if route.request_header_rewrites is defined %}{{ route_request_header_rewrites(route).strip('\n') }}
 {% endif %}{% endfor %}
-  # ALB Header
+  # Load balancer identification header
   http-response set-header X-ALB %[hostname]
+  # Route-specific response header updates
 {% for route in haproxy_alb_routes | sort(attribute='name') %}{% if route.response_header_deletes is defined or route.response_headers is defined %}{{ route_response_header_updates(route).strip('\n') }}
 {% endif %}{% endfor %}
 {% if haproxy_alb_crowdsec_enabled | bool %}
-  # CrowdSec
+  # CrowdSec CAPTCHA cookie propagation
   http-after-response set-header Set-Cookie %[var(txn.crowdsec.captcha_cookie)] if { var(txn.crowdsec.captcha_status) -m found } { var(txn.crowdsec.captcha_cookie) -m found }
   http-after-response set-header Set-Cookie %[var(txn.crowdsec.captcha_cookie)] if { var(txn.crowdsec.captcha_cookie) -m found } !{ var(txn.crowdsec.captcha_status) -m found }
 {% endif %}
 {% if haproxy_alb_acme_enabled | bool %}
+  # ACME challenge backend
   use_backend acme if is_acme
 {% endif %}
+  # Route backend selection, most-specific prefix first
 {% for prefix_length in haproxy_route_prefix_lengths.values | sort(reverse=true) %}
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
 {% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
@@ -269,5 +295,6 @@ frontend web
 {% endif %}
 {% endfor %}
 {% if haproxy_alb_default_target_host | default('', true) | string | length > 0 or haproxy_alb_default_target_group | default('', true) | string | length > 0 %}
+  # Fallback backend for unmatched requests
   default_backend default
 {% endif %}
