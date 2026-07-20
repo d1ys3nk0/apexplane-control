@@ -43,8 +43,8 @@ This repository contains reusable Ansible roles shared by infrastructure playboo
 
 ## Checks
 
-- Use repository wrappers instead of one-off commands.
-- Always run `task check` after any repository change, including documentation-only changes, before handing off.
+- Use the documented repository commands for checks.
+- Always run the relevant checks after any repository change, including documentation-only changes, before handing off.
 - Do not hand off with failing tests, lint errors, or unresolved warnings. Resolve all check failures and warnings first; if a warning cannot be resolved, stop and explain the blocker instead of treating the task as done.
 - Keep automated convention checks in `tests/static/`. Each `test_*` function must enforce a convention documented in `docs/development/conventions.md` and must be referenced from that document. (See `test_repository_role_variable_contracts_pass` in `tests/static/test_ansible_role_variable_contracts.py`.)
 - Do not add Python pytest coverage for role behavior, rendered templates, shell scripts, or workflow regressions. Enforce role behavior through validation tasks where practical; use future Molecule coverage for Ansible role testing.

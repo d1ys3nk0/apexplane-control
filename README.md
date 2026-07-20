@@ -1,6 +1,6 @@
 # ApexPlane Control
 
-ApexPlane Control is an Ansible-based IaC management framework with reusable roles and shared operational tooling for Linux infrastructure.
+ApexPlane Control is an Ansible collection of reusable roles for Linux infrastructure.
 
 ## Install
 
@@ -31,7 +31,7 @@ collections:
     type: dir
 ```
 
-This lets `ansible-galaxy collection install -r requirements.yml` copy the current checkout, including uncommitted changes, into the consumer repository's installed collection path. Consumer wrappers should create local `requirements.yml` only when it does not already exist, so a selected source is preserved until the file is removed.
+This lets `ansible-galaxy collection install -r requirements.yml` copy the current checkout, including uncommitted changes, into the consumer repository's installed collection path.
 
 Use roles by fully qualified collection name:
 
@@ -48,7 +48,6 @@ Use roles by fully qualified collection name:
 ## Checks
 
 ```sh
-task check
 uv run pytest tests/static
 uv run ansible-lint roles
 uv run ansible-galaxy collection build
@@ -56,9 +55,8 @@ uv run ansible-galaxy collection build
 
 ## Layout
 
-- `docs/`: framework, role authoring, shared consumer docs, and contract documentation.
+- `docs/`: role authoring and contract documentation.
 - `docs/development/conventions.md`: convention source of truth for static pytest checks.
-- `docs/shared/`: canonical shared docs linked by consumer repositories from GitHub.
 - `roles/`: Ansible collection roles.
 - `tests/static/`: convention checks referenced from `docs/development/conventions.md`. (See `test_repository_role_variable_contracts_pass` in `tests/static/test_ansible_role_variable_contracts.py`.)
 

@@ -3,7 +3,8 @@
 Run the local checks before opening a change:
 
 ```sh
-task check
+uv run pre-commit run --hook-stage pre-commit --all-files
+uv run pytest tests/static tests/unit
 uv run ansible-galaxy collection build
 ```
 

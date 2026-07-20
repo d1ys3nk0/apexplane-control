@@ -7,10 +7,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONVENTIONS_DOC = REPO_ROOT / "docs" / "development" / "conventions.md"
-SHARED_CONVENTIONS_DOC = REPO_ROOT / "docs" / "shared" / "development" / "conventions.md"
-TEST_REF_RE = re.compile(
-    r"`(?P<path>(?:tests/static|toolkit/tests/static)/test_[A-Za-z0-9_]+\.py)::(?P<name>test_[A-Za-z0-9_]+)`"
-)
+TEST_REF_RE = re.compile(r"`(?P<path>tests/static/test_[A-Za-z0-9_]+\.py)::(?P<name>test_[A-Za-z0-9_]+)`")
 
 
 def convention_section_titles(text: str) -> list[str]:
@@ -51,7 +48,7 @@ def referenced_static_test_exists(reference: str) -> bool:
 
 
 def test_conventions_document_has_required_sections() -> None:
-    for path in (CONVENTIONS_DOC, SHARED_CONVENTIONS_DOC):
+    for path in (CONVENTIONS_DOC,):
         assert path.is_file()
 
         text = path.read_text(encoding="utf-8")
@@ -61,7 +58,7 @@ def test_conventions_document_has_required_sections() -> None:
 def test_automated_conventions_reference_existing_static_tests() -> None:
     errors: list[str] = []
 
-    for path in (CONVENTIONS_DOC, SHARED_CONVENTIONS_DOC):
+    for path in (CONVENTIONS_DOC,):
         text = path.read_text(encoding="utf-8")
         for bullet in automated_bullets(text):
             references = {f"{match.group('path')}::{match.group('name')}" for match in TEST_REF_RE.finditer(bullet)}
@@ -77,7 +74,6 @@ def test_automated_conventions_reference_existing_static_tests() -> None:
             )
 
     assert automated_bullets(CONVENTIONS_DOC.read_text(encoding="utf-8"))
-    assert automated_bullets(SHARED_CONVENTIONS_DOC.read_text(encoding="utf-8"))
     assert errors == []
 
 

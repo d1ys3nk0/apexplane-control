@@ -11,9 +11,28 @@ license:
   - Apache-2.0
 repository: https://github.com/d1ys3nk0/apexplane-control
 build_ignore:
-  - docs/shared
-  - scripts
+  - .ansible-lint.yml
+  - .ansible
+  - .editorconfig
+  - .github
+  - .gitignore
+  - .gitlab-ci.yml
+  - .pre-commit-config.yaml
+  - .python-version
+  - .pytest_cache
+  - .ruff_cache
+  - .venv
+  - AGENTS.md
+  - CONTRIBUTING.md
+  - LICENSE
+  - SECURITY.md
+  - docs
+  - pyproject.toml
+  - requirements.yml
   - tests
+  - toolkit
+  - .uv-cache
+  - uv.lock
 tags:
   - ubuntu
   - infrastructure

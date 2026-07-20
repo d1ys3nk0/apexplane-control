@@ -17,11 +17,12 @@ before_script:
   - apt-get update
   - apt-get install -y --no-install-recommends ca-certificates curl git
   - pip install uv
-  - curl -sL https://taskfile.dev/install.sh | sh -s -- -d -b /usr/local/bin
-  - task install
+  - uv sync
+  - uv run ansible-galaxy collection install -r requirements.yml
 
 check:
   stage: check
   script:
-    - task lint-chk
-    - task test
+    - uv run pre-commit run --hook-stage pre-commit --all-files
+    - uv run pytest tests/static tests/unit
+    - uv run ansible-galaxy collection build
