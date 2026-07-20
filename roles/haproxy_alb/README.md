@@ -29,7 +29,6 @@ Set this required input before applying the role: `haproxy_alb_self_signed_cert_
 | `haproxy_alb_stats_port` | `8404` |
 | `haproxy_alb_prometheus_exporter_port` | `8405` |
 | `haproxy_alb_tunnel_timeout` | `1h` |
-| `haproxy_alb_internal_health_domain` | `<required internal machine FQDN>` |
 | `haproxy_alb_acme_enabled` | `true` |
 | `haproxy_alb_acme_port` | `40404` |
 | `haproxy_alb_redirect_all_http` | `false` |
@@ -51,7 +50,7 @@ Routes may set `restricted_cidrs` as a list of IPv4 CIDR strings. Matching reque
 
 HAProxy generates one UUID per request and forwards it to backends as `X-Request-ID`. Application logs and tracing can use this header as the request correlation identifier.
 
-The HAProxy statistics listener binds only to loopback. `/_haproxy/health` returns success only when the request Host matches `haproxy_alb_internal_health_domain`; the role does not expose an unconditional monitor URI.
+The HAProxy statistics listener binds only to loopback. `/_haproxy/health` is a host-agnostic HAProxy liveness endpoint. `/_health` is a temporary alias for it.
 
 Routes may also set `response_headers` as a mapping of header name to value and `response_header_deletes` as a list of header names to delete from responses selected for that route.
 

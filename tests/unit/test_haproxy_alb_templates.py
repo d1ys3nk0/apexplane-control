@@ -40,7 +40,6 @@ def base_haproxy_alb_variables() -> dict[str, Any]:
         "haproxy_alb_crowdsec_enabled": False,
         "haproxy_alb_default_target_group": "",
         "haproxy_alb_default_target_host": "",
-        "haproxy_alb_internal_health_domain": "edge01.internal.example.test",
         "haproxy_alb_prometheus_exporter_port": 8405,
         "haproxy_alb_redirect_all_http": False,
         "haproxy_alb_routes": [
@@ -102,14 +101,9 @@ def test_fe_web_renders_header_updates_and_rewrites_on_separate_lines() -> None:
     assert lines[0] == "frontend web"
     assert "\\n" not in rendered
     assert max_consecutive_blank_lines(rendered) <= 1
-    assert "  monitor-uri /_haproxy/health" not in lines
     assert "  monitor-uri /_health" not in lines
-    assert "  acl internal_health_host hdr(host) -i edge01.internal.example.test" in lines
-    assert "  acl internal_health_path path /_haproxy/health" in lines
-    assert (
-        '  http-request return status 200 content-type text/plain string "OK" '
-        "if internal_health_host internal_health_path"
-    ) in lines
+    assert "  monitor-uri /_haproxy/health" not in lines
+    assert '  http-request return status 200 content-type text/plain string "OK" if { path /_haproxy/health } || { path /_health }' in lines
     assert not any(line.count("http-response ") > 1 for line in lines)
     assert not any(line.count("http-request replace-header ") > 1 for line in lines)
     assert "  http-response del-header X-Frame-Options if { var(txn.route) -m str docs }" in lines
@@ -251,7 +245,7 @@ def test_be_local_renders_each_backend_and_server_on_separate_lines() -> None:
     rendered = render_template("be_local.cfg.j2", base_haproxy_alb_variables())
     lines = rendered.splitlines()
 
-    assert "\\n" not in rendered
+    assert "\\n" not in rendered.replace("\\r\\n", "")
     assert max_consecutive_blank_lines(rendered) <= 1
     assert not any("backend " in line and "server " in line for line in lines)
     assert not any(line.count("  server ") > 1 for line in lines)

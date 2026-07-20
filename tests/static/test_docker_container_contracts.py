@@ -240,8 +240,7 @@ def test_traefik_swarm_service_uses_manager_placement_and_rolling_updates() -> N
     assert "docker_swarm_traefik_ping_path" not in defaults
     assert "docker_swarm_traefik_ping_alias_paths" not in defaults
     assert "docker_swarm_traefik_dashboard_rule" not in defaults
-    assert defaults["docker_swarm_traefik_internal_health_domains"] == []
-    assert defaults["docker_swarm_traefik_internal_health_paths"] == ["/_traefik/health"]
+    assert defaults["docker_swarm_traefik_health_paths"] == ["/_traefik/health"]
     assert defaults["docker_swarm_traefik_placement_constraints"] == ["node.role == manager"]
     assert defaults["docker_swarm_traefik_update_order"] == "stop-first"
     assert defaults["docker_swarm_traefik_update_parallelism"] == 1
@@ -264,7 +263,7 @@ def test_traefik_swarm_service_uses_manager_placement_and_rolling_updates() -> N
     assert any(
         isinstance(labels := service.get("labels"), str)
         and "'traefik.http.routers.health.service': 'ping@internal'" in labels
-        and "'traefik.http.routers.health.rule': docker_swarm_traefik_internal_health_rule" in labels
+        and "'traefik.http.routers.health.rule': docker_swarm_traefik_health_rule" in labels
         and "'traefik.http.routers.health.entrypoints': 'web'" in labels
         and "health-ip-allowlist" not in labels
         and "ipallowlist.sourcerange" not in labels

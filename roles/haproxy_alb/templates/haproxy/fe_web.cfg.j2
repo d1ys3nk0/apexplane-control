@@ -136,9 +136,7 @@ frontend web
   unique-id-header X-Request-ID
   http-request set-log-level info
   http-request set-log-level silent if { path /_health } || { path /_haproxy/health }
-  acl internal_health_host hdr(host) -i {{ haproxy_alb_internal_health_domain }}
-  acl internal_health_path path /_haproxy/health
-  http-request return status 200 content-type text/plain string "OK" if internal_health_host internal_health_path
+  http-request return status 200 content-type text/plain string "OK" if { path /_haproxy/health } || { path /_health }
   http-request set-var(txn.host) req.hdr(host)
   http-request set-var(txn.peer_ip) src
 {% if haproxy_alb_crowdsec_enabled | bool %}
