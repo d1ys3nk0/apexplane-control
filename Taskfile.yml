@@ -9,4 +9,3 @@ includes:
 
   app:
     taskfile: .taskfiles/app.yml
-    flatten: true
