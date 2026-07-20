@@ -198,10 +198,13 @@ def test_fe_web_renders_route_restricted_cidr_deny_after_source_rewrite() -> Non
     assert deny_line in lines
     assert not any("host_docs !{ src -m ip" in line for line in lines)
     assert not any("host_edge !{ src -m ip" in line for line in lines)
+    trusted_proxy_acl_line = "  acl from_trusted_proxy src -m ip 10.0.0.0/8"
     source_rewrite_line = (
         "  http-request set-src hdr_ip(X-Forwarded-For,-1) if from_trusted_proxy "
         "{ hdr_ip(X-Forwarded-For,-1) -m found }"
     )
+    assert trusted_proxy_acl_line in lines
+    assert lines.index(trusted_proxy_acl_line) < lines.index(source_rewrite_line)
     assert lines.index(source_rewrite_line) < lines.index(deny_line)
     assert lines.index(deny_line) < lines.index("  use_backend alpha if host_alpha")
 
