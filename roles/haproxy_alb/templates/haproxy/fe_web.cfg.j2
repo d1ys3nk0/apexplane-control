@@ -135,8 +135,15 @@ frontend web
   unique-id-format %[uuid()]
   unique-id-header X-Request-ID
   http-request set-log-level info
-  http-request set-log-level silent if { path /_health } || { path /_haproxy/health }
-  http-request return status 200 content-type text/plain string "OK" if { path /_haproxy/health } || { path /_health }
+  acl is_haproxy_health path /_haproxy/health /_health
+  acl is_traefik_health path /_traefik/health
+{% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
+  acl from_trusted_proxy src -m ip {{ haproxy_alb_trusted_proxy_cidrs | join(' ') }}
+  http-request deny deny_status 403 if is_haproxy_health !from_trusted_proxy
+  http-request deny deny_status 403 if is_traefik_health !from_trusted_proxy
+{% endif %}
+  http-request set-log-level silent if is_haproxy_health
+  http-request return status 200 content-type text/plain string "OK" if is_haproxy_health
   http-request set-var(txn.host) req.hdr(host)
   http-request set-var(txn.peer_ip) src
 {% if haproxy_alb_crowdsec_enabled | bool %}
@@ -152,9 +159,6 @@ frontend web
 {% if route.userlist_skip_origins is defined %}{{ route_userlist_origin_acl_lines(route, loop.index0).strip('\n') }}
 {% endif %}
 {% endfor %}
-{% if haproxy_alb_trusted_proxy_cidrs | default([]) | length > 0 %}
-  acl from_trusted_proxy src -m ip {{ haproxy_alb_trusted_proxy_cidrs | join(' ') }}
-{% endif %}
 {% if haproxy_alb_crowdsec_enabled | bool %}
   # CrowdSec
   acl has_request_body req.body_size -m found

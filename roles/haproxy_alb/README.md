@@ -50,7 +50,7 @@ Routes may set `restricted_cidrs` as a list of IPv4 CIDR strings. Matching reque
 
 HAProxy generates one UUID per request and forwards it to backends as `X-Request-ID`. Application logs and tracing can use this header as the request correlation identifier.
 
-The HAProxy statistics listener binds only to loopback. `/_haproxy/health` is a host-agnostic HAProxy liveness endpoint. `/_health` is a temporary alias for it.
+The HAProxy statistics listener binds only to loopback. `/_haproxy/health` is a host-agnostic HAProxy liveness endpoint and `/_health` is an alias for it. Both endpoints, plus `/_traefik/health`, are limited to `haproxy_alb_trusted_proxy_cidrs`.
 
 Routes may also set `response_headers` as a mapping of header name to value and `response_header_deletes` as a list of header names to delete from responses selected for that route.
 
