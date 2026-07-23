@@ -1,0 +1,124 @@
+---
+
+- name: Validate inputs
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Configure Traefik on a Docker Swarm manager
+  become: true
+  when: docker_traefik_enabled | bool
+  block:
+    - name: Inspect Docker Swarm state
+      community.docker.docker_swarm_info:
+      register: docker_traefik_swarm_info
+      changed_when: false
+
+    - name: Assert Docker Swarm manager is available
+      ansible.builtin.assert:
+        that:
+          - docker_traefik_swarm_info.can_talk_to_docker | bool
+          - docker_traefik_swarm_info.docker_swarm_active | bool
+          - docker_traefik_swarm_info.docker_swarm_manager | bool
+        fail_msg: Run Docker and Docker Swarm manager setup before running role docker_traefik.
+
+    - name: Create directories
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      loop: >-
+        {{
+          [
+            '/etc/traefik',
+            '/etc/traefik/dynamic',
+            '/var/log/traefik',
+          ]
+          + (['/etc/traefik/acme'] if docker_traefik_letsencrypt_enabled | bool else [])
+        }}
+
+    - name: Create Traefik ACME storage
+      ansible.builtin.file:
+        path: '{{ docker_traefik_letsencrypt_storage }}'
+        state: touch
+        mode: '0600'
+        owner: root
+        group: root
+        access_time: preserve
+        modification_time: preserve
+      when: docker_traefik_letsencrypt_enabled | bool
+
+    - name: Create shared routing network for Traefik-managed services
+      community.docker.docker_network:
+        name: '{{ docker_traefik_network }}'
+        driver: overlay
+        attachable: true
+        state: present
+
+    - name: Deploy Traefik static config
+      ansible.builtin.template:
+        src: traefik.yml.j2
+        dest: /etc/traefik/traefik.yml
+        mode: '0644'
+        backup: true
+      register: docker_traefik_static_config_update
+
+    - name: Deploy Traefik dynamic config
+      ansible.builtin.template:
+        src: dynamic.yml.j2
+        dest: /etc/traefik/dynamic/role.yml
+        mode: '0644'
+        backup: true
+      register: docker_traefik_dynamic_config_update
+
+    - name: Ensure Traefik container is running
+      community.docker.docker_container:
+        name: traefik
+        image: '{{ docker_traefik_image_full }}'
+        command:
+          - --configfile=/etc/traefik/traefik.yml
+        state: started
+        restart_policy: unless-stopped
+        restart: "{{ docker_traefik_static_config_update.changed or docker_traefik_dynamic_config_update.changed }}"
+        cpus: 1.0
+        memory: '{{ docker_traefik_mem_lim }}'
+        memory_reservation: '{{ docker_traefik_mem_res }}'
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+          - /etc/traefik:/etc/traefik
+          - /var/log/traefik:/var/log/traefik
+        networks:
+          - name: '{{ docker_traefik_network }}'
+        published_ports:
+          - 0.0.0.0:{{ docker_traefik_http_expose_port }}:80
+          - 0.0.0.0:{{ docker_traefik_https_expose_port }}:443
+      when: not ansible_check_mode
+
+    - name: Inspect Traefik container
+      community.docker.docker_container_info:
+        name: traefik
+      register: docker_traefik_container_info
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Assert Traefik container is running
+      ansible.builtin.assert:
+        that:
+          - docker_traefik_container_info.exists
+          - docker_traefik_container_info.container.State.Running | bool
+        fail_msg: Traefik container is not running.
+      when: not ansible_check_mode
+
+    - name: Wait for Traefik ports to be ready
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: '{{ item }}'
+        delay: 1
+        timeout: 30
+      loop:
+        - '{{ docker_traefik_http_expose_port }}'
+        - '{{ docker_traefik_https_expose_port }}'
+      when: not ansible_check_mode
+
+    - name: Verify Traefik
+      ansible.builtin.include_tasks: verify.yml

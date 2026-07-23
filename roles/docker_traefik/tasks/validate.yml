@@ -1,0 +1,40 @@
+---
+
+- name: Validate Traefik enabled flag
+  ansible.builtin.assert:
+    that:
+      - docker_traefik_enabled is boolean
+      - docker_traefik_image_tag is not none
+      - docker_traefik_image_tag | string | length > 0
+    fail_msg: docker_traefik_enabled must be boolean and docker_traefik_image_tag must be set.
+
+- name: Validate Traefik role variables
+  ansible.builtin.assert:
+    that:
+      - docker_traefik_network | string | length > 0
+      - docker_traefik_http_expose_port | int > 0
+      - docker_traefik_http_expose_port | int <= 65535
+      - docker_traefik_https_expose_port | int > 0
+      - docker_traefik_https_expose_port | int <= 65535
+      - docker_traefik_health_paths is iterable
+      - docker_traefik_health_paths is not string
+      - docker_traefik_health_paths | length > 0
+      - docker_traefik_health_paths | select('match', '^/[A-Za-z0-9._~!$&()*+,;=:@%/-]+$') | list | length == docker_traefik_health_paths | length
+      - docker_traefik_health_paths | unique | length == docker_traefik_health_paths | length
+      - docker_traefik_forwarded_headers_trusted_ips is iterable
+      - docker_traefik_forwarded_headers_trusted_ips is not string
+      - docker_traefik_forwarded_headers_trusted_ips | length > 0
+      - >-
+        docker_traefik_forwarded_headers_trusted_ips
+        | map('string')
+        | map('trim')
+        | select('match', '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})[.]){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})/(3[0-2]|[12]?[0-9])$')
+        | list
+        | length == (docker_traefik_forwarded_headers_trusted_ips | length)
+      - docker_traefik_letsencrypt_email is none or docker_traefik_letsencrypt_email | string | length > 0
+      - docker_traefik_letsencrypt_email is none or docker_traefik_letsencrypt_resolver | string | length > 0
+      - docker_traefik_letsencrypt_email is none or docker_traefik_letsencrypt_storage | string | length > 0
+      - docker_traefik_mem_res | string | length > 0
+      - docker_traefik_mem_lim | string | length > 0
+    fail_msg: Required docker_traefik variables are missing or invalid.
+  when: docker_traefik_enabled | bool

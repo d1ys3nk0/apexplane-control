@@ -1,0 +1,10 @@
+---
+
+docker_traefik_letsencrypt_enabled: "{{ docker_traefik_letsencrypt_email is not none and docker_traefik_letsencrypt_email | string | length > 0 }}"
+docker_traefik_dashboard_rule: PathPrefix(`/api`) || PathPrefix(`/dashboard`)
+docker_traefik_health_rule: >-
+  {{
+    docker_traefik_health_paths
+    | map('regex_replace', '^(.*)$', 'Path(`\1`)')
+    | join(' || ')
+  }}

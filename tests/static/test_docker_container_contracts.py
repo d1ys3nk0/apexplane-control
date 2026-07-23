@@ -229,49 +229,6 @@ def test_dockhand_runs_as_a_host_local_container() -> None:
     assert containers[0].get("published_ports") == ["127.0.0.1:3000:3000"]
 
 
-def test_traefik_swarm_service_uses_manager_placement_and_rolling_updates() -> None:
-    role_dir = REPO_ROOT / "roles" / "docker_swarm_traefik"
-    defaults = role_defaults(role_dir)
-    services = list(swarm_service_modules(role_dir))
-
-    assert "docker_swarm_traefik_ping_enabled" not in defaults
-    assert "docker_swarm_traefik_health_allowed_cidrs" not in defaults
-    assert "docker_swarm_traefik_domains" not in defaults
-    assert "docker_swarm_traefik_ping_path" not in defaults
-    assert "docker_swarm_traefik_ping_alias_paths" not in defaults
-    assert "docker_swarm_traefik_dashboard_rule" not in defaults
-    assert "docker_swarm_traefik_internal_domains" not in defaults
-    assert defaults["docker_swarm_traefik_health_paths"] == ["/_traefik/health"]
-    assert defaults["docker_swarm_traefik_placement_constraints"] == ["node.role == manager"]
-    assert defaults["docker_swarm_traefik_update_order"] == "stop-first"
-    assert defaults["docker_swarm_traefik_update_parallelism"] == 1
-    assert any(
-        placement_constraints(service) == "{{ docker_swarm_traefik_placement_constraints }}"
-        and service.get("update_config")
-        == {
-            "order": "{{ docker_swarm_traefik_update_order }}",
-            "parallelism": "{{ docker_swarm_traefik_update_parallelism }}",
-        }
-        for service in services
-    )
-    assert any(
-        isinstance(labels := service.get("labels"), str)
-        and "'traefik.http.routers.dashboard.rule': docker_swarm_traefik_dashboard_rule" in labels
-        and "'traefik.http.routers.dashboard.entrypoints': 'web'" in labels
-        and "'traefik.http.routers.dashboard.tls': 'false'" in labels
-        for service in services
-    )
-    assert any(
-        isinstance(labels := service.get("labels"), str)
-        and "'traefik.http.routers.health.service': 'ping@internal'" in labels
-        and "'traefik.http.routers.health.rule': docker_swarm_traefik_health_rule" in labels
-        and "'traefik.http.routers.health.entrypoints': 'web'" in labels
-        and "health-ip-allowlist" not in labels
-        and "ipallowlist.sourcerange" not in labels
-        for service in services
-    )
-
-
 def test_docker_image_defaults_use_name_tag_and_full_image() -> None:
     errors: list[str] = []
 

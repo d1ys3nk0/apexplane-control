@@ -1,0 +1,15 @@
+---
+
+http:
+  routers:
+    dashboard:
+      entryPoints:
+        - web
+      rule: '{{ docker_traefik_dashboard_rule }}'
+      service: api@internal
+      tls: false
+    health:
+      entryPoints:
+        - web
+      rule: '{{ docker_traefik_health_rule }}'
+      service: ping@internal

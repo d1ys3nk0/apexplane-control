@@ -25,23 +25,23 @@ entryPoints:
     address: :80
     forwardedHeaders:
       trustedIPs:
-{% for trusted_ip in docker_swarm_traefik_forwarded_headers_trusted_ips %}
+{% for trusted_ip in docker_traefik_forwarded_headers_trusted_ips %}
         - {{ trusted_ip }}
 {% endfor %}
   websecure:
     address: :443
     forwardedHeaders:
       trustedIPs:
-{% for trusted_ip in docker_swarm_traefik_forwarded_headers_trusted_ips %}
+{% for trusted_ip in docker_traefik_forwarded_headers_trusted_ips %}
         - {{ trusted_ip }}
 {% endfor %}
 
-{% if docker_swarm_traefik_letsencrypt_enabled | bool %}
+{% if docker_traefik_letsencrypt_enabled | bool %}
 certificatesResolvers:
-  {{ docker_swarm_traefik_letsencrypt_resolver }}:
+  {{ docker_traefik_letsencrypt_resolver }}:
     acme:
-      email: '{{ docker_swarm_traefik_letsencrypt_email }}'
-      storage: {{ docker_swarm_traefik_letsencrypt_storage }}
+      email: '{{ docker_traefik_letsencrypt_email }}'
+      storage: {{ docker_traefik_letsencrypt_storage }}
       httpChallenge:
         entryPoint: web
 
@@ -51,7 +51,7 @@ providers:
     endpoint: unix:///var/run/docker.sock
     exposedByDefault: false
     watch: true
-    network: '{{ docker_swarm_traefik_network }}'
+    network: '{{ docker_traefik_network }}'
   file:
     directory: /etc/traefik/dynamic
     watch: true

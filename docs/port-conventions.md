@@ -35,10 +35,10 @@ These ports are the default observability convention for this collection.
 | HAProxy ALB | HTTPS listener | 443 | template-local listener |
 | HAProxy ALB | Stats | 8404 | `haproxy_alb_stats_port` |
 | HAProxy ALB | Prometheus exporter | 8405 | `haproxy_alb_prometheus_exporter_port` |
-| Docker Swarm Traefik | HTTP listener | 80 | template-local listener |
-| Docker Swarm Traefik | HTTPS listener | 443 | template-local listener |
-| Docker Swarm Traefik | HTTP published port | 1080 | `docker_swarm_traefik_http_expose_port` |
-| Docker Swarm Traefik | HTTPS published port | 1443 | `docker_swarm_traefik_https_expose_port` |
+| Docker Traefik | HTTP listener | 80 | container-local listener |
+| Docker Traefik | HTTPS listener | 443 | container-local listener |
+| Docker Traefik | HTTP host port | 1080 | `docker_traefik_http_expose_port` |
+| Docker Traefik | HTTPS host port | 1443 | `docker_traefik_https_expose_port` |
 
 ## Data Services
 

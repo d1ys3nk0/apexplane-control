@@ -1,0 +1,23 @@
+---
+
+docker_traefik_image_name: traefik
+docker_traefik_image_tag: ~
+docker_traefik_image_full: '{{ docker_traefik_image_name }}:{{ docker_traefik_image_tag }}'
+docker_traefik_enabled: true
+docker_traefik_network: traefik
+docker_traefik_http_expose_port: 1080
+docker_traefik_https_expose_port: 1443
+docker_traefik_health_paths:
+  - /_traefik/health
+docker_traefik_forwarded_headers_trusted_ips:
+  - 10.0.0.0/8
+  - 100.64.0.0/10
+  - 127.0.0.0/8
+  - 169.254.0.0/16
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+docker_traefik_letsencrypt_email: ~
+docker_traefik_letsencrypt_resolver: letsencrypt
+docker_traefik_letsencrypt_storage: /etc/traefik/acme/acme.json
+docker_traefik_mem_res: 200M
+docker_traefik_mem_lim: 300M

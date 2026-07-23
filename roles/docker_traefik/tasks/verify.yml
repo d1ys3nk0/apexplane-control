@@ -1,0 +1,16 @@
+---
+
+- name: Verify Traefik health endpoints
+  ansible.builtin.uri:
+    url: http://127.0.0.1:{{ docker_traefik_http_expose_port }}{{ item }}
+    method: GET
+    status_code: 200
+  register: docker_traefik_health_check
+  until: docker_traefik_health_check.status == 200
+  retries: 20
+  delay: 3
+  changed_when: false
+  loop: '{{ docker_traefik_health_paths }}'
+  loop_control:
+    label: '{{ item }}'
+  when: not ansible_check_mode
