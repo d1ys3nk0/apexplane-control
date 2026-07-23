@@ -1,0 +1,3 @@
+---
+
+docker_swarm_join_token_available: "{{ docker_swarm_leader_host.docker_swarm_init.swarm_facts.JoinTokens[docker_swarm_join_token] is defined }}"

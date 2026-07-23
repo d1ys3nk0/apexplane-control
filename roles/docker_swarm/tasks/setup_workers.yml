@@ -20,6 +20,7 @@
 - name: Determine Docker Swarm leader IP to join cluster
   ansible.builtin.set_fact:
     docker_swarm_leader_ip: "{{ docker_swarm_leader_host.docker_swarm_vpc_addr | default((docker_swarm_leader_host.ansible_all_ipv4_addresses | map('ansible.utils.ipaddr', docker_swarm_cidr | default(docker_swarm_vpc_cidr)) | select | first) | default(docker_swarm_leader_host.ansible_all_ipv4_addresses | first), true) }}"
+  when: docker_swarm_join_token_available
 
 - name: Join as Docker Swarm {{ docker_swarm_join_role }}
   become: true
@@ -33,4 +34,4 @@
       - '{{ docker_swarm_leader_ip }}:2377'
   when:
     - not ansible_check_mode
-    - docker_swarm_leader_host.docker_swarm_init.swarm_facts.JoinTokens[docker_swarm_join_token] is defined
+    - docker_swarm_join_token_available
