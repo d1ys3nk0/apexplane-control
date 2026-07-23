@@ -11,6 +11,7 @@ This role initializes and joins Docker Swarm managers and workers.
 - Store Docker Swarm leader host.
 - Determine Docker Swarm leader IP to join cluster.
 - Join as Docker Swarm {{ docker_swarm_join_role }}.
+- Skip joining when the leader is outside the play limit and its join token is unavailable.
 - Merge configured Docker Swarm node labels.
 
 ## Configuration
