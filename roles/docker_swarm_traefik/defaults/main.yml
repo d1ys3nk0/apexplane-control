@@ -8,7 +8,6 @@ docker_swarm_traefik_service_manage_enabled: true
 docker_swarm_traefik_network: traefik
 docker_swarm_traefik_http_expose_port: 1080
 docker_swarm_traefik_https_expose_port: 1443
-docker_swarm_traefik_internal_domains: []
 docker_swarm_traefik_health_paths:
   - /_traefik/health
 docker_swarm_traefik_forwarded_headers_trusted_ips:
