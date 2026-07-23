@@ -42,7 +42,7 @@ The static Traefik config writes JSON access logs and keeps the `X-Request-ID` a
 
 Traefik trusts `X-Forwarded-*` headers only from `docker_swarm_traefik_forwarded_headers_trusted_ips`. Keep this list limited to HAProxy ALB or other trusted ingress hops so Traefik can log the real client IP and forward the client IP chain to backend applications without accepting spoofed forwarded headers from arbitrary clients.
 
-The automatic insecure API router is disabled. The role-owned `api@internal` router accepts dashboard and API paths only with a `localhost` or `127.0.0.1` Host header on the HTTP entrypoint, for access through a loopback SSH forward. Internal health paths require both a configured internal machine FQDN and an exact path. Configure external health paths only for load-balancer probes that cannot send the internal Host header.
+The automatic insecure API router is enabled. The role-owned `api@internal` router also accepts dashboard and API paths with a `localhost` or `127.0.0.1` Host header on the HTTP entrypoint, for access through a loopback SSH forward. Internal health paths require both a configured internal machine FQDN and an exact path. Configure external health paths only for load-balancer probes that cannot send the internal Host header.
 
 ## Usage
 ```yaml

@@ -74,9 +74,9 @@ def test_static_config_trusts_configured_forwarded_header_sources() -> None:
         assert forwarded_headers["trustedIPs"] == trusted_ips
 
 
-def test_static_config_disables_insecure_automatic_api_router() -> None:
+def test_static_config_enables_insecure_automatic_api_router() -> None:
     static_config = render_static_config()
 
     api = static_config["api"]
     assert isinstance(api, Mapping)
-    assert api == {"dashboard": True, "insecure": False}
+    assert api == {"dashboard": True, "insecure": True}
