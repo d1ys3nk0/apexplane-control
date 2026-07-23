@@ -1,5 +1,16 @@
 ---
 
+- name: Verify HAProxy ALB health endpoint
+  ansible.builtin.uri:
+    url: http://127.0.0.1:{{ haproxy_alb_stats_port }}/_haproxy/health
+    method: GET
+    status_code: 200
+  register: haproxy_alb_health_check
+  until: haproxy_alb_health_check.status == 200
+  retries: 20
+  delay: 3
+  changed_when: false
+
 - name: Verify HAProxy ALB owns public HTTP and HTTPS listeners
   become: true
   ansible.builtin.shell:

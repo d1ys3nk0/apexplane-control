@@ -215,4 +215,4 @@
 
 - name: Verify HAProxy ALB
   ansible.builtin.include_tasks: verify.yml
-  when: haproxy_alb_config_changed | bool
+  when: haproxy_alb_not_check_mode | bool

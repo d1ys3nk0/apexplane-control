@@ -206,3 +206,7 @@
   when:
     - docker_swarm_traefik_enabled | bool
     - not ansible_check_mode
+
+- name: Verify Traefik
+  ansible.builtin.include_tasks: verify.yml
+  when: docker_swarm_traefik_enabled | bool
