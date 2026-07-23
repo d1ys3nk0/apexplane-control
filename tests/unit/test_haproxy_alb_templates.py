@@ -206,7 +206,7 @@ def test_fe_web_renders_route_restricted_cidr_deny_after_source_rewrite() -> Non
     assert trusted_proxy_acl_line in lines
     assert lines.index(trusted_proxy_acl_line) < lines.index(source_rewrite_line)
     assert lines.index(source_rewrite_line) < lines.index(deny_line)
-    assert lines.index(deny_line) < lines.index("  use_backend alpha if host_alpha")
+    assert lines.index(deny_line) < lines.index("  use_backend route-alpha if host_alpha")
 
 
 def test_fe_web_renders_route_restricted_cidr_skip_prefixes() -> None:
@@ -252,7 +252,7 @@ def test_be_local_renders_each_backend_and_server_on_separate_lines() -> None:
     assert max_consecutive_blank_lines(rendered) <= 1
     assert not any("backend " in line and "server " in line for line in lines)
     assert not any(line.count("  server ") > 1 for line in lines)
-    assert [line for line in lines if line.startswith("backend ")] == ["backend alpha", "backend docs"]
+    assert [line for line in lines if line.startswith("backend ")] == ["backend route-alpha", "backend route-docs"]
     assert [line for line in lines if line.strip().startswith("server ")] == [
         "  server 10.0.0.10:8080 10.0.0.10:8080 check inter 5s fall 2 rise 1",
         "  server 10.0.0.20:8080 10.0.0.20:8080 check inter 5s fall 2 rise 1",
@@ -268,7 +268,7 @@ def test_be_group_renders_group_servers_on_separate_lines() -> None:
     assert max_consecutive_blank_lines(rendered) <= 1
     assert not any("backend " in line and "server " in line for line in lines)
     assert not any(line.count("  server ") > 1 for line in lines)
-    assert [line for line in lines if line.startswith("backend ")] == ["backend edge"]
+    assert [line for line in lines if line.startswith("backend ")] == ["backend route-edge"]
     assert server_lines == [
         "  server edge01:9090 10.0.1.10:9090 check inter 5s fall 2 rise 1 proto h2",
         "  server edge02:9090 10.0.1.20:9090 check inter 5s fall 2 rise 1 proto h2",

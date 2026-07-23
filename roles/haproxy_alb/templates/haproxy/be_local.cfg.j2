@@ -1,4 +1,4 @@
-{%- for route in haproxy_alb_routes | sort(attribute='name') %}{% if route.target_host is defined and route.target_host | string | length > 0 %}backend {{ route.name }}
+{%- for route in haproxy_alb_routes | sort(attribute='name') %}{% if route.target_host is defined and route.target_host | string | length > 0 %}backend route-{{ route.name }}
   mode http
   balance leastconn
   server {{ route.target_host }}:{{ route.target_port }} {{ route.target_host }}:{{ route.target_port }} check inter 5s fall 2 rise 1{{ ' proto h2' if route.backend_proto | default('http', true) == 'h2' else '' }}

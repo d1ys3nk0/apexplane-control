@@ -283,7 +283,7 @@ frontend web
 {% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
 {% for route_prefix in route_prefixes | sort %}
 {% if route_prefix | length == prefix_length %}
-  use_backend {{ route.name }} if {{ route_match(route, [route_prefix]) }}
+  use_backend route-{{ route.name }} if {{ route_match(route, [route_prefix]) }}
 {% endif %}
 {% endfor %}
 {% endfor %}
@@ -291,7 +291,7 @@ frontend web
 {% for route in haproxy_alb_routes | sort(attribute='name') %}
 {% set route_prefixes = [] if route.prefix is not defined or route.prefix is none or (route.prefix is string and route.prefix | trim | length == 0) else ([route.prefix | string | trim] if route.prefix is string else (route.prefix | map('string') | map('trim') | list)) %}
 {% if route_prefixes | length == 0 %}
-  use_backend {{ route.name }} if {{ route_match(route) }}
+  use_backend route-{{ route.name }} if {{ route_match(route) }}
 {% endif %}
 {% endfor %}
 {% if haproxy_alb_default_target_host | default('', true) | string | length > 0 or haproxy_alb_default_target_group | default('', true) | string | length > 0 %}
