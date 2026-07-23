@@ -15,7 +15,7 @@ This role deploys Traefik as a Docker Swarm service.
 - Verify the global Traefik service has running tasks on its expected active nodes.
 
 ## Configuration
-Set this required input before applying the role: `docker_swarm_traefik_letsencrypt_email`.
+Set these required inputs before applying the role: `docker_swarm_traefik_internal_domains`, `docker_swarm_traefik_letsencrypt_email`.
 
 | Variable | Default |
 | --- | --- |
@@ -27,6 +27,7 @@ Set this required input before applying the role: `docker_swarm_traefik_letsencr
 | `docker_swarm_traefik_network` | `traefik` |
 | `docker_swarm_traefik_http_expose_port` | `1080` |
 | `docker_swarm_traefik_https_expose_port` | `1443` |
+| `docker_swarm_traefik_internal_domains` | `[]` (required non-empty list) |
 | `docker_swarm_traefik_health_paths` | `['/_traefik/health']` |
 | `docker_swarm_traefik_forwarded_headers_trusted_ips` | `<complex>` |
 | `docker_swarm_traefik_placement_constraints` | `[node.role == manager]` |
@@ -42,7 +43,7 @@ The static Traefik config writes JSON access logs and keeps the `X-Request-ID` a
 
 Traefik trusts `X-Forwarded-*` headers only from `docker_swarm_traefik_forwarded_headers_trusted_ips`. Keep this list limited to HAProxy ALB or other trusted ingress hops so Traefik can log the real client IP and forward the client IP chain to backend applications without accepting spoofed forwarded headers from arbitrary clients.
 
-The automatic insecure API router is enabled. The role-owned `api@internal` router also accepts dashboard and API paths with a `localhost` or `127.0.0.1` Host header on the HTTP entrypoint, for access through a loopback SSH forward. Internal health paths require both a configured internal machine FQDN and an exact path. Configure external health paths only for load-balancer probes that cannot send the internal Host header.
+The automatic insecure API router is enabled. The role-owned dashboard and health routers accept only Host values listed in `docker_swarm_traefik_internal_domains`. Include the internal FQDN of every node where the service is exposed and any loopback Host values required for local checks or SSH forwarding. The health router also requires an exact configured path.
 
 ## Usage
 ```yaml
@@ -52,5 +53,7 @@ The automatic insecure API router is enabled. The role-owned `api@internal` rout
   roles:
     - role: apexplane.control.docker_swarm_traefik
       vars:
+        docker_swarm_traefik_internal_domains:
+          - <internal-domain>
         docker_swarm_traefik_letsencrypt_email: <value>
 ```
