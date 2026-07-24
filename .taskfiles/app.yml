@@ -36,6 +36,11 @@ tasks:
     cmds:
       - uv sync --reinstall
 
+  upgrade:
+    desc: Install dependencies
+    cmds:
+      - uv sync --upgrade
+
   hooks:install:
     desc: Install pre-commit hooks
     cmds:
