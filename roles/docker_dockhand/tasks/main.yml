@@ -14,7 +14,7 @@
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     published_ports:
-      - 127.0.0.1:3000:3000
+      - 127.0.0.1:9999:9999
   when: docker_dockhand_enabled | bool
 
 - name: Inspect Dockhand container
@@ -40,7 +40,7 @@
 - name: Wait for Dockhand port to be ready
   ansible.builtin.wait_for:
     host: 127.0.0.1
-    port: 3000
+    port: 9999
     delay: 1
     timeout: 30
   when:

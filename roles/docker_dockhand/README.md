@@ -4,7 +4,7 @@ This role deploys Dockhand as a Docker container on every target host.
 
 ## Features
 - Mount the host Docker Unix socket.
-- Bind the Dockhand web UI to `127.0.0.1:3000`.
+- Bind the Dockhand web UI to `127.0.0.1:9999`.
 - Verify the container and local listener are ready.
 
 ## Configuration

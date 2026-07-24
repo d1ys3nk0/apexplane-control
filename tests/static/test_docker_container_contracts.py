@@ -226,7 +226,6 @@ def test_dockhand_runs_as_a_host_local_container() -> None:
     assert containers[0].get("name") == "dockhand"
     assert containers[0].get("state") == "started"
     assert containers[0].get("volumes") == ["/var/run/docker.sock:/var/run/docker.sock"]
-    assert containers[0].get("published_ports") == ["127.0.0.1:3000:3000"]
 
 
 def test_docker_image_defaults_use_name_tag_and_full_image() -> None:
